@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <title>ML Model Runner</title>
+</head>
+<body>
+    <h1>ML Model Runner</h1>
+    
+    <div id="models">
+        <a href="#" class="model-tag" onclick="openModel('Model1')">Model 1</a>
+        <a href="#" class="model-tag" onclick="openModel('Model2')">Model 2</a>
+        <!-- Add more model tags as needed -->
+    </div>
+
+    <div id="model-form" style="display: none;">
+        <form action="/linear-regression" method="post" onsubmit="return validateForm()">
+            <input type="hidden" id="model-name" name="model_name" value="">
+            <h2 id="model-title"></h2>
+            <div id="parameters"></div>
+            <input type="submit" value="Run Model">
+        </form>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
