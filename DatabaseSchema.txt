@@ -1,0 +1,18 @@
+Models:
+	- Id
+	- Name
+	- Code
+	- Parameters
+
+Datasets:
+	- Id
+	- Name
+	- Code
+	- Model
+
+Users:
+	- Id
+	- Name
+	- Role
+	- Email
+	- Password
