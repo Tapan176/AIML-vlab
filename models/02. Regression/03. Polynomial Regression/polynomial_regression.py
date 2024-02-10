@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 
-dataset = pd.read_csv('C:/Users/markp/Downloads/Downloads/Machine Learning A-Z/02. Regression/03. Polynomial Regression/Position_Salaries.csv')
+dataset = pd.read_csv('Position_Salaries.csv')
 X = dataset.iloc[:, 1:2].values
 y = dataset.iloc[:, 2].values
 
