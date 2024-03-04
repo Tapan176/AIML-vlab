@@ -1,0 +1,57 @@
+[
+    {
+        "name": "Simple Linear Regression",
+        "url": "simple-linear-regression",
+        "code": "simple_linear_regression"
+    },
+    {
+        "name": "Multivariable Linear Regression",
+        "url": "multivariable-linear-regression",
+        "code": "multivariable_linear_regression"
+    },
+    {
+        "name": "Logistic Regression",
+        "url": "logistic-regression",
+        "code": "logistic_regression"
+    },
+    {
+        "name": "KNN",
+        "url": "knn",
+        "code": "knn"
+    },
+    {
+        "name": "K-Means",
+        "url": "k-means",
+        "code": "k_means"
+    },
+    {
+        "name": "Decision Tree",
+        "url": "decision-tree",
+        "code": "decision_tree"
+    },
+    {
+        "name": "Random Forest",
+        "url": "random-forest",
+        "code": "random_forest"
+    },
+    {
+        "name": "SVM",
+        "url": "svm",
+        "code": "svm"
+    },
+    {
+        "name": "DBSCAN",
+        "url": "dbscan",
+        "code": "dbscan"
+    },
+    {
+        "name": "ANN",
+        "url": "ann",
+        "code": "ann"
+    },
+    {
+        "name": "CNN",
+        "url": "cnn",
+        "code": "cnn"
+    }
+]

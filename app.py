@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request
-import linearRegression from 'models/linear_regression.py'
+import linearRegression from 'models/02. Regression/01. Simple Learning Regression/simple_linear_regression.py'
 
 app = Flask(__name__)
 
@@ -21,4 +21,4 @@ def linear_regression():
     return render_template('result.html', result=result)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, port = 5050)

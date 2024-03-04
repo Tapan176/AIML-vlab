@@ -1,0 +1,38 @@
+/* sidebar.css */
+
+.list-unstyled {
+  border-bottom: 1px solid #ccc; /* Change color as per your design */
+}
+
+.sidebar-list-item {
+  border-bottom: 1px solid #ccc; /* Change color as per your design */
+}
+
+.sidebar {
+  width: 100%; /* Adjust width as needed */
+  height: 100%; /* Adjust height as needed */
+  background-color: #f8f9fa; /* Adjust background color as needed */
+  border-right: 1px solid #dee2e6; /* Adjust border color as needed */
+}
+
+.sidebar-header {
+  padding: 1rem;
+  border-bottom: 1px solid #dee2e6; /* Adjust border color as needed */
+}
+
+.sidebar-title {
+  margin: 0;
+}
+
+.sidebar-body {
+  padding: 1rem;
+}
+
+.sidebar-list-item {
+  margin-bottom: 0.5rem;
+}
+
+.sidebar-list-item button {
+  width: 100%;
+  text-align: left;
+}
