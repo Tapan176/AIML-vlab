@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import './App.css';
+
 import Navbar from './components/Navbar/Navbar';
 import Sidebar from './components/Sidebar/Sidebar';
+import ShowDataset from './components/Dataset/ShowDataset';
 
 import SimpleLinearRegression from './components/Models/SimpleLinearRegression';
 import MultivariableLinearRegression from './components/Models/MultivariableLinearRegression';
@@ -54,58 +56,20 @@ function App() {
     }
   };
 
-  function handleUpload() {
-    const fileInput = document.getElementById('fileInput');
-    const file = fileInput.files[0];
-
-    if (!file) {
-        alert('Please select a file.');
-        return;
-    }
-
-    const reader = new FileReader();
-
-    reader.onload = function(event) {
-        const fileContent = event.target.result;
-        // You can do something with the file content here
-        console.log('File content:', fileContent);
-    };
-
-    reader.onerror = function(event) {
-        console.error('File could not be read! Code ' + event.target.error.code);
-    };
-
-    reader.readAsText(file);
-  };
-
   return (
     <>
       <div>
         <Navbar />
       </div>
-      <div>
-        <table>
-          <tr>
-            <td>
-              <Sidebar loadComponent={loadComponent} />
-            </td>
-            <td>
-              <table>
-                <tr>
-                  <td>
-                    <h2>Upload Your Dataset</h2>
-                    <input type="file" id="fileInput" />
-                    <button onclick={handleUpload}>Upload</button>
-                  </td>
-                </tr>
-                <tr>
-                  {/* Render the selected component */}
-                  {renderComponent()}
-                </tr>
-              </table>
-            </td>
-          </tr>
-        </table>
+      <div style={{ display: 'flex' }}>
+        <div style={{ flex: '0 0 auto' }}>
+          <Sidebar loadComponent={loadComponent} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <ShowDataset />
+          {/* Render the selected component */}
+          {renderComponent()}
+        </div>
       </div>
     </>
   );
