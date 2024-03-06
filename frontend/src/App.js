@@ -3,7 +3,7 @@ import './App.css';
 
 import Navbar from './components/Navbar/Navbar';
 import Sidebar from './components/Sidebar/Sidebar';
-import ShowDataset from './components/Dataset/ShowDataset';
+// import ShowDataset from './components/Dataset/ShowDataset';
 
 import SimpleLinearRegression from './components/Models/SimpleLinearRegression';
 import MultivariableLinearRegression from './components/Models/MultivariableLinearRegression';
@@ -18,6 +18,12 @@ import ANN from './components/Models/ANN';
 import CNN from './components/Models/CNN';
 
 function App() {
+  // const [inputData, setInputData] = useState({ csvData: null });
+  // // console.log(inputData);
+  // const handleDatasetUpload = (data) => {
+  //   setInputData(data);
+  // };
+
   // State to keep track of the selected model
   const [selectedModel, setSelectedModel] = useState(null);
 
@@ -66,7 +72,7 @@ function App() {
           <Sidebar loadComponent={loadComponent} />
         </div>
         <div style={{ flex: 1 }}>
-          <ShowDataset />
+          {/* <ShowDataset onDatasetUpload={handleDatasetUpload} /> */}
           {/* Render the selected component */}
           {renderComponent()}
         </div>

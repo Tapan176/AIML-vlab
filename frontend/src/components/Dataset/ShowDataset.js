@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-export default function ShowDataset() {
+export default function ShowDataset({ onDatasetUpload }) {
     const [csvData, setCsvData] = useState(null);
     const [showDataset, setShowDataset] = useState(false);
 
@@ -21,6 +21,26 @@ export default function ShowDataset() {
             setCsvData(fileContent);
             // Set showDataset to true to indicate that the dataset is ready to be displayed
             setShowDataset(true);
+
+            // Parse CSV content and transform it into an array of objects
+            const rows = fileContent.split('\n');
+            const headers = rows[0].split(',');
+            const data = headers.reduce((obj, header) => {
+                obj[header.trim()] = [];
+                return obj;
+            }, {});
+
+            rows.slice(1).forEach(row => {
+                const rowData = row.split(',');
+                headers.forEach((header, index) => {
+                    if (rowData[index]) {
+                        data[header.trim()].push(rowData[index].trim());
+                    }
+                });
+            });
+
+            // Pass the fileContent to the parent component
+            onDatasetUpload({ csvData: data });
         };
 
         reader.onerror = function(event) {
@@ -28,7 +48,7 @@ export default function ShowDataset() {
         };
 
         reader.readAsText(file);
-    };
+    }
 
     function handleShow() {
         if (!csvData) {
@@ -45,6 +65,7 @@ export default function ShowDataset() {
             <input className="form-control" type="file" id="formFileMultiple" multiple />
             <button onClick={handleUpload}>Upload Dataset</button>
             <button onClick={handleShow}>{showDataset ? 'Hide Dataset' : 'Show Dataset'}</button>
+            {/* Render CSV data if it's available */}
             {showDataset && csvData && (
                 <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: '200px' }}>
                     <table style={{ minWidth: '100%', tableLayout: 'fixed', border: '1px solid #000' }}>

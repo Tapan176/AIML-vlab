@@ -1,24 +1,26 @@
-from flask import Flask, render_template, request
-import linearRegression from 'models/02. Regression/01. Simple Learning Regression/simple_linear_regression.py'
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+from sklearn.linear_model import LinearRegression
+import numpy as np
 
 app = Flask(__name__)
-
-@app.route('/')
-def home():
-    return render_template('index.html')
+CORS(app)
 
 @app.route('/linear-regression', methods=['POST'])
 def linear_regression():
-    model_name = request.form['model_name']
-    parameters = {param: request.form[param] for param in request.form if param != 'model_name'}
-    
-    # Set default values if not provided by the user
-    for param, default_value in linearRegression.default_parameters.items():
-        parameters.setdefault(param, default_value)
+    data = request.json
+    X = np.array(data['X'])
+    y = np.array(data['y'])
 
-    result = linearRegression.run_model(parameters)
-    
-    return render_template('result.html', result=result)
+    # Fit linear regression model
+    model = LinearRegression()
+    model.fit(X.reshape(-1, 1), y)
+
+    # Predict
+    y_pred = model.predict(X.reshape(-1, 1))
+
+    # Return results
+    return jsonify({"coefficients": model.coef_.tolist(), "intercept": model.intercept_, "predictions": y_pred.tolist()})
 
 if __name__ == '__main__':
-    app.run(debug=True, port = 5050)
+    app.run(debug=True, port=5050)
