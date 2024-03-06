@@ -3,7 +3,7 @@ pandas
 matplotlib
 requests
 scikit-learn
-tensorflow
+# tensorflow
 keras
 scipy
 flask
