@@ -144,4 +144,4 @@ classifier.save("cnn.h5")
 # from keras.models import load_model
 
 # # Load the saved model
-# loaded_model = load_model("your_model_name.h5")
+# loaded_model = load_model("cnn.h5")

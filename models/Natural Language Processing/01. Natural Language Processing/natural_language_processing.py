@@ -45,3 +45,10 @@ y_pred = classifier.predict(X_test)
 # Making the Confusion Matrix
 from sklearn.metrics import confusion_matrix
 cm = confusion_matrix(y_test, y_pred)
+
+import joblib
+
+# Save the trained model to a file
+joblib.dump(classifier, 'nlp.pkl')
+
+# Now you can load the model anytime using joblib.load('nlp.pkl')

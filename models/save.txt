@@ -1,0 +1,16 @@
+# Save the model
+classifier.save("cnn.h5")
+
+# from keras.models import load_model
+
+# # Load the saved model
+# loaded_model = load_model("your_model_name.h5")
+
+nltk
+
+import joblib
+
+# Save the trained model to a file
+joblib.dump(classifier, 'nlp.pkl')
+
+# Now you can load the model anytime using joblib.load('nlp.pkl')
