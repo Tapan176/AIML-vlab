@@ -133,14 +133,14 @@ def build_cnn_model(
 
     for hiddenLayer in hiddenLayerArray:
         if hiddenLayer['type'] == 'conv':
-            classifier.add(Conv2D(hiddenLayer['numberOfNeurons'], hiddenLayer['kernel'], activation=hiddenLayer['activationFunction']))
+            classifier.add(Conv2D(hiddenLayer['numberOfNeurons'], tuple(hiddenLayer['kernel']), activation=hiddenLayer['activationFunction']))
         elif hiddenLayer['type'] == 'pooling':
             if hiddenLayer['poolingType'] == 'maxPool':
-                classifier.add(MaxPooling2D(pool_size=hiddenLayer['poolingSize']))
+                classifier.add(MaxPooling2D(pool_size=tuple(hiddenLayer['poolingSize'])))
             elif hiddenLayer['poolingType'] == 'minPool':
-                classifier.add(min_pooling(pool_size=hiddenLayer['poolingSize'], strides=hiddenLayer['minPoolStride']))
+                classifier.add(min_pooling(pool_size=tuple(hiddenLayer['poolingSize']), strides=tuple(hiddenLayer['minPoolStride'])))
             elif hiddenLayer['poolingType'] == 'averagePool':
-                classifier.add(AvgPool2D(pool_size=hiddenLayer['poolingSize'], strides=hiddenLayer['avgPoolStride']))
+                classifier.add(AvgPool2D(pool_size=tuple(hiddenLayer['poolingSize']), strides=tuple(hiddenLayer['avgPoolStride'])))
         elif hiddenLayer['type'] == 'flatten':
             classifier.add(Flatten())
         elif hiddenLayer['type'] == 'dense':
@@ -200,11 +200,11 @@ def build_cnn_model(
 @app.route('/cnn', methods=['POST'])
 def cnn():
     data = request.json
-    # input_shape = tuple(map(int, data['inputShape'].split(',')))
+    # input_shape = tuple(data['inputShape'])
     numberOfNeuronsInInputLayer = data['numberOfNeuronsInInputLayer']
-    inputKernelSize = data['inputKernelSize']
+    inputKernelSize = tuple(data['inputKernelSize'])
     inputLayerActivationFunction = data['inputLayerActivationFunction']
-    inputShape = data['inputShape']
+    inputShape = tuple(data['inputShape'])
     hiddenLayerArray = data['hiddenLayerArray']
     optimizerObject = data['optimizerObject']
     lossFunction = data['lossFunction']

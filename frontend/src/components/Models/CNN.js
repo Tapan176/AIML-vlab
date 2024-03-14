@@ -246,27 +246,27 @@ export default function CNN() {
 //     classMode: 'binary'
 //   });
 
-//   // {
-//   //   numberOfNeuronsInInputLayer: 32,
-//   //   inputKernelSize: [3, 3],
-//   //   inputLayerActivationFunction: 'relu',
-//   //   inputShape: [64, 64, 3],
-//   //   hiddenLayerArray: [
-//   //       { type: 'conv', numberOfNeurons: 64, kernel: [3, 3], activationFunction: 'relu' },
-//   //       { type: 'pooling', poolingType: 'maxPool', poolingSize: [2, 2] },
-//   //       { type: 'conv', numberOfNeurons: 128, kernel: [3, 3], activationFunction: 'relu' },
-//   //       { type: 'pooling', poolingType: 'maxPool', poolingSize: [2, 2] },
-//   //       { type: 'flatten' },
-//   //       { type: 'dense', units: 128, activationFunction: 'relu' },
-//   //       { type: 'dropout', dropoutRate: 0.5 }
-//   //   ],
-//   //   optimizerObject: { type: 'adam', learning_rate: 0.0001 },
-//   //   lossFunction: { type: 'binary_crossentropy' },
-//   //   evaluationMetrics: ['accuracy'],
-//   //   numberOfEpochs: 25,
-//   //   batchSize: 32,
-//   //   classMode: 'binary'
-//   // }
+//   {
+//     numberOfNeuronsInInputLayer: 32,
+//     inputKernelSize: [3, 3],
+//     inputLayerActivationFunction: 'relu',
+//     inputShape: [64, 64, 3],
+//     hiddenLayerArray: [
+//         { type: 'conv', numberOfNeurons: 64, kernel: [3, 3], activationFunction: 'relu' },
+//         { type: 'pooling', poolingType: 'maxPool', poolingSize: [2, 2] },
+//         { type: 'conv', numberOfNeurons: 128, kernel: [3, 3], activationFunction: 'relu' },
+//         { type: 'pooling', poolingType: 'maxPool', poolingSize: [2, 2] },
+//         { type: 'flatten' },
+//         { type: 'dense', units: 128, activationFunction: 'relu' },
+//         { type: 'dropout', dropoutRate: 0.5 }
+//     ],
+//     optimizerObject: { type: 'adam', learning_rate: 0.0001 },
+//     lossFunction: { type: 'binary_crossentropy' },
+//     evaluationMetrics: ['accuracy'],
+//     numberOfEpochs: 25,
+//     batchSize: 32,
+//     classMode: 'binary'
+//   }
   
 //   const trainCNNModel = async () => {
 //     try {
@@ -497,7 +497,7 @@ export default function CNN() {
 //     inputLayerActivationFunction: 'relu',
 //     inputShape: [64, 64, 3],
 //     hiddenLayerCount: 1,
-//     hiddenLayers: [
+//     hiddenLayerArray: [
 //         { type: 'conv', numberOfNeurons: 64, kernel: [3, 3], activationFunction: 'relu' },
 //         { type: 'pooling', poolingType: 'maxPool', poolingSize: [2, 2] }
 //     ],
@@ -511,6 +511,7 @@ export default function CNN() {
   
 //   const trainCNNModel = async () => {
 //     try {
+//         console.log(inputData)
 //         const response = await fetch(`${constants.API_BASE_URL}/cnn`, {
 //             method: 'POST',
 //             headers: {
@@ -542,7 +543,7 @@ export default function CNN() {
 //     const { name, value } = event.target;
 //     setInputData(prevData => ({
 //         ...prevData,
-//         hiddenLayers: prevData.hiddenLayers.map((layer, i) => {
+//         hiddenLayerArray: prevData.hiddenLayerArray.map((layer, i) => {
 //             if (i === index) {
 //                 return {
 //                     ...layer,
@@ -558,8 +559,8 @@ export default function CNN() {
 //     setInputData(prevData => ({
 //         ...prevData,
 //         hiddenLayerCount: prevData.hiddenLayerCount + 1,
-//         hiddenLayers: [
-//             ...prevData.hiddenLayers,
+//         hiddenLayerArray: [
+//             ...prevData.hiddenLayerArray,
 //             { type: 'conv', numberOfNeurons: 64, kernel: [3, 3], activationFunction: 'relu' }
 //         ]
 //     }));
@@ -593,14 +594,14 @@ export default function CNN() {
 //                     />
 //                 </Col>
 //             </Form.Group>
-//             {inputData.hiddenLayers.map((layer, index) => (
+//             {inputData.hiddenLayerArray.map((layer, index) => (
 //                 <div key={index}>
 //                     <Form.Group as={Row} controlId={`hiddenLayer-${index}-type`}>
 //                         <Form.Label column sm="4">Type:</Form.Label>
 //                         <Col sm="8">
 //                             <Form.Control
 //                                 type="text"
-//                                 name={`hiddenLayers[${index}].type`}
+//                                 name={`hiddenLayerArray[${index}].type`}
 //                                 value={layer.type}
 //                                 onChange={(event) => handleLayerChange(event, index)}
 //                             />
@@ -615,7 +616,7 @@ export default function CNN() {
 //                                 <Col sm="8">
 //                                     <Form.Control
 //                                         type="number"
-//                                         name={`hiddenLayers[${index}].numberOfNeurons`}
+//                                         name={`hiddenLayerArray[${index}].numberOfNeurons`}
 //                                         value={layer.numberOfNeurons}
 //                                         onChange={(event) => handleLayerChange(event, index)}
 //                                     />
@@ -626,7 +627,7 @@ export default function CNN() {
 //                                 <Col sm="8">
 //                                     <Form.Control
 //                                         type="text"
-//                                         name={`hiddenLayers[${index}].kernel`}
+//                                         name={`hiddenLayerArray[${index}].kernel`}
 //                                         value={layer.kernel.join(',')}
 //                                         onChange={(event) => handleLayerChange(event, index)}
 //                                     />
