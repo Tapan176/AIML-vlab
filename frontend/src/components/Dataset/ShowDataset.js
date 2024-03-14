@@ -1,3 +1,4 @@
+/* eslint-disable jsx-a11y/img-redundant-alt */
 import React, { useState } from 'react';
 
 export default function ShowDataset({ onDatasetUpload }) {
@@ -82,3 +83,70 @@ export default function ShowDataset({ onDatasetUpload }) {
         </div>
     );
 }
+
+// import React, { useState } from 'react';
+// import constants from '../../constants';
+
+// export default function ShowDataset() {
+//     const [data, setData] = useState(null);
+
+//     function handleUpload() {
+//         const fileInput = document.getElementById('formFileMultiple');
+//         const file = fileInput.files[0];
+
+//         if (!file) {
+//             alert('Please select a file.');
+//             return;
+//         }
+
+//         const formData = new FormData();
+//         formData.append('file', file);
+
+//         fetch(`${constants.API_BASE_URL}/upload`, {
+//             method: 'POST',
+//             body: formData,
+//         }).then(response => response.json())
+//           .then(data => {
+//               console.log('File uploaded:', data);
+//               setData(data.csv_data || data.image_links);
+//           })
+//           .catch(error => {
+//               console.error('Error uploading file:', error);
+//           });
+//     }
+
+//     return (
+//         <div style={{ maxWidth: '50%' }}>
+//             <h2>Upload Your File</h2>
+//             <input className="form-control" type="file" id="formFileMultiple" multiple />
+//             <button onClick={handleUpload}>Upload</button>
+//             {data && (
+//                 <div>
+//                     {Array.isArray(data) ? (
+//                         <div style={{ display: 'flex', flexWrap: 'wrap' }}>
+//                             {data.map((link, index) => (
+//                                 <div key={index} style={{ margin: '10px' }}>
+//                                     <img src={link} alt={`Image ${index}`} style={{ width: '200px', height: '200px', objectFit: 'cover' }} />
+//                                 </div>
+//                             ))}
+//                         </div>
+//                     ) : (
+//                         <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: '200px' }}>
+//                             <table style={{ minWidth: '100%', tableLayout: 'fixed', border: '1px solid #000' }}>
+//                                 <tbody>
+//                                     {data.map((row, rowIndex) => (
+//                                         <tr key={rowIndex}>
+//                                             {Object.values(row).map((cell, cellIndex) => (
+//                                                 <td key={cellIndex}>{cell}</td>
+//                                             ))}
+//                                         </tr>
+//                                     ))}
+//                                 </tbody>
+//                             </table>
+//                         </div>
+//                     )}
+//                 </div>
+//             )}
+//         </div>
+//     );
+// }
