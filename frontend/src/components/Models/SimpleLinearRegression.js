@@ -10,12 +10,12 @@ import { faArrowLeft, faArrowRight } from '@fortawesome/free-solid-svg-icons'; /
 
 export default function SimpleLinearRegression () {
     const [inputData, setInputData] = useState({ X: [], y: [] });
-    const [results, setResults] = useState({ coefficients: [], intercept: 0, predictions: [], outputImageUrls: [] });
-
+    const [results, setResults] = useState({ coefficients: [], intercept: 0, predictions: [], evaluation_metrics: {}, outputImageUrls: [] });
     const [datasetData, setDatasetData] = useState('');
-
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
-    const images = results.outputImageUrls.length > 0 ? results.outputImageUrls.map(url => `${constants.API_BASE_URL}/${url}`) : [];
+
+    // const images = results.outputImageUrls.length > 0 ? results.outputImageUrls.map(url => `${constants.API_BASE_URL}/${url}?timestamp=${Date.now()}`) : [];
+    const images = results.outputImageUrls.map(url => `${constants.API_BASE_URL}/${url}?timestamp=${Date.now()}`);
 
     const prevImage = () => {
         setCurrentImageIndex((prevIndex) => (prevIndex === 0 ? images.length - 1 : prevIndex - 1));
@@ -93,6 +93,10 @@ export default function SimpleLinearRegression () {
             <p>Coefficients: {results.coefficients.join(', ')}</p>
             <p>Intercept: {results.intercept}</p>
             <p>Predictions: {results.predictions.join(', ')}</p>
+            <h2>Evaluation Metrics:</h2>
+            <p>Mean Absolute Error (MAE): {results.evaluation_metrics.MAE}</p>
+            <p>Mean Squared Error (MSE): {results.evaluation_metrics.MSE}</p>
+            <p>R-squared (R2) Score: {results.evaluation_metrics.R2}</p>
             {/* <h2>Graph:</h2>
             <Plot
               data={[

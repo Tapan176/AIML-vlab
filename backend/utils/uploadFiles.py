@@ -40,6 +40,11 @@ def handle_upload_file(request):
 
     filename = secure_filename(file.filename)
     filepath = os.path.join('static/uploads', filename)
+    
+    # Remove the old files if it exists
+    if os.path.exists(filepath):
+        os.remove(filepath)
+
     file.save(filepath)
 
     if filename.endswith('.csv'):

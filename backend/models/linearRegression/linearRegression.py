@@ -1,9 +1,13 @@
+# from flask import after_this_request
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import pandas as pd
 import numpy as np
 import csv
 import os
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 def get_column_names(csv_file):
@@ -11,9 +15,24 @@ def get_column_names(csv_file):
         reader = csv.reader(file)
         column_names = next(reader)  # Read the first row which contains column names
     return column_names
+    
+# @after_this_request
+def save_result_images(X, y, X_train, model, title, xlabel, ylabel, output_path):
+    # Remove the old image if it exists
+    if os.path.exists(output_path):
+        os.remove(output_path)
+
+    plt.scatter(X, y, color='red')
+    plt.plot(X_train, model.predict(X_train), color='blue')
+    plt.title(title)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.savefig(output_path)
+    plt.close()
 
 def simpleLinearRegression(request):
     data = request.json
+    directory = 'static/uploads'
 
     X = None
     y = None
@@ -22,10 +41,11 @@ def simpleLinearRegression(request):
         X = np.array(data['X'])
         y = np.array(data['y'])
         X = X.reshape(-1, 1)
+        columnNames = ['X', 'y']
     elif 'filename' in data:  # If filename is provided
         # Construct file path
-        directory = 'static/uploads'
         filepath = os.path.join(directory, data['filename'])
+        columnNames = get_column_names(filepath)
 
         try:
             # Read CSV file
@@ -49,8 +69,10 @@ def simpleLinearRegression(request):
     # Predicting the Test set results
     y_pred = model.predict(X_test)
 
-    columnNames = get_column_names(filepath)
-    print(columnNames)
+    # Evaluation metrics
+    mae = mean_absolute_error(y_test, y_pred)
+    mse = mean_squared_error(y_test, y_pred)
+    r2 = r2_score(y_test, y_pred)
 
     outputImageUrls = [
         os.path.join(directory, 'linearRegressionTrainGraph.jpg'),
@@ -58,25 +80,20 @@ def simpleLinearRegression(request):
     ]
 
     # Visualising the Training set results
-    plt.scatter(X_train, y_train, color = 'red')
-    plt.plot(X_train, model.predict(X_train), color = 'blue')
-    plt.title('Salary vs Experience (Training set)')
-    plt.xlabel('Years of Experience')
-    plt.ylabel('Salary')
-    plt.savefig(outputImageUrls[0])
+    save_result_images(X_train, y_train, X_train, model, title='Training', xlabel=columnNames[0], ylabel=columnNames[1], output_path=outputImageUrls[0])
 
     # Visualising the Test set results
-    plt.scatter(X_test, y_test, color = 'red')
-    plt.plot(X_train, model.predict(X_train), color = 'blue')
-    plt.title('Salary vs Experience (Test set)')
-    plt.xlabel('Years of Experience')
-    plt.ylabel('Salary')
-    plt.savefig(outputImageUrls[1])
-
-    # model.fit(X.reshape(-1, 1), y)
-
-    # # Predict
-    # y_pred = model.predict(X.reshape(-1, 1))
+    save_result_images(X_test, y_test, X_train, model, title='Test', xlabel=columnNames[0], ylabel=columnNames[1], output_path=outputImageUrls[1])
 
     # Return results
-    return ({"coefficients": model.coef_.tolist(), "intercept": model.intercept_, "predictions": y_pred.tolist(), "outputImageUrls": outputImageUrls})
+    return {
+        "coefficients": model.coef_.tolist(),
+        "intercept": model.intercept_,
+        "predictions": y_pred.tolist(),
+        "outputImageUrls": outputImageUrls,
+        "evaluation_metrics": {
+            "MAE": mae,
+            "MSE": mse,
+            "R2": r2
+        }
+    }

@@ -8,10 +8,9 @@ from utils.route import utils_routes
 app = Flask(__name__)
 CORS(app)
 
-# Register blueprints
+# Register blueprints before each request
 app.register_blueprint(model_routes)
 app.register_blueprint(utils_routes)
-
 
 @app.route('/uploads/<path:filename>')
 def serve_public_files(filename):
