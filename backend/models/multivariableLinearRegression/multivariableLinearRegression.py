@@ -8,6 +8,7 @@ import os
 import matplotlib
 matplotlib.use('Agg')  # To avoid GUI when saving plots
 import matplotlib.pyplot as plt
+from utils.saveTrainedModel import saveTrainedModel
 
 def save_result_images(X, y, X_train, model, title, xlabel, ylabel, output_path):
     # Remove the old image if it exists
@@ -49,6 +50,8 @@ def multivariateLinearRegression(request):
 
     regressor = LinearRegression()
     regressor.fit(X_train, y_train)
+
+    saveTrainedModel(regressor, "multivariable_linear_regression", "scikit-learn")
 
     y_pred = regressor.predict(X_test)
 

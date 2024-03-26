@@ -9,6 +9,7 @@ import os
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+from utils.saveTrainedModel import saveTrainedModel
 
 def get_column_names(csv_file):
     with open(csv_file, 'r', newline='') as file:
@@ -65,6 +66,8 @@ def simpleLinearRegression(request):
     # Fitting Simple Linear Regression to the Training set
     model = LinearRegression()
     model.fit(X_train, y_train)
+
+    saveTrainedModel(model, "simple_linear_regression", "scikit-learn")
 
     # Predicting the Test set results
     y_pred = model.predict(X_test)

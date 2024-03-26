@@ -11,6 +11,7 @@ matplotlib.use('Agg')  # To avoid GUI when saving plots
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
 import csv
+from utils.saveTrainedModel import saveTrainedModel
 
 def get_column_names(csv_file):
     with open(csv_file, 'r', newline='') as file:
@@ -75,6 +76,8 @@ def naiveBayes(request):
 
     classifier = GaussianNB()
     classifier.fit(X_train, y_train)
+    
+    saveTrainedModel(classifier, "naive_bayes", "scikit-learn") 
 
     y_pred = classifier.predict(X_test)
 

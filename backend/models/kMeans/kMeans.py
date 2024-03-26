@@ -6,6 +6,7 @@ import pandas as pd
 import os
 import matplotlib.pyplot as plt
 import csv
+from utils.saveTrainedModel import saveTrainedModel
 
 def get_column_names(csv_file):
     with open(csv_file, 'r', newline='') as file:
@@ -53,6 +54,9 @@ def kMeans(request):
 
     kmeans = KMeans(n_clusters=k, init='k-means++', random_state=42)
     y_kmeans = kmeans.fit_predict(X)
+
+    saveTrainedModel(kmeans, "kmeans", "scikit-learn")
+
     centers = kmeans.cluster_centers_
     silhouette = silhouette_score(X, y_kmeans)
 
@@ -71,6 +75,7 @@ def kMeans(request):
         kmeans = KMeans(n_clusters = i, init = 'k-means++', random_state = 42)
         kmeans.fit(X)
         wcss.append(kmeans.inertia_)
+
     plt.plot(range(1, 11), wcss)
     plt.title('The Elbow Method')
     plt.xlabel('Number of clusters')

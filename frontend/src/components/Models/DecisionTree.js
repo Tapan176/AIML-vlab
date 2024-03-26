@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import constants from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
+import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft, faArrowRight } from '@fortawesome/free-solid-svg-icons'; // Import icons from Font Awesome
 
@@ -105,6 +106,7 @@ export default function DecisionTree() {
                     </button>
                 </div>
             </div>
+            <DownloadTrainedModel selectedModel={'decision_tree'} extension={'.pkl'} />
         </div>
     );
 }

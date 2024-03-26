@@ -5,6 +5,7 @@ from keras.metrics import Precision, Recall
 from keras.optimizers import SGD, Adam, RMSprop, Adagrad, Adadelta
 from keras.callbacks import EarlyStopping
 from keras.preprocessing.image import ImageDataGenerator
+from utils.saveTrainedModel import saveTrainedModel
 
 # Define a Min Pooling Layer with customizable parameters
 def min_pooling(pool_size=(2, 2), strides=None):
@@ -148,6 +149,7 @@ def train_cnn(request):
                         callbacks=[early_stopping])
 
     # Save the model
-    model.save("cnn.h5")
+    saveTrainedModel(model, "cnn", "Keras")
+    # model.save("cnn.h5")
 
     return ({'message': 'Model trained successfully.'})

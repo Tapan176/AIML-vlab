@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 // import Plot from 'react-plotly.js';
 import constants from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
-
+import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft, faArrowRight } from '@fortawesome/free-solid-svg-icons'; // Import icons from Font Awesome
 
@@ -126,6 +126,7 @@ export default function SimpleLinearRegression () {
                     </button>
                 </div>
             </div>
+            <DownloadTrainedModel selectedModel={'simple_linear_regression'} extension={'.pkl'} />
             {/* {showCarousel && ( */}
                 {/* <div> */}
                     {/* <h2>Image Carousel:</h2> */}

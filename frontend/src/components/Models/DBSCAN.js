@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import constants from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
+import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft, faArrowRight } from '@fortawesome/free-solid-svg-icons';
 
@@ -101,6 +102,7 @@ export default function DBSCAN() {
                     </button>
                 </div>
             </div>
+            <DownloadTrainedModel selectedModel={'dbscan'} extension={'.pkl'} />
         </div>
     );
 }

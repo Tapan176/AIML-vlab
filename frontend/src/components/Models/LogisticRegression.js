@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import constants from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
+import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft, faArrowRight } from '@fortawesome/free-solid-svg-icons'; // Import icons from Font Awesome
 
@@ -107,6 +108,7 @@ export default function LogisticRegression() {
                     </button>
                 </div>
             </div>
+            <DownloadTrainedModel selectedModel={'logistic_regression'} extension={'.pkl'} />
         </div>
     );
 }

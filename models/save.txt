@@ -13,4 +13,5 @@ import joblib
 # Save the trained model to a file
 joblib.dump(classifier, 'nlp.pkl')
 
-# Now you can load the model anytime using joblib.load('nlp.pkl')
+# Now you can load the model anytime using 
+joblib.load('nlp.pkl')

@@ -5,6 +5,7 @@ import pandas as pd
 import os
 import matplotlib.pyplot as plt
 import csv
+from utils.saveTrainedModel import saveTrainedModel
 
 def get_column_names(csv_file):
     with open(csv_file, 'r', newline='') as file:
@@ -77,6 +78,8 @@ def dbscan(request):
 
     dbscan = DBSCAN(eps=eps, min_samples=min_samples)
     y_dbscan = dbscan.fit_predict(X)
+    
+    saveTrainedModel(dbscan, "dbscan", "scikit-learn")
 
     # Save cluster plot
     outputImageDir = 'static/images'

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import constants from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
+import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
 
 export default function MultivariableLinearRegression() {
     const [inputData, setInputData] = useState({ X: [], y: [] });
@@ -72,6 +73,7 @@ export default function MultivariableLinearRegression() {
             {results.outputImageUrls.map((url, index) => (
                 <img key={index} src={`${constants.API_BASE_URL}/${url}`} alt={`Graph ${index + 1}`} style={{ maxWidth: '100%', maxHeight: '100%' }} />
             ))}
+            <DownloadTrainedModel selectedModel={'multivariable_linear_regression'} extension={'.pkl'} />
         </div>
     );
 }
