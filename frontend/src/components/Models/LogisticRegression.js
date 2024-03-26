@@ -1,11 +1,34 @@
+/* eslint-disable jsx-a11y/img-redundant-alt */
 import React, { useState } from 'react';
 import constants from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faArrowLeft, faArrowRight } from '@fortawesome/free-solid-svg-icons'; // Import icons from Font Awesome
 
 export default function LogisticRegression() {
-  const [inputData, setInputData] = useState({ X: [], y: [] });
-    const [results, setResults] = useState({ coefficients: [], intercept: 0, probabilities: [] });
-    const [datasetData, setDatasetData] = useState({ csvData: null });
+    const [inputData, setInputData] = useState({ X: [], y: [] });
+    const [results, setResults] = useState({
+        confusion_matrix: [],
+        predictions: [],
+        accuracy: 0,
+        precision: 0,
+        recall: 0,
+        f1_score: 0,
+        outputImageUrls: []
+    });
+    const [datasetData, setDatasetData] = useState('');
+    const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+    // const images = results.outputImageUrls.length > 0 ? results.outputImageUrls.map(url => `${constants.API_BASE_URL}/${url}?timestamp=${Date.now()}`) : [];
+    const images = results.outputImageUrls.map(url => `${constants.API_BASE_URL}/${url}?timestamp=${Date.now()}`);
+
+    const prevImage = () => {
+        setCurrentImageIndex((prevIndex) => (prevIndex === 0 ? images.length - 1 : prevIndex - 1));
+    };
+
+    const nextImage = () => {
+        setCurrentImageIndex((prevIndex) => (prevIndex === images.length - 1 ? 0 : prevIndex + 1));
+    };
 
     const handleDatasetUpload = (data) => {
         setDatasetData(data);
@@ -20,11 +43,8 @@ export default function LogisticRegression() {
         e.preventDefault();
         try {
             let dataToSend;
-            if (datasetData && datasetData.csvData) {
-                dataToSend = {
-                    X: Object.values(datasetData.csvData)[0]?.map(value => parseFloat(value)),
-                    y: Object.values(datasetData.csvData)[1]?.map(value => parseFloat(value)),
-                };
+            if (datasetData && datasetData.csv_data) {
+                dataToSend = { filename: datasetData.filename };
             } else {
                 dataToSend = { X: inputData.X, y: inputData.y };
             }
@@ -36,13 +56,14 @@ export default function LogisticRegression() {
                 },
                 body: JSON.stringify(dataToSend),
             });
-
+            console.log(response);
             if (!response.ok) {
                 throw new Error('Network response was not ok');
             }
 
             const data = await response.json();
             setResults(data);
+            // setShowCarousel(true);
         } catch (error) {
             console.error('Error:', error);
         }
@@ -67,9 +88,25 @@ export default function LogisticRegression() {
                 <button type="submit">Run</button>
             </form>
             <h2>Results:</h2>
-            <p>Coefficients: {results.coefficients.join(', ')}</p>
-            <p>Intercept: {results.intercept}</p>
-            <p>Probabilities: {results.probabilities.join(', ')}</p>
+            <p>Confusion Matrix: {results.confusion_matrix.join(', ')}</p>
+            <p>Predictions: {results.predictions.join(', ')}</p>
+            <p>Accuracy: {results.accuracy}</p>
+            <p>Precision: {results.precision}</p>
+            <p>Recall: {results.recall}</p>
+            <p>F1 Score: {results.f1_score}</p>
+            <h2>Graph:</h2>
+            <div style={{ width: '600px', height: '400px' }}>
+                <h1>Output</h1>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <button onClick={prevImage} style={{ border: 'none', backgroundColor: 'transparent' }}>
+                        <FontAwesomeIcon icon={faArrowLeft} />
+                    </button>
+                    <img src={images[currentImageIndex]} alt={`Image ${currentImageIndex + 1}`} style={{ maxWidth: '100%', maxHeight: '100%' }} />
+                    <button onClick={nextImage} style={{ border: 'none', backgroundColor: 'transparent' }}>
+                        <FontAwesomeIcon icon={faArrowRight} />
+                    </button>
+                </div>
+            </div>
         </div>
     );
 }

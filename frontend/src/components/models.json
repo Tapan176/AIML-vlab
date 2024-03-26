@@ -40,6 +40,11 @@
         "code": "svm"
     },
     {
+        "name": "Naive Bayes",
+        "url": "naive-bayes",
+        "code": "naive_bayes"
+    },
+    {
         "name": "DBSCAN",
         "url": "dbscan",
         "code": "dbscan"

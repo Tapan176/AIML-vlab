@@ -13,6 +13,7 @@ import SVM from '../Models/SVM';
 import DBSCAN from '../Models/DBSCAN';
 import ANN from '../Models/ANN';
 import CNN from '../Models/CNN';
+import NaiveBayes from '../Models/NaiveBayes';
 
 export default function Home() {
   // State to keep track of the selected model
@@ -42,6 +43,8 @@ export default function Home() {
         return <RandomForest />;
       case 'svm':
         return <SVM />;
+      case 'naive_bayes':
+        return <NaiveBayes />;
       case 'dbscan':
         return <DBSCAN />;
       case 'ann':
