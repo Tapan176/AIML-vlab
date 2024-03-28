@@ -77,9 +77,10 @@ def simpleLinearRegression(request):
     mse = mean_squared_error(y_test, y_pred)
     r2 = r2_score(y_test, y_pred)
 
+    outputImageDir = 'static/images'
     outputImageUrls = [
-        os.path.join(directory, 'linearRegressionTrainGraph.jpg'),
-        os.path.join(directory, 'linearRegressionTestGraph.jpg')
+        os.path.join(outputImageDir, 'linearRegressionTrainGraph.jpg'),
+        os.path.join(outputImageDir, 'linearRegressionTestGraph.jpg')
     ]
 
     # Visualising the Training set results

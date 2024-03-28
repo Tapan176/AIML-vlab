@@ -6,6 +6,7 @@ from keras.optimizers import SGD, Adam, RMSprop, Adagrad, Adadelta
 from keras.callbacks import EarlyStopping
 from keras.preprocessing.image import ImageDataGenerator
 from utils.saveTrainedModel import saveTrainedModel
+import os
 
 # Define a Min Pooling Layer with customizable parameters
 def min_pooling(pool_size=(2, 2), strides=None):
@@ -112,6 +113,10 @@ def train_cnn(request):
     numberOfEpochs = data['numberOfEpochs']
     batchSize = data['batchSize']
     classMode = data['classMode']
+    datasetPath = data['filePath']
+
+    train_dataset_path = os.path.join(datasetPath, 'train')
+    test_dataset_path = os.path.join(datasetPath, 'test')
 
     model = build_cnn_model(
         numberOfNeuronsInInputLayer,
@@ -129,12 +134,12 @@ def train_cnn(request):
     train_datagen = ImageDataGenerator(rescale=1./255, shear_range=0.2, zoom_range=0.2, horizontal_flip=True)
     test_datagen = ImageDataGenerator(rescale=1./255)
 
-    training_set = train_datagen.flow_from_directory('../../../models/Deep Learning/02. Convolutional Neural Networks (CNN)/dataset/training_set',
+    training_set = train_datagen.flow_from_directory(train_dataset_path,
                                                      target_size=inputShape[:2],
                                                      batch_size=batchSize,
                                                      class_mode=classMode)
 
-    test_set = test_datagen.flow_from_directory('../../../models/Deep Learning/02. Convolutional Neural Networks (CNN)/dataset/test_set',
+    test_set = test_datagen.flow_from_directory(test_dataset_path,
                                                 target_size=inputShape[:2],
                                                 batch_size=batchSize,
                                                 class_mode=classMode)
