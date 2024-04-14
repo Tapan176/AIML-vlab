@@ -1,0 +1,41 @@
+.cnn-settings {
+    max-width: 800px; /* Adjust width as needed */
+    margin: 0 auto;
+    padding: 20px;
+    background-color: #f8f8f8;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+}
+
+.input-section,
+.optimizer-section {
+    margin-bottom: 20px;
+}
+
+.input-section label,
+.optimizer-section label {
+    display: block;
+    margin-bottom: 10px;
+}
+
+.input-section input,
+.optimizer-section input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+}
+
+.button-section button {
+    padding: 10px 20px;
+    background-color: #007bff;
+    color: #fff;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.button-section button:hover {
+    background-color: #0056b3;
+}

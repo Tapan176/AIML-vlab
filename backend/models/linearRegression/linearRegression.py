@@ -31,6 +31,12 @@ def save_result_images(X, y, X_train, model, title, xlabel, ylabel, output_path)
     plt.savefig(output_path)
     plt.close()
 
+def save_predictions(dataset, predictions, output_file):
+    dataset_copy = dataset.copy()
+    dataset_copy['Predictions'] = predictions
+    dataset_copy.to_csv(output_file, index=False)
+
+
 def simpleLinearRegression(request):
     data = request.json
     directory = 'static/uploads'
@@ -61,7 +67,7 @@ def simpleLinearRegression(request):
         return {"error": "Neither X and y nor filename provided"}
 
     # Splitting the dataset into the Training set and Test set
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 1/3, random_state = 0)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=1/3, random_state=0)
 
     # Fitting Simple Linear Regression to the Training set
     model = LinearRegression()
@@ -71,6 +77,10 @@ def simpleLinearRegression(request):
 
     # Predicting the Test set results
     y_pred = model.predict(X_test)
+
+    # Save predictions
+    predictions_output_file = os.path.join('predictions/', 'simple_linear_regression.csv')
+    save_predictions(pd.DataFrame(X_test, columns=columnNames[:-1]), y_pred, predictions_output_file)
 
     # Evaluation metrics
     mae = mean_absolute_error(y_test, y_pred)
@@ -95,9 +105,11 @@ def simpleLinearRegression(request):
         "intercept": model.intercept_,
         "predictions": y_pred.tolist(),
         "outputImageUrls": outputImageUrls,
+        "predictions_output_file": predictions_output_file,
         "evaluation_metrics": {
             "MAE": mae,
             "MSE": mse,
             "R2": r2
         }
     }
+

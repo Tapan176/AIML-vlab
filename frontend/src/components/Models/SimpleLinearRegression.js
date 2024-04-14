@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import constants from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
+import DownloadModelPredictions from '../DownloadModelPredictions/DownloadModelPredictions';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft, faArrowRight } from '@fortawesome/free-solid-svg-icons'; // Import icons from Font Awesome
 
@@ -126,6 +127,9 @@ export default function SimpleLinearRegression () {
                     </button>
                 </div>
             </div>
+            <br/><br/><br/><br/><br/>
+            <DownloadModelPredictions selectedModel={'simple_linear_regression'} extension={'.csv'} />
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
             <DownloadTrainedModel selectedModel={'simple_linear_regression'} extension={'.pkl'} />
             {/* {showCarousel && ( */}
                 {/* <div> */}

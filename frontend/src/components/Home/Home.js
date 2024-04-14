@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 
 import Sidebar from '../Sidebar/Sidebar';
+import ModelDescription from '../ModelDescription/ModelDescription';
 
 import SimpleLinearRegression from '../Models/SimpleLinearRegression';
 import MultivariableLinearRegression from '../Models/MultivariableLinearRegression';
@@ -65,6 +66,9 @@ export default function Home() {
         <div style={{ flex: 1 }}>
           {/* Render the selected component */}
           {renderComponent()}
+        </div>
+        <div>
+          <ModelDescription modelCode={selectedModel} />
         </div>
       </div>
     </>

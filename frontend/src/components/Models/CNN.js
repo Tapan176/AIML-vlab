@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 // import { Button, Form, FormControl, InputGroup, DropdownButton, Dropdown } from 'react-bootstrap';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
+import DownloadModelPredictions from '../DownloadModelPredictions/DownloadModelPredictions';
 import constants from '../../constants';
 import CnnHiddenLayer from '../HiddenLayers/CnnHiddenLayer';
 import ShowDataset from '../Dataset/ShowDataset';
+import '../ModelCss/cnn.css';
 
 export default function CNN() {
 //   const [inputData, setInputData] = useState({
@@ -146,16 +148,17 @@ export default function CNN() {
   };
 
   // Function to send hiddenLayers state to the backend
-  const sendToBackend = () => {
-    inputData.hiddenLayerArray = hiddenLayers;
-    // Implement sending hiddenLayers state to the backend
-    console.log(inputData);
-  };
+//   const sendToBackend = () => {
+//     inputData.hiddenLayerArray = hiddenLayers;
+//     // Implement sending hiddenLayers state to the backend
+//     console.log(inputData);
+//   };
 
   return (
-    <div>
+    <div class="cnn-settings">
         <h1>Convolution Neural Network</h1>
         <ShowDataset onDatasetUpload={handleDatasetUpload} />
+        <div class="input-section">
         {/* Input fields for CNN parameters */}
         <label>
             Number of Neurons in Input Layer:
@@ -200,8 +203,9 @@ export default function CNN() {
             onAddLayer={handleAddLayer}
             onRemoveLayer={handleRemoveLayer}
         />
-        <button onClick={sendToBackend}>Send to Backend</button>
+        {/* <button onClick={sendToBackend}>Send to Backend</button> */}
         {/* Add input fields for optimizer */}
+        <div class="optimizer-section">
         <label>
             Optimizer Type:
             <input
@@ -268,6 +272,10 @@ export default function CNN() {
             />
         </label>
         <button onClick={trainCNNModel}>Train CNN Model</button>
+        </div>
+        </div>
+        <DownloadModelPredictions selectedModel={'simple_linear_regression'} extension={'.csv'} />
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
         <DownloadTrainedModel selectedModel={'cnn'} extension={'.h5'} />
       </div>
     );
