@@ -19,6 +19,9 @@ export default function DownloadModelPredictions({ selectedModel, extension }) {
   };
 
   return (
-    <Button variant="info" onClick={downloadModelPredictions}>Download Model Predictions</Button>
+    <>
+      <Button variant="info" onClick={downloadModelPredictions}>Download Model Predictions</Button>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+    </>
   );
 }

@@ -129,7 +129,6 @@ export default function SimpleLinearRegression () {
             </div>
             <br/><br/><br/><br/><br/>
             <DownloadModelPredictions selectedModel={'simple_linear_regression'} extension={'.csv'} />
-            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
             <DownloadTrainedModel selectedModel={'simple_linear_regression'} extension={'.pkl'} />
             {/* {showCarousel && ( */}
                 {/* <div> */}

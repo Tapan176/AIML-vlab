@@ -1,0 +1,40 @@
+.sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 250px; /* Set initial width */
+    background-color: #f8f9fa; /* Bootstrap background color */
+    overflow-y: auto; /* Allow vertical scrolling if content exceeds height */
+    transition: width 0.3s ease; /* Add smooth transition effect */
+  }
+  
+  .sidebar-toggle {
+    width: 100%;
+    margin-bottom: 15px;
+  }
+  
+  .sidebar-content {
+    margin-top: 15px;
+  }
+  
+  .fixed-sidebar {
+    z-index: 1000; /* Ensure the sidebar is above other content */
+  }
+  
+  /* Collapsed state */
+  .sidebar.collapsed {
+    width: 70px; /* Adjust as needed */
+  }
+  
+  .sidebar.collapsed .sidebar-toggle {
+    /* Hide text and only show icon when collapsed */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .sidebar.collapsed .sidebar-toggle::after {
+    content: '\f054'; /* Unicode character for a right arrow */
+  }
+  

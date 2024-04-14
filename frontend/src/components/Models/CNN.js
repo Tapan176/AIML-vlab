@@ -275,7 +275,6 @@ export default function CNN() {
         </div>
         </div>
         <DownloadModelPredictions selectedModel={'simple_linear_regression'} extension={'.csv'} />
-            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
         <DownloadTrainedModel selectedModel={'cnn'} extension={'.h5'} />
       </div>
     );
