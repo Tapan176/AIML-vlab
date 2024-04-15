@@ -31,11 +31,11 @@ def save_result_images(X, y, X_train, model, title, xlabel, ylabel, output_path)
     plt.savefig(output_path)
     plt.close()
 
-def save_predictions(dataset, predictions, output_file):
-    dataset_copy = dataset.copy()
-    dataset_copy['Predictions'] = predictions
-    dataset_copy.to_csv(output_file, index=False)
-
+def save_predictions(X_test, y_test, columnNames, predictions, output_file):
+    dataset = pd.DataFrame(X_test, columns=columnNames[:-1])
+    dataset[columnNames[1]] = y_test
+    dataset['Predictions'] = predictions
+    dataset.to_csv(output_file, index=False)
 
 def simpleLinearRegression(request):
     data = request.json
@@ -80,7 +80,7 @@ def simpleLinearRegression(request):
 
     # Save predictions
     predictions_output_file = os.path.join('predictions/', 'simple_linear_regression.csv')
-    save_predictions(pd.DataFrame(X_test, columns=columnNames[:-1]), y_pred, predictions_output_file)
+    save_predictions(X_test, y_test, columnNames, y_pred, predictions_output_file)
 
     # Evaluation metrics
     mae = mean_absolute_error(y_test, y_pred)
@@ -110,6 +110,7 @@ def simpleLinearRegression(request):
             "MAE": mae,
             "MSE": mse,
             "R2": r2
-        }
+        },
+        "X_values": X_test.flatten().tolist(),
+        "actual_values": y_test.tolist(),
     }
-
