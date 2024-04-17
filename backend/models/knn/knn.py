@@ -96,7 +96,7 @@ def knn(request):
         os.path.join(outputImageDir, 'knnTestGraph.jpg')
     ]
 
-    print(columnNames)
+    # print(columnNames)
 
     save_result_images(X_train, y_train, classifier, title='Training', xlabel=columnNames[2], ylabel=columnNames[3], output_path=outputImageUrls[0])
     save_result_images(X_test, y_test, classifier, title='Test', xlabel=columnNames[2], ylabel=columnNames[3], output_path=outputImageUrls[1])

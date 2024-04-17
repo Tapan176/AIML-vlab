@@ -1,0 +1,15 @@
+.profile-dropdown-container {
+    position: absolute;
+    top: calc(100% + 10px); /* Position just below the profile icon */
+    right: 10px; /* Adjust as needed */
+    z-index: 100; /* Ensure it appears above other content */
+  }
+  
+  .profile-dropdown-content {
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0px 2px 8px rgba(0, 0, 0, 0.2);
+    padding: 12px;
+    min-width: 200px;
+  }
+  

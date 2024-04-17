@@ -1,3 +1,5 @@
+/* Apply CSS styles similar to Simple Linear Regression to the Support Vector Classification component */
+
 .container {
     max-width: 800px;
     margin: 0 auto;
@@ -6,7 +8,7 @@
     border: 1px solid #ddd;
     border-radius: 5px;
     overflow-y: auto;
-    max-height: 82vh;
+    max-height: 92vh;
 }
 
 .form-label {
@@ -20,6 +22,7 @@
     padding: 8px;
     border: 1px solid #ccc;
     border-radius: 3px;
+    margin-bottom: 10px;
 }
 
 .btn-primary {
@@ -40,33 +43,17 @@
     margin-top: 20px;
 }
 
-.predictions-section {
-    overflow-x: auto;
-    overflow-y: auto;
-    max-height: 300px;
-}
-
-.table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-.table th,
-.table td {
-    padding: 8px;
-    border: 1px solid #ddd;
-    text-align: left;
-}
-
-.output-section {
+.graph-container {
+    width: 600px;
+    height: 400px;
     margin-top: 20px;
 }
 
-.image-carousel {
-    margin-top: 10px;
-}
-
-.img-fluid {
+.graph-container img {
     max-width: 100%;
     height: auto;
+}
+
+.download-section {
+    margin-top: 20px;
 }

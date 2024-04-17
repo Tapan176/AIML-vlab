@@ -67,44 +67,80 @@ export default function DBSCAN() {
     };
 
     return (
-        <div>
+        <div className="container mt-5">
             <h1>DBSCAN Clustering</h1>
             <ShowDataset onDatasetUpload={handleDatasetUpload} />
-            <form onSubmit={handleSubmit}>
-                <label>
-                    X (comma separated values):
-                    <input type="text" name="X" onChange={handleChange} />
-                </label>
-                <br />
-                <label>
-                    Epsilon (eps):
-                    <input type="text" name="eps" value={inputData.eps} onChange={handleChange} />
-                </label>
-                <br />
-                <label>
-                    Min Samples:
-                    <input type="text" name="min_samples" value={inputData.min_samples} onChange={handleChange} />
-                </label>
-                <br />
-                <button type="submit">Run</button>
-            </form>
-            <h2>Results:</h2>
-            <p>Labels: {results.labels.join(', ')}</p>
-            <h2>Graph:</h2>
-            <div style={{ width: '600px', height: '400px' }}>
-                <h1>Output</h1>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <button onClick={prevImage} style={{ border: 'none', backgroundColor: 'transparent' }}>
-                        <FontAwesomeIcon icon={faArrowLeft} />
-                    </button>
-                    <img src={images[currentImageIndex]} alt={`Image ${currentImageIndex + 1}`} style={{ maxWidth: '100%', maxHeight: '100%' }} />
-                    <button onClick={nextImage} style={{ border: 'none', backgroundColor: 'transparent' }}>
-                        <FontAwesomeIcon icon={faArrowRight} />
-                    </button>
+
+            <form className="my-4" onSubmit={handleSubmit}>
+                <div className="mb-3">
+                    <label htmlFor="XInput" className="form-label">
+                        X (comma separated values):
+                    </label>
+                    <input
+                        type="text"
+                        className="form-control"
+                        id="XInput"
+                        name="X"
+                        onChange={handleChange}
+                    />
                 </div>
+                <div className="mb-3">
+                    <label htmlFor="epsInput" className="form-label">
+                        Epsilon (eps):
+                    </label>
+                    <input
+                        type="text"
+                        className="form-control"
+                        id="epsInput"
+                        name="eps"
+                        value={inputData.eps}
+                        onChange={handleChange}
+                    />
+                </div>
+                <div className="mb-3">
+                    <label htmlFor="minSamplesInput" className="form-label">
+                        Min Samples:
+                    </label>
+                    <input
+                        type="text"
+                        className="form-control"
+                        id="minSamplesInput"
+                        name="min_samples"
+                        value={inputData.min_samples}
+                        onChange={handleChange}
+                    />
+                </div>
+                <button type="submit" className="btn btn-primary">
+                    Run
+                </button>
+            </form>
+
+            {results.labels.length > 0 && (
+                <div className="result-section mt-3">
+                    <h2>Results:</h2>
+                    <p>Labels: {results.labels.join(', ')}</p>
+                </div>
+            )}
+
+            {results.outputImageUrls.length > 0 && (
+                <div className="graph-section mt-3">
+                    <h2>Output</h2>
+                    <div className="image-carousel d-flex align-items-center justify-content-between">
+                        <button className="btn btn-link" onClick={prevImage}>
+                            <FontAwesomeIcon icon={faArrowLeft} />
+                        </button>
+                        <img src={images[currentImageIndex]} alt={`Image ${currentImageIndex + 1}`} className="img-fluid" />
+                        <button className="btn btn-link" onClick={nextImage}>
+                            <FontAwesomeIcon icon={faArrowRight} />
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            <div className="download-section mt-3">
+                <DownloadModelPredictions selectedModel={'dbscan'} extension={'.csv'} />
+                <DownloadTrainedModel selectedModel={'dbscan'} extension={'.pkl'} />
             </div>
-            <DownloadModelPredictions selectedModel={'simple_linear_regression'} extension={'.csv'} />
-            <DownloadTrainedModel selectedModel={'dbscan'} extension={'.pkl'} />
         </div>
     );
 }

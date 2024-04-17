@@ -8,3 +8,7 @@ keras
 scipy
 flask
 joblib
+bcrypt
+PyJWT
+pymongo
+bson

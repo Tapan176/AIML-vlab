@@ -1,6 +1,7 @@
 import React from 'react';
 import modelsData from '../models.json'; // Assuming models.json is in the same directory
 import { Collapse, Button } from 'react-bootstrap';
+import './ModelDescription.css';
 
 export default function ModelDescription({ modelCode }) {
   // Find the model with the matching code
@@ -25,7 +26,7 @@ export default function ModelDescription({ modelCode }) {
   };
 
   return (
-    <div className="sidebar">
+    <div className="description-sidebar" style={{ width: '300px', overflowY: 'auto', maxHeight: '92.5vh', padding: '20px' }}>
       <Button
         variant="primary"
         className="sidebar-toggle"

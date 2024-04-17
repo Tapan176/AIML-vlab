@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import './App.css';
 
@@ -8,25 +8,42 @@ import Home from './components/Home/Home';
 import ContactUs from './components/ContactUs/ContactUs';
 import Login from './components/Auth/Login';
 import SignUp from './components/Auth/SignUp';
-// import ShowDataset from './components/Dataset/ShowDataset';
+import EditProfile from './components/Profile/EditProfile';
 
 function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [user, setUser] = useState(null);
+
+  const handleLogin = (userData) => {
+    // Implement your login logic and set user state
+    setIsLoggedIn(true);
+    setUser(userData);
+    // console.log(user)
+  };
+
+  const handleLogout = () => {
+    // Implement your logout logic
+    setIsLoggedIn(false);
+    setUser(null);
+  };
+
   return (
     <>
-    <Router>
-      <div>
-        <Navbar />
-      </div>
-      <div style={{ flex: 1 }}>
-        <Routes>
-            <Route path="/" Component={Home} />
-            <Route path="/about" Component={About} />
-            <Route path="/contact-us" Component={ContactUs} />
-            <Route path="/login" Component={Login} />
-            <Route path="/signup" Component={SignUp} />
-        </Routes>
-      </div>
-    </Router>
+      <Router>
+        <div>
+          <Navbar isLoggedIn={isLoggedIn} user={user} onLogout={handleLogout} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/contact-us" element={<ContactUs />} />
+            <Route path="/login" element={<Login onLoginSuccess={handleLogin} />} />
+            <Route path="/signup" element={<SignUp />} />
+            <Route path="/edit-profile" element={<EditProfile user={user} />} />
+          </Routes>
+        </div>
+      </Router>
     </>
   );
 }

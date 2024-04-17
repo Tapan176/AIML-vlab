@@ -288,7 +288,7 @@ export default function SimpleLinearRegression() {
                 </div>
             )}
 
-            <div className="download-section mt-5">
+            <div className="download-section mt-3">
                 <DownloadModelPredictions selectedModel="simple_linear_regression" extension=".csv" />
                 <DownloadTrainedModel selectedModel="simple_linear_regression" extension=".pkl" />
             </div>

@@ -1,3 +1,4 @@
+/* General Styles */
 .container {
     max-width: 800px;
     margin: 0 auto;
@@ -36,37 +37,23 @@
     background-color: #0056b3;
 }
 
-.result-section {
+.result-section,
+.graph-section {
     margin-top: 20px;
-}
-
-.predictions-section {
-    overflow-x: auto;
-    overflow-y: auto;
-    max-height: 300px;
-}
-
-.table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-.table th,
-.table td {
-    padding: 8px;
-    border: 1px solid #ddd;
-    text-align: left;
-}
-
-.output-section {
-    margin-top: 20px;
-}
-
-.image-carousel {
-    margin-top: 10px;
 }
 
 .img-fluid {
     max-width: 100%;
     height: auto;
+}
+
+.image-carousel .btn-link {
+    border: none;
+    background-color: transparent;
+    cursor: pointer;
+    font-size: 24px;
+}
+
+.download-section {
+    margin-top: 20px;
 }

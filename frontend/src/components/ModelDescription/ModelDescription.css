@@ -1,12 +1,12 @@
-.sidebar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    width: 250px; /* Set initial width */
+.description-sidebar {
+    /* width: 300px; Set initial width */
+    width: 100%; /* Adjust width as needed */
+    height: 100%; /* Adjust height as needed */
     background-color: #f8f9fa; /* Bootstrap background color */
     overflow-y: auto; /* Allow vertical scrolling if content exceeds height */
     transition: width 0.3s ease; /* Add smooth transition effect */
+    max-height: 82vh;
+    padding: 20px;
   }
   
   .sidebar-toggle {

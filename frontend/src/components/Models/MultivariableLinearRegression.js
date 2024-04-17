@@ -1,12 +1,30 @@
+/* eslint-disable jsx-a11y/img-redundant-alt */
 import React, { useState } from 'react';
 import constants from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
 import DownloadModelPredictions from '../DownloadModelPredictions/DownloadModelPredictions';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faArrowLeft, faArrowRight } from '@fortawesome/free-solid-svg-icons';
+
+import '../ModelCss/multivariableLinearRegression.css';
 
 export default function MultivariableLinearRegression() {
     const [inputData, setInputData] = useState({ X: [], y: [] });
     const [results, setResults] = useState({ coefficients: [], intercept: 0, predictions: [], evaluation_metrics: {}, outputImageUrls: [] });
+
+    const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+    // const images = results.outputImageUrls.length > 0 ? results.outputImageUrls.map(url => `${constants.API_BASE_URL}/${url}?timestamp=${Date.now()}`) : [];
+    const images = results.outputImageUrls.map(url => `${constants.API_BASE_URL}/${url}?timestamp=${Date.now()}`);
+
+    const prevImage = () => {
+        setCurrentImageIndex((prevIndex) => (prevIndex === 0 ? images.length - 1 : prevIndex - 1));
+    };
+
+    const nextImage = () => {
+        setCurrentImageIndex((prevIndex) => (prevIndex === images.length - 1 ? 0 : prevIndex + 1));
+    };
 
     const handleDatasetUpload = (data) => {
         setInputData({
@@ -45,37 +63,57 @@ export default function MultivariableLinearRegression() {
     };
 
     return (
-        <div>
+        <div className="container mt-5">
             <h1>Multivariable Linear Regression</h1>
             <ShowDataset onDatasetUpload={handleDatasetUpload} />
 
-            <form onSubmit={handleSubmit}>
-                <label>
-                    X (comma separated values):
-                    <input type="text" name="X" onChange={handleChange} />
-                </label>
-                <br />
-                <label>
-                    y (comma separated values):
-                    <input type="text" name="y" onChange={handleChange} />
-                </label>
-                <br />
-                <button type="submit">Run</button>
+            <form className="my-4" onSubmit={handleSubmit}>
+                <div className="mb-3">
+                    <label htmlFor="XInput" className="form-label">X (comma separated values):</label>
+                    <input type="text" className="form-control" id="XInput" name="X" onChange={handleChange} />
+                </div>
+                <div className="mb-3">
+                    <label htmlFor="yInput" className="form-label">y (comma separated values):</label>
+                    <input type="text" className="form-control" id="yInput" name="y" onChange={handleChange} />
+                </div>
+                <button type="submit" className="btn btn-primary">Run</button>
             </form>
-            <h2>Results:</h2>
-            <p>Coefficients: {results.coefficients.join(', ')}</p>
-            <p>Intercept: {results.intercept}</p>
-            <p>Predictions: {results.predictions.join(', ')}</p>
-            <h2>Evaluation Metrics:</h2>
-            <p>Mean Absolute Error (MAE): {results.evaluation_metrics.MAE}</p>
-            <p>Mean Squared Error (MSE): {results.evaluation_metrics.MSE}</p>
-            <p>R-squared (R2) Score: {results.evaluation_metrics.R2}</p>
-            <h2>Graph:</h2>
-            {results.outputImageUrls.map((url, index) => (
-                <img key={index} src={`${constants.API_BASE_URL}/${url}`} alt={`Graph ${index + 1}`} style={{ maxWidth: '100%', maxHeight: '100%' }} />
-            ))}
-            <DownloadModelPredictions selectedModel={'simple_linear_regression'} extension={'.csv'} />
-            <DownloadTrainedModel selectedModel={'multivariable_linear_regression'} extension={'.pkl'} />
+
+            {results.coefficients.length > 0 && (
+                <><div className="result-section mt-3">
+                    <h2>Results:</h2>
+                    <p>Coefficients: {results.coefficients.join(', ')}</p>
+                    <p>Intercept: {results.intercept}</p>
+                    <p>Predictions: {results.predictions.join(', ')}</p>
+                </div>
+
+                <div className="evaluation-metrics mt-3">
+                    <h2>Evaluation Metrics:</h2>
+                    <p>Mean Absolute Error (MAE): {results.evaluation_metrics.MAE}</p>
+                    <p>Mean Squared Error (MSE): {results.evaluation_metrics.MSE}</p>
+                    <p>R-squared (R2) Score: {results.evaluation_metrics.R2}</p>
+                </div></>
+            )}
+
+            {results.outputImageUrls.length > 0 && (
+                <div className="graph-section mt-3">
+                    <h2>Output</h2>
+                    <div className="image-carousel d-flex align-items-center justify-content-between">
+                        <button className="btn btn-link" onClick={prevImage}>
+                            <FontAwesomeIcon icon={faArrowLeft} />
+                        </button>
+                        <img src={images[currentImageIndex]} alt={`Image ${currentImageIndex + 1}`} className="img-fluid" />
+                        <button className="btn btn-link" onClick={nextImage}>
+                            <FontAwesomeIcon icon={faArrowRight} />
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            <div className="download-section mt-3">
+                <DownloadModelPredictions selectedModel={'multivariable_linear_regression'} extension={'.csv'} />
+                <DownloadTrainedModel selectedModel={'multivariable_linear_regression'} extension={'.pkl'} />
+            </div>
         </div>
     );
 }

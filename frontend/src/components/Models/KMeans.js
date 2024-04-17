@@ -7,6 +7,8 @@ import DownloadModelPredictions from '../DownloadModelPredictions/DownloadModelP
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft, faArrowRight } from '@fortawesome/free-solid-svg-icons'; // Import icons from Font Awesome
 
+import '../ModelCss/kMeans.css';
+
 export default function KMeans() {
     const [inputData, setInputData] = useState({ X: [], k: 3 });
     const [results, setResults] = useState({ labels: [], centers: [], silhouette_score: 0, outputImageUrls: [] });
@@ -59,43 +61,72 @@ export default function KMeans() {
     };
 
     return (
-        <div>
+        <div className="container mt-5">
             <h1>K-Means Clustering</h1>
             <ShowDataset onDatasetUpload={handleDatasetUpload} />
 
-            <form onSubmit={handleSubmit}>
-                <label>
-                    Data Points (comma separated values):
-                    <input type="text" name="X" onChange={handleChange} />
-                </label>
-                <br />
-                <label>
-                    Number of Clusters:
-                    <input type="number" name="k" min="1" value={inputData.k} onChange={handleChange} />
-                </label>
-                <br />
-                <button type="submit">Run</button>
+            <form className="my-4" onSubmit={handleSubmit}>
+                <div className="mb-3">
+                    <label htmlFor="XInput" className="form-label">
+                        Data Points (comma separated values):
+                    </label>
+                    <input
+                        type="text"
+                        className="form-control"
+                        id="XInput"
+                        name="X"
+                        onChange={handleChange}
+                    />
+                </div>
+                <div className="mb-3">
+                    <label htmlFor="kInput" className="form-label">
+                        Number of Clusters:
+                    </label>
+                    <input
+                        type="number"
+                        className="form-control"
+                        id="kInput"
+                        name="k"
+                        min="1"
+                        value={inputData.k}
+                        onChange={handleChange}
+                    />
+                </div>
+                <button type="submit" className="btn btn-primary">
+                    Run
+                </button>
             </form>
 
-            <h2>Results:</h2>
-            <p>Cluster Labels: {results.labels.join(', ')}</p>
-            <p>Cluster Centers: {results.centers.map(center => `[${center.join(', ')}]`).join(', ')}</p>
-            <p>Silhouette Score: {results.silhouette_score}</p>
-            <h2>Graph:</h2>
-            <div style={{ width: '600px', height: '400px' }}>
-                <h1>Output</h1>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <button onClick={prevImage} style={{ border: 'none', backgroundColor: 'transparent' }}>
-                        <FontAwesomeIcon icon={faArrowLeft} />
-                    </button>
-                    <img src={images[currentImageIndex]} alt={`Image ${currentImageIndex + 1}`} style={{ maxWidth: '100%', maxHeight: '100%' }} />
-                    <button onClick={nextImage} style={{ border: 'none', backgroundColor: 'transparent' }}>
-                        <FontAwesomeIcon icon={faArrowRight} />
-                    </button>
+            {results.labels.length > 0 && (
+                <div className="result-section mt-3">
+                    <h2>Results:</h2>
+                    <p>Cluster Labels: {results.labels.join(', ')}</p>
+                    <p>
+                        Cluster Centers: {results.centers.map(center => `[${center.join(', ')}]`).join(', ')}
+                    </p>
+                    <p>Silhouette Score: {results.silhouette_score}</p>
                 </div>
+            )}
+
+            {results.outputImageUrls.length > 0 && (
+                <div className="graph-section mt-3">
+                    <h2>Output</h2>
+                    <div className="image-carousel d-flex align-items-center justify-content-between">
+                        <button className="btn btn-link" onClick={prevImage}>
+                            <FontAwesomeIcon icon={faArrowLeft} />
+                        </button>
+                        <img src={images[currentImageIndex]} alt={`Image ${currentImageIndex + 1}`} className="img-fluid" />
+                        <button className="btn btn-link" onClick={nextImage}>
+                            <FontAwesomeIcon icon={faArrowRight} />
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            <div className="download-section mt-3">
+                <DownloadModelPredictions selectedModel={'kmeans'} extension={'.csv'} />
+                <DownloadTrainedModel selectedModel={'kmeans'} extension={'.pkl'} />
             </div>
-            <DownloadModelPredictions selectedModel={'simple_linear_regression'} extension={'.csv'} />
-            <DownloadTrainedModel selectedModel={'kmeans'} extension={'.pkl'} />
         </div>
     );
 }

@@ -14,7 +14,7 @@ def get_column_names(csv_file):
     return column_names
 
 def save_cluster_plot(X, labels, title, xlabel, ylabel, output_path):
-  plt.figure(figsize=(8, 6))
+  plt.figure(figsize=(6.4, 4.8))
   unique_labels = set(labels)
   colors = [plt.cm.Spectral(each) for each in np.linspace(0, 1, len(unique_labels))]
   

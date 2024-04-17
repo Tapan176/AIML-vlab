@@ -5,6 +5,8 @@
     background-color: #f8f8f8;
     border: 1px solid #ddd;
     border-radius: 5px;
+    overflow-y: auto;
+    max-height: 82vh;
 }
 
 .input-section,

@@ -155,10 +155,10 @@ export default function CNN() {
 //   };
 
   return (
-    <div class="cnn-settings">
+    <div className="cnn-settings mt-5 mb-5">
         <h1>Convolution Neural Network</h1>
         <ShowDataset onDatasetUpload={handleDatasetUpload} />
-        <div class="input-section">
+        <div className="input-section my-4">
         {/* Input fields for CNN parameters */}
         <label>
             Number of Neurons in Input Layer:
@@ -205,7 +205,7 @@ export default function CNN() {
         />
         {/* <button onClick={sendToBackend}>Send to Backend</button> */}
         {/* Add input fields for optimizer */}
-        <div class="optimizer-section">
+        <div className="optimizer-section">
         <label>
             Optimizer Type:
             <input
@@ -274,8 +274,10 @@ export default function CNN() {
         <button onClick={trainCNNModel}>Train CNN Model</button>
         </div>
         </div>
-        <DownloadModelPredictions selectedModel={'simple_linear_regression'} extension={'.csv'} />
-        <DownloadTrainedModel selectedModel={'cnn'} extension={'.h5'} />
+        <div className="download-section mt-3">
+            <DownloadModelPredictions selectedModel={'cnn'} extension={'.zip'} />
+            <DownloadTrainedModel selectedModel={'cnn'} extension={'.h5'} />
+        </div>
       </div>
     );
 }

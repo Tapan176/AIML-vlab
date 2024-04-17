@@ -70,45 +70,71 @@ export default function SVM() {
     };
 
     return (
-        <div>
+        <div className="container mt-5">
             <h1>Support Vector Classification</h1>
             <ShowDataset onDatasetUpload={handleDatasetUpload} />
 
-            <form onSubmit={handleSubmit}>
-                <label>
-                    X (comma separated values):
-                    <input type="text" name="X" onChange={handleChange} />
-                </label>
-                <br />
-                <label>
-                    y (comma separated values):
-                    <input type="text" name="y" onChange={handleChange} />
-                </label>
-                <br />
-                <button type="submit">Run</button>
-            </form>
-            <h2>Results:</h2>
-            <p>Confusion Matrix: {results.confusion_matrix.join(', ')}</p>
-            <p>Predictions: {results.predictions.join(', ')}</p>
-            <p>Accuracy: {results.accuracy}</p>
-            <p>Precision: {results.precision}</p>
-            <p>Recall: {results.recall}</p>
-            <p>F1 Score: {results.f1_score}</p>
-            <h2>Graph:</h2>
-            <div style={{ width: '600px', height: '400px' }}>
-                <h1>Output</h1>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <button onClick={prevImage} style={{ border: 'none', backgroundColor: 'transparent' }}>
-                        <FontAwesomeIcon icon={faArrowLeft} />
-                    </button>
-                    <img src={images[currentImageIndex]} alt={`Image ${currentImageIndex + 1}`} style={{ maxWidth: '100%', maxHeight: '100%' }} />
-                    <button onClick={nextImage} style={{ border: 'none', backgroundColor: 'transparent' }}>
-                        <FontAwesomeIcon icon={faArrowRight} />
-                    </button>
+            <form className="my-4" onSubmit={handleSubmit}>
+                <div className="mb-3">
+                    <label htmlFor="XInput" className="form-label">
+                        X (comma separated values):
+                    </label>
+                    <input
+                        type="text"
+                        className="form-control"
+                        id="XInput"
+                        name="X"
+                        onChange={handleChange}
+                    />
                 </div>
+                <div className="mb-3">
+                    <label htmlFor="yInput" className="form-label">
+                        y (comma separated values):
+                    </label>
+                    <input
+                        type="text"
+                        className="form-control"
+                        id="yInput"
+                        name="y"
+                        onChange={handleChange}
+                    />
+                </div>
+                <button type="submit" className="btn btn-primary">
+                    Run
+                </button>
+            </form>
+
+            {results.confusion_matrix.length > 0 && (
+                <div className="result-section mt-3">
+                    <h2>Results:</h2>
+                    <p>Confusion Matrix: {results.confusion_matrix.join(', ')}</p>
+                    <p>Predictions: {results.predictions.join(', ')}</p>
+                    <p>Accuracy: {results.accuracy}</p>
+                    <p>Precision: {results.precision}</p>
+                    <p>Recall: {results.recall}</p>
+                    <p>F1 Score: {results.f1_score}</p>
+                </div>
+            )}
+
+            {results.outputImageUrls.length > 0 && (
+                <div className="graph-section mt-3">
+                    <h2>Output</h2>
+                    <div className="image-carousel d-flex align-items-center justify-content-between">
+                        <button className="btn btn-link" onClick={prevImage}>
+                            <FontAwesomeIcon icon={faArrowLeft} />
+                        </button>
+                        <img src={images[currentImageIndex]} alt={`Image ${currentImageIndex + 1}`} className="img-fluid" />
+                        <button className="btn btn-link" onClick={nextImage}>
+                            <FontAwesomeIcon icon={faArrowRight} />
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            <div className="download-section mt-3">
+                <DownloadModelPredictions selectedModel={'simple_linear_regression'} extension={'.csv'} />
+                <DownloadTrainedModel selectedModel={'support_vector_machine'} extension={'.pkl'} />
             </div>
-            <DownloadModelPredictions selectedModel={'simple_linear_regression'} extension={'.csv'} />
-            <DownloadTrainedModel selectedModel={'support_vector_machine'} extension={'.pkl'} />
         </div>
     );
 }

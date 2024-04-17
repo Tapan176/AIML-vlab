@@ -1,16 +1,22 @@
 from flask import Flask, send_from_directory
 from flask_cors import CORS
 
+from mongoDb.connection import init_db, get_db
+
 # import routes
 from models.route import model_routes
 from utils.route import utils_routes
+from auth.authRoute import auth_routes
 
 app = Flask(__name__)
 CORS(app)
 
+init_db()
+
 # Register blueprints before each request
 app.register_blueprint(model_routes)
 app.register_blueprint(utils_routes)
+app.register_blueprint(auth_routes)
 
 @app.route('/uploads/<path:filename>')
 def serve_public_files(filename):

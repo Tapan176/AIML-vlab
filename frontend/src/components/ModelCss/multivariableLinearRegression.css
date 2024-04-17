@@ -36,34 +36,11 @@
     background-color: #0056b3;
 }
 
-.result-section {
+.result-section,
+.evaluation-metrics,
+.graph-section,
+.download-section {
     margin-top: 20px;
-}
-
-.predictions-section {
-    overflow-x: auto;
-    overflow-y: auto;
-    max-height: 300px;
-}
-
-.table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-.table th,
-.table td {
-    padding: 8px;
-    border: 1px solid #ddd;
-    text-align: left;
-}
-
-.output-section {
-    margin-top: 20px;
-}
-
-.image-carousel {
-    margin-top: 10px;
 }
 
 .img-fluid {
