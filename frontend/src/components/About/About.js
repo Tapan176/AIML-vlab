@@ -2,7 +2,7 @@ import React from 'react';
 
 export default function About() {
   return (
-    <div className="container mt-5">
+    <div className="container-fluid mt-5">
       <h1 className="mb-4">AI Model Hub - Empowering Users in AI & ML</h1>
       <div className="row">
         <div className="col-md-8">

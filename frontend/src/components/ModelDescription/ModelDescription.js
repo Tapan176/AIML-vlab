@@ -26,7 +26,7 @@ export default function ModelDescription({ modelCode }) {
   };
 
   return (
-    <div className="description-sidebar" style={{ width: '300px', overflowY: 'auto', maxHeight: '92.5vh', padding: '20px' }}>
+    <div className="description-sidebar" style={{ width: '400px', overflowY: 'auto', maxHeight: '92.5vh', padding: '20px' }}>
       <Button
         variant="primary"
         className="sidebar-toggle"
