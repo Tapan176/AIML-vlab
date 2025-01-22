@@ -7,4 +7,4 @@
 - Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 # Navigate to your root directory in the terminal and execute the script:
-- ./server.sh
+- ./server.bat
