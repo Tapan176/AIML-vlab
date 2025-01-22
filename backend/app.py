@@ -24,4 +24,3 @@ def serve_public_files(filename):
 
 if __name__ == '__main__':
     app.run(debug=True, port=5050)
-    # app.run(debug=True, host='192.168.1.197', port=5050)

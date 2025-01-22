@@ -11,4 +11,4 @@ joblib
 bcrypt
 PyJWT
 pymongo
-bson
+flask_cors
