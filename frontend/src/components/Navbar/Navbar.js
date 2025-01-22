@@ -33,9 +33,9 @@ export default function Navbar({ isLoggedIn, user, onLogout }) {
             <Link className="nav-link" to="/contact-us">Contact Us</Link>
           </li>
         </ul>
-        <form className="d-flex" role="search">
-          <input className="form-control me-2" type="search" placeholder="Search" aria-label="Search" />
-          <button className="btn btn-outline-success me-2" type="submit">Search</button>
+        <form className="d-flex align-items-center" role="search">
+          <input className="mx-2" type="search" placeholder="Search" aria-label="Search" style={{ height: '40px', 'padding-top': '0.375rem 0.75rem', borderRadius: '0.25rem', textAlign: 'center' }} />
+          <button className="btn btn-outline-success" type="submit" style={{ height: '40px', padding: '0.375rem 0.75rem', borderRadius: '0.25rem' }}>Search</button>
         </form>
         {isLoggedIn ? (
           <div className="profile-icon" onClick={toggleProfileDropdown}>
@@ -52,7 +52,7 @@ export default function Navbar({ isLoggedIn, user, onLogout }) {
             )} */}
           </div>
         ) : (
-          <Link className="btn btn-primary mx-2" to="/login">Login/Register</Link>
+          <Link className="btn btn-primary mx-2" to="/login" style={{ height: '40px', padding: '0.375rem 0.75rem', borderRadius: '0.25rem' }}>Login/Register</Link>
         )}
       </div>
       {/* Render Profile dropdown outside the Navbar */}
