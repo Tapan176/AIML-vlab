@@ -31,11 +31,20 @@ const HiddenLayer = ({ index, layer, onChange, onRemove }) => {
             onChange={(e) => handleInputChange(e, 'kernel')}
           />
           <label>Activation Function:</label>
-          <input
+          {/* <input
             type="text"
             value={layer.activationFunction}
             onChange={(e) => handleInputChange(e, 'activationFunction')}
-          />
+          /> */}
+          <select value={layer.activationFunction} onChange={(e) => handleInputChange(e, 'activationFunction')}>
+            <option value="relu">Relu</option>
+            <option value="leaky_relu">Leaky Relu</option>
+            <option value="softmax">Softmax</option>
+            <option value="prelu">Prelu</option>
+            <option value="elu">Elu</option>
+            <option value="tanh">Tanh</option>
+            <option value="sigmoid">Sigmoid</option>
+          </select>
         </div>
       )}
       {layer.type === 'pooling' && (
