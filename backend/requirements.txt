@@ -12,3 +12,4 @@ bcrypt
 PyJWT
 pymongo
 flask_cors
+python-dotenv

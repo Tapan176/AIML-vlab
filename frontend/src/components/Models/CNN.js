@@ -1,774 +1,149 @@
 import React, { useState } from 'react';
-// import { Button, Form, FormControl, InputGroup, DropdownButton, Dropdown } from 'react-bootstrap';
-import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
-import DownloadModelPredictions from '../DownloadModelPredictions/DownloadModelPredictions';
 import constants from '../../constants';
-import CnnHiddenLayer from '../HiddenLayers/CnnHiddenLayer';
 import ShowDataset from '../Dataset/ShowDataset';
-import '../ModelCss/cnn.css';
+import CnnHiddenLayer from '../HiddenLayers/CnnHiddenLayer';
+import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
+import ModelInfoPanel from '../shared/ModelInfoPanel';
+import '../ModelCss/ModelPage.css';
+
+const MODEL_CODE = 'cnn';
+
+const DEFAULT_LAYER = { type: 'conv', numberOfNeurons: 64, kernel: [3, 3], activationFunction: 'relu' };
 
 export default function CNN() {
-//   const [inputData, setInputData] = useState({
-//     numberOfNeuronsInInputLayer: 32,
-//     inputKernelSize: [3, 3],
-//     inputLayerActivationFunction: 'relu',
-//     inputShape: [64, 64, 3],
-//     hiddenLayerArray: [
-//         { type: 'conv', numberOfNeurons: 64, kernel: [3, 3], activationFunction: 'relu' },
-//         { type: 'pooling', poolingType: 'maxPool', poolingSize: [2, 2] },
-//         { type: 'conv', numberOfNeurons: 128, kernel: [3, 3], activationFunction: 'relu' },
-//         { type: 'pooling', poolingType: 'maxPool', poolingSize: [2, 2] },
-//         { type: 'flatten' },
-//         { type: 'dense', units: 128, activationFunction: 'relu' },
-//         { type: 'dropout', dropoutRate: 0.5 }
-//     ],
-//     optimizerObject: { type: 'adam', learning_rate: 0.0001 },
-//     lossFunction: { type: 'binary_crossentropy' },
-//     evaluationMetrics: ['accuracy'],
-//     numberOfEpochs: 25,
-//     batchSize: 32,
-//     classMode: 'binary'
-//   });
+    const [datasetData, setDatasetData] = useState('');
+    const [layers, setLayers] = useState([{ ...DEFAULT_LAYER }]);
+    const [epochs, setEpochs] = useState(10);
+    const [batchSize, setBatchSize] = useState(32);
+    const [optimizer, setOptimizer] = useState('adam');
+    const [lossFunction, setLossFunction] = useState('categorical_crossentropy');
+    const [classMode, setClassMode] = useState('categorical');
+    const [results, setResults] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [infoOpen, setInfoOpen] = useState(false);
 
-    const [inputData, setInputData] = useState({
-        numberOfNeuronsInInputLayer: 32,
-        inputKernelSize: [3, 3],
-        inputLayerActivationFunction: 'relu',
-        inputShape: [64, 64, 3],
-        hiddenLayerArray: [
-            { type: 'conv', numberOfNeurons: 64, kernel: [3, 3], activationFunction: 'relu' },
-            { type: 'pooling', poolingType: 'maxPool', poolingSize: [2, 2] },
-            { type: 'conv', numberOfNeurons: 128, kernel: [3, 3], activationFunction: 'relu' },
-            { type: 'pooling', poolingType: 'maxPool', poolingSize: [2, 2] },
-            { type: 'flatten' },
-            { type: 'dense', units: 128, activationFunction: 'relu' },
-            { type: 'dropout', dropoutRate: 0.5 }
-        ],
-        optimizerObject: { type: 'adam', learning_rate: 0.0001 },
-        lossFunction: { type: 'binary_crossentropy' },
-        evaluationMetrics: ['accuracy'],
-        numberOfEpochs: 25,
-        batchSize: 32,
-        classMode: 'binary',
-        filePath: 'dataset'
-      });
+    const handleLayerChange = (index, updatedLayer) => {
+        const newLayers = [...layers];
+        newLayers[index] = updatedLayer;
+        setLayers(newLayers);
+    };
 
-  const [datasetData, setDatasetData] = useState('');
+    const addLayer = () => setLayers([...layers, { ...DEFAULT_LAYER }]);
+    const removeLayer = (index) => setLayers(layers.filter((_, i) => i !== index));
 
-  const trainCNNModel = async () => {
-      try {
-        // let dataToSend;
-        // console.log(datasetData.extracted_file_path);
-            // if (datasetData && datasetData.filename.endsWith('.zip')) {
-          inputData.filePath = datasetData.extracted_file_path;
-                // dataToSend = {
-                //   filename: datasetData.filename,
-                //   eps: inputData.eps[0] ? inputData.eps[0] : 0.5,
-                //   min_samples: inputData.min_samples[0] ? inputData.min_samples[0] : 5
-                // };
-            // }
-            // else {
-            //     dataToSend = {
-            //       X: inputData.X,
-            //       eps: inputData.eps[0] ? inputData.eps[0] : 0.5,
-            //       min_samples: inputData.min_samples[0] ? inputData.min_samples[0] : 5
-            //     };
-            // }
-          const response = await fetch(`${constants.API_BASE_URL}/cnn`, {
-              method: 'POST',
-              headers: {
-                  'Content-Type': 'application/json'
-              },
-              body: JSON.stringify(inputData)
-          });
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setError('');
+        try {
+            const response = await fetch(`${constants.API_BASE_URL}/cnn`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    filename: datasetData?.filename,
+                    hidden_layers: layers,
+                    epochs,
+                    batch_size: batchSize,
+                    optimizer,
+                    loss: lossFunction,
+                    class_mode: classMode,
+                }),
+            });
+            if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Failed'); }
+            setResults(await response.json());
+        } catch (err) { setError(err.message); }
+        finally { setLoading(false); }
+    };
 
-          if (!response.ok) {
-              throw new Error('Failed to train model');
-          }
+    return (
+        <div className="model-page">
+            <div className="model-header">
+                <h1>Convolutional Neural Network</h1>
+                <button className="btn-info-toggle" onClick={() => setInfoOpen(true)}>📖 Info</button>
+            </div>
 
-          const responseData = await response.json();
-          console.log(responseData); // Handle success message from server
-      } catch (error) {
-          console.error('Error:', error.message); // Handle error
-      }
-  };
+            <div className="dataset-section">
+                <ShowDataset onDatasetUpload={setDatasetData} />
+            </div>
 
-  const handleInputChange = (event) => {
-      const { name, value } = event.target;
-      setInputData(prevData => ({
-          ...prevData,
-          [name]: value
-      }));
-  };
+            <form className="model-form" onSubmit={handleSubmit}>
+                {/* Training Settings — all dropdowns for enum values */}
+                <div className="form-grid">
+                    <div className="form-group">
+                        <label>Epochs</label>
+                        <input type="number" min="1" max="500" value={epochs} onChange={(e) => setEpochs(parseInt(e.target.value))} />
+                    </div>
+                    <div className="form-group">
+                        <label>Batch Size</label>
+                        <select value={batchSize} onChange={(e) => setBatchSize(parseInt(e.target.value))}>
+                            <option value={8}>8</option>
+                            <option value={16}>16</option>
+                            <option value={32}>32</option>
+                            <option value={64}>64</option>
+                            <option value={128}>128</option>
+                        </select>
+                    </div>
+                    <div className="form-group">
+                        <label>Optimizer</label>
+                        <select value={optimizer} onChange={(e) => setOptimizer(e.target.value)}>
+                            <option value="adam">Adam</option>
+                            <option value="sgd">SGD</option>
+                            <option value="rmsprop">RMSprop</option>
+                            <option value="adagrad">Adagrad</option>
+                            <option value="adadelta">Adadelta</option>
+                        </select>
+                    </div>
+                    <div className="form-group">
+                        <label>Loss Function</label>
+                        <select value={lossFunction} onChange={(e) => setLossFunction(e.target.value)}>
+                            <option value="categorical_crossentropy">Categorical Crossentropy</option>
+                            <option value="binary_crossentropy">Binary Crossentropy</option>
+                            <option value="sparse_categorical_crossentropy">Sparse Categorical Crossentropy</option>
+                            <option value="mse">Mean Squared Error</option>
+                        </select>
+                    </div>
+                    <div className="form-group">
+                        <label>Class Mode</label>
+                        <select value={classMode} onChange={(e) => setClassMode(e.target.value)}>
+                            <option value="categorical">Categorical</option>
+                            <option value="binary">Binary</option>
+                            <option value="sparse">Sparse</option>
+                        </select>
+                    </div>
+                </div>
 
-  const handleDatasetUpload = (data) => {
-    setDatasetData(data);
-  };
+                {/* Layer Builder */}
+                <CnnHiddenLayer
+                    layers={layers}
+                    onChange={handleLayerChange}
+                    onAddLayer={addLayer}
+                    onRemoveLayer={removeLayer}
+                />
 
-//   const handleLayerChange = (event, index) => {
-//     const { name, value } = event.target;
-//     setInputData(prevData => ({
-//         ...prevData,
-//         hiddenLayerArray: prevData.hiddenLayerArray.map((layer, i) => {
-//             if (i === index) {
-//                 return {
-//                     ...layer,
-//                     [name]: value
-//                 };
-//             }
-//             return layer;
-//         })
-//     }));
-//   };
+                <button type="submit" className="btn-run" disabled={loading} style={{ marginTop: 16 }}>
+                    {loading ? '⏳ Training...' : '▶ Train CNN'}
+                </button>
+            </form>
 
-  const [hiddenLayers, setHiddenLayers] = useState([
-    // Initial hidden layers configuration
-    { type: 'conv', numberOfNeurons: 64, kernel: [3, 3], activationFunction: 'relu' },
-    { type: 'pooling', poolingType: 'maxPool', poolingSize: [2, 2] },
-    // Add more initial layers if needed
-  ]);
+            {error && <div className="model-error">❌ {error}</div>}
 
-  // Function to handle adding a new layer
-  const handleAddLayer = () => {
-    setHiddenLayers([...hiddenLayers, { type: 'conv', numberOfNeurons: 64, kernel: [3, 3], activationFunction: 'relu' }]);
-  };
+            {results && (
+                <div className="results-card">
+                    <h2>Training Results</h2>
+                    {results.message && <p>{results.message}</p>}
+                    <div className="metrics-grid">
+                        {results.accuracy != null && <div className="metric-item"><div className="metric-label">Accuracy</div><div className="metric-value">{(results.accuracy * 100).toFixed(2)}%</div></div>}
+                        {results.loss != null && <div className="metric-item"><div className="metric-label">Loss</div><div className="metric-value">{results.loss.toFixed(4)}</div></div>}
+                    </div>
+                </div>
+            )}
 
-  // Function to handle removing a layer
-  const handleRemoveLayer = (index) => {
-    const updatedLayers = [...hiddenLayers];
-    updatedLayers.splice(index, 1);
-    setHiddenLayers(updatedLayers);
-  };
+            <div className="download-section">
+                <DownloadTrainedModel selectedModel="cnn" extension=".h5" />
+            </div>
 
-  // Function to handle changing layer configuration
-  const handleChangeLayer = (index, updatedLayer) => {
-    const updatedLayers = [...hiddenLayers];
-    updatedLayers[index] = updatedLayer;
-    setHiddenLayers(updatedLayers);
-  };
-
-  // Function to send hiddenLayers state to the backend
-//   const sendToBackend = () => {
-//     inputData.hiddenLayerArray = hiddenLayers;
-//     // Implement sending hiddenLayers state to the backend
-//     console.log(inputData);
-//   };
-
-  return (
-    <div className="cnn-settings mt-5 mb-5">
-        <h1>Convolution Neural Network</h1>
-        <ShowDataset onDatasetUpload={handleDatasetUpload} />
-        <div className="input-section my-4">
-        {/* Input fields for CNN parameters */}
-        <label>
-            Number of Neurons in Input Layer:
-            <input
-                type="number"
-                name="numberOfNeuronsInInputLayer"
-                value={inputData.numberOfNeuronsInInputLayer}
-                onChange={handleInputChange}
-            />
-        </label>
-        <label>
-            Input Kernel Size (e.g., "3,3"):
-            <input
-                type="text"
-                name="inputKernelSize"
-                value={inputData.inputKernelSize.join(',')}
-                onChange={handleInputChange}
-            />
-        </label>
-        <label>
-            Input Layer Activation Function:
-            <input
-                type="text"
-                name="inputLayerActivationFunction"
-                value={inputData.inputLayerActivationFunction}
-                onChange={handleInputChange}
-            />
-        </label>
-        <label>
-            Input Shape (e.g., "64,64,3"):
-            <input
-                type="text"
-                name="inputShape"
-                value={inputData.inputShape.join(',')}
-                onChange={handleInputChange}
-            />
-        </label>
-        {/* Hidden Layers */}
-        <CnnHiddenLayer 
-            layers={hiddenLayers}
-            onChange={handleChangeLayer}
-            onAddLayer={handleAddLayer}
-            onRemoveLayer={handleRemoveLayer}
-        />
-        {/* <button onClick={sendToBackend}>Send to Backend</button> */}
-        {/* Add input fields for optimizer */}
-        <div className="optimizer-section">
-        <label>
-            Optimizer Type:
-            <input
-                type="text"
-                name="optimizerObject.type"
-                value={inputData.optimizerObject.type}
-                onChange={handleInputChange}
-            />
-        </label>
-        <label>
-            Learning Rate:
-            <input
-                type="number"
-                name="optimizerObject.learning_rate"
-                value={inputData.optimizerObject.learning_rate}
-                onChange={handleInputChange}
-            />
-        </label>
-        {/* Add input fields for loss function */}
-        <label>
-            Loss Function Type:
-            <input
-                type="text"
-                name="lossFunction.type"
-                value={inputData.lossFunction.type}
-                onChange={handleInputChange}
-            />
-        </label>
-        {/* Add input fields for evaluation metrics */}
-        <label>
-            Evaluation Metrics:
-            <input
-                type="text"
-                name="evaluationMetrics"
-                value={inputData.evaluationMetrics.join(',')}
-                onChange={(event) => setInputData(prevData => ({ ...prevData, evaluationMetrics: event.target.value.split(',') }))}
-            />
-        </label>
-        <label>
-            Number of Epochs:
-            <input
-                type="number"
-                name="numberOfEpochs"
-                value={inputData.numberOfEpochs}
-                onChange={handleInputChange}
-            />
-        </label>
-        <label>
-            Batch Size:
-            <input
-                type="number"
-                name="batchSize"
-                value={inputData.batchSize}
-                onChange={handleInputChange}
-            />
-        </label>
-        <label>
-            Class Mode:
-            <input
-                type="text"
-                name="classMode"
-                value={inputData.classMode}
-                onChange={handleInputChange}
-            />
-        </label>
-        <button onClick={trainCNNModel}>Train CNN Model</button>
+            <ModelInfoPanel modelCode={MODEL_CODE} isOpen={infoOpen} onClose={() => setInfoOpen(false)} />
         </div>
-        </div>
-        <div className="download-section mt-3">
-            <DownloadModelPredictions selectedModel={'cnn'} extension={'.zip'} />
-            <DownloadTrainedModel selectedModel={'cnn'} extension={'.h5'} />
-        </div>
-      </div>
     );
 }
-
-// import React, { useState } from 'react';
-// // import { Button, Form, FormControl, InputGroup, DropdownButton, Dropdown } from 'react-bootstrap';
-// import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
-// import constants from '../../constants';
-
-// export default function CNN() {
-//   const [inputData, setInputData] = useState({
-//     numberOfNeuronsInInputLayer: 32,
-//     inputKernelSize: [3, 3],
-//     inputLayerActivationFunction: 'relu',
-//     inputShape: [64, 64, 3],
-//     hiddenLayerCount: 1,
-//     hiddenLayers: [
-//         { type: 'conv', numberOfNeurons: 64, kernel: [3, 3], activationFunction: 'relu' },
-//         { type: 'pooling', poolingType: 'maxPool', poolingSize: [2, 2] }
-//     ],
-//     optimizerObject: { type: 'adam', learning_rate: 0.0001 },
-//     lossFunction: { type: 'binary_crossentropy' },
-//     evaluationMetrics: ['accuracy'],
-//     numberOfEpochs: 25,
-//     batchSize: 32,
-//     classMode: 'binary'
-//   });
-
-//   {
-//     numberOfNeuronsInInputLayer: 32,
-//     inputKernelSize: [3, 3],
-//     inputLayerActivationFunction: 'relu',
-//     inputShape: [64, 64, 3],
-//     hiddenLayerArray: [
-//         { type: 'conv', numberOfNeurons: 64, kernel: [3, 3], activationFunction: 'relu' },
-//         { type: 'pooling', poolingType: 'maxPool', poolingSize: [2, 2] },
-//         { type: 'conv', numberOfNeurons: 128, kernel: [3, 3], activationFunction: 'relu' },
-//         { type: 'pooling', poolingType: 'maxPool', poolingSize: [2, 2] },
-//         { type: 'flatten' },
-//         { type: 'dense', units: 128, activationFunction: 'relu' },
-//         { type: 'dropout', dropoutRate: 0.5 }
-//     ],
-//     optimizerObject: { type: 'adam', learning_rate: 0.0001 },
-//     lossFunction: { type: 'binary_crossentropy' },
-//     evaluationMetrics: ['accuracy'],
-//     numberOfEpochs: 25,
-//     batchSize: 32,
-//     classMode: 'binary'
-//   }
-  
-//   const trainCNNModel = async () => {
-//     try {
-//         const response = await fetch(`${constants.API_BASE_URL}/cnn`, {
-//             method: 'POST',
-//             headers: {
-//                 'Content-Type': 'application/json'
-//             },
-//             body: JSON.stringify(inputData)
-//         });
-  
-//         if (!response.ok) {
-//             throw new Error('Failed to train model');
-//         }
-  
-//         const responseData = await response.json();
-//         console.log(responseData); // Handle success message from server
-//     } catch (error) {
-//         console.error('Error:', error.message); // Handle error
-//     }
-//   };
-  
-//   const handleInputChange = (event) => {
-//     const { name, value } = event.target;
-//     setInputData(prevData => ({
-//         ...prevData,
-//         [name]: value
-//     }));
-//   };
-  
-//   const handleLayerChange = (event, index) => {
-//     const { name, value } = event.target;
-//     setInputData(prevData => ({
-//         ...prevData,
-//         hiddenLayers: prevData.hiddenLayers.map((layer, i) => {
-//             if (i === index) {
-//                 return {
-//                     ...layer,
-//                     [name]: value
-//                 };
-//             }
-//             return layer;
-//         })
-//     }));
-//   };
-  
-//   const addHiddenLayer = () => {
-//     setInputData(prevData => ({
-//         ...prevData,
-//         hiddenLayerCount: prevData.hiddenLayerCount + 1,
-//         hiddenLayers: [
-//             ...prevData.hiddenLayers,
-//             { type: 'conv', numberOfNeurons: 64, kernel: [3, 3], activationFunction: 'relu' }
-//         ]
-//     }));
-//   };
-  
-//   return (
-//     <div>
-//         {/* Input fields for CNN parameters */}
-//         <label>
-//             Number of Neurons in Input Layer:
-//             <input
-//                 type="number"
-//                 name="numberOfNeuronsInInputLayer"
-//                 value={inputData.numberOfNeuronsInInputLayer}
-//                 onChange={handleInputChange}
-//             />
-//         </label>
-//         <label>
-//             Input Kernel Size (e.g., "3,3"):
-//             <input
-//                 type="text"
-//                 name="inputKernelSize"
-//                 value={inputData.inputKernelSize.join(',')}
-//                 onChange={handleInputChange}
-//             />
-//         </label>
-//         <label>
-//             Input Layer Activation Function:
-//             <input
-//                 type="text"
-//                 name="inputLayerActivationFunction"
-//                 value={inputData.inputLayerActivationFunction}
-//                 onChange={handleInputChange}
-//             />
-//         </label>
-//         <label>
-//             Input Shape (e.g., "64,64,3"):
-//             <input
-//                 type="text"
-//                 name="inputShape"
-//                 value={inputData.inputShape.join(',')}
-//                 onChange={handleInputChange}
-//             />
-//         </label>
-//         {/* Hidden Layers */}
-//         <label>
-//             Number of Hidden Layers:
-//             <input
-//                 type="number"
-//                 name="hiddenLayerCount"
-//                 value={inputData.hiddenLayerCount}
-//                 onChange={handleInputChange}
-//             />
-//         </label>
-//         {inputData.hiddenLayers.map((layer, index) => (
-//             <div key={index}>
-//                 <label>
-//                     Type: 
-//                     <input
-//                         type="text"
-//                         name={`hiddenLayers[${index}].type`}
-//                         value={layer.type}
-//                         onChange={(event) => handleLayerChange(event, index)}
-//                     />
-//                 </label>
-//                 {/* Add input fields for specific parameters of each layer type */}
-//                 {/* For example, for convolutional layers */}
-//                 {layer.type === 'conv' && (
-//                     <>
-//                         <label>
-//                             Number of Neurons:
-//                             <input
-//                                 type="number"
-//                                 name={`hiddenLayers[${index}].numberOfNeurons`}
-//                                 value={layer.numberOfNeurons}
-//                                 onChange={(event) => handleLayerChange(event, index)}
-//                             />
-//                         </label>
-//                         <label>
-//                             Kernel Size (e.g., "3,3"):
-//                             <input
-//                                 type="text"
-//                                 name={`hiddenLayers[${index}].kernel`}
-//                                 value={layer.kernel.join(',')}
-//                                 onChange={(event) => handleLayerChange(event, index)}
-//                             />
-//                         </label>
-//                         {/* Add more parameters as needed */}
-//                     </>
-//                 )}
-//                 {/* Add input fields for other types of layers */}
-//             </div>
-//         ))}
-//         <button onClick={addHiddenLayer}>Add Hidden Layer</button>
-//         {/* Add input fields for optimizer */}
-//         <label>
-//             Optimizer Type:
-//             <input
-//                 type="text"
-//                 name="optimizerObject.type"
-//                 value={inputData.optimizerObject.type}
-//                 onChange={handleInputChange}
-//             />
-//         </label>
-//         <label>
-//             Learning Rate:
-//             <input
-//                 type="number"
-//                 name="optimizerObject.learning_rate"
-//                 value={inputData.optimizerObject.learning_rate}
-//                 onChange={handleInputChange}
-//             />
-//         </label>
-//         {/* Add input fields for loss function */}
-//         <label>
-//             Loss Function Type:
-//             <input
-//                 type="text"
-//                 name="lossFunction.type"
-//                 value={inputData.lossFunction.type}
-//                 onChange={handleInputChange}
-//             />
-//         </label>
-//         {/* Add input fields for evaluation metrics */}
-//         <label>
-//             Evaluation Metrics:
-//             <input
-//                 type="text"
-//                 name="evaluationMetrics"
-//                 value={inputData.evaluationMetrics.join(',')}
-//                 onChange={(event) => setInputData(prevData => ({ ...prevData, evaluationMetrics: event.target.value.split(',') }))}
-//             />
-//         </label>
-//         <label>
-//             Number of Epochs:
-//             <input
-//                 type="number"
-//                 name="numberOfEpochs"
-//                 value={inputData.numberOfEpochs}
-//                 onChange={handleInputChange}
-//             />
-//         </label>
-//         <label>
-//             Batch Size:
-//             <input
-//                 type="number"
-//                 name="batchSize"
-//                 value={inputData.batchSize}
-//                 onChange={handleInputChange}
-//             />
-//         </label>
-//         <label>
-//             Class Mode:
-//             <input
-//                 type="text"
-//                 name="classMode"
-//                 value={inputData.classMode}
-//                 onChange={handleInputChange}
-//             />
-//         </label>
-//         <button onClick={trainCNNModel}>Train CNN Model</button>
-//         <DownloadTrainedModel selectedModel={'cnn'} extension={'.h5'} />
-//     </div>
-//   );
-// }
-
-// import React, { useState } from 'react';
-// import { Button, Form, Row, Col } from 'react-bootstrap';
-// import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
-// import constants from '../../constants';
-
-// export default function CNN() {
-//   const [inputData, setInputData] = useState({
-//     numberOfNeuronsInInputLayer: 32,
-//     inputKernelSize: [3, 3],
-//     inputLayerActivationFunction: 'relu',
-//     inputShape: [64, 64, 3],
-//     hiddenLayerCount: 1,
-//     hiddenLayerArray: [
-//         { type: 'conv', numberOfNeurons: 64, kernel: [3, 3], activationFunction: 'relu' },
-//         { type: 'pooling', poolingType: 'maxPool', poolingSize: [2, 2] }
-//     ],
-//     optimizerObject: { type: 'adam', learning_rate: 0.0001 },
-//     lossFunction: { type: 'binary_crossentropy' },
-//     evaluationMetrics: ['accuracy'],
-//     numberOfEpochs: 25,
-//     batchSize: 32,
-//     classMode: 'binary'
-//   });
-  
-//   const trainCNNModel = async () => {
-//     try {
-//         console.log(inputData)
-//         const response = await fetch(`${constants.API_BASE_URL}/cnn`, {
-//             method: 'POST',
-//             headers: {
-//                 'Content-Type': 'application/json'
-//             },
-//             body: JSON.stringify(inputData)
-//         });
-  
-//         if (!response.ok) {
-//             throw new Error('Failed to train model');
-//         }
-  
-//         const responseData = await response.json();
-//         console.log(responseData); // Handle success message from server
-//     } catch (error) {
-//         console.error('Error:', error.message); // Handle error
-//     }
-//   };
-  
-//   const handleInputChange = (event) => {
-//     const { name, value } = event.target;
-//     setInputData(prevData => ({
-//         ...prevData,
-//         [name]: value
-//     }));
-//   };
-  
-//   const handleLayerChange = (event, index) => {
-//     const { name, value } = event.target;
-//     setInputData(prevData => ({
-//         ...prevData,
-//         hiddenLayerArray: prevData.hiddenLayerArray.map((layer, i) => {
-//             if (i === index) {
-//                 return {
-//                     ...layer,
-//                     [name]: value
-//                 };
-//             }
-//             return layer;
-//         })
-//     }));
-//   };
-  
-//   const addHiddenLayer = () => {
-//     setInputData(prevData => ({
-//         ...prevData,
-//         hiddenLayerCount: prevData.hiddenLayerCount + 1,
-//         hiddenLayerArray: [
-//             ...prevData.hiddenLayerArray,
-//             { type: 'conv', numberOfNeurons: 64, kernel: [3, 3], activationFunction: 'relu' }
-//         ]
-//     }));
-//   };
-  
-//   return (
-//     <div className="container">
-//         <h2>CNN Model Configuration</h2>
-//         <Form>
-//             <Form.Group as={Row} controlId="numberOfNeuronsInInputLayer">
-//                 <Form.Label column sm="4">Number of Neurons in Input Layer:</Form.Label>
-//                 <Col sm="8">
-//                     <Form.Control
-//                         type="number"
-//                         name="numberOfNeuronsInInputLayer"
-//                         value={inputData.numberOfNeuronsInInputLayer}
-//                         onChange={handleInputChange}
-//                     />
-//                 </Col>
-//             </Form.Group>
-//             {/* Add more form groups for other input fields */}
-//             {/* Hidden Layers */}
-//             <Form.Group as={Row} controlId="hiddenLayerCount">
-//                 <Form.Label column sm="4">Number of Hidden Layers:</Form.Label>
-//                 <Col sm="8">
-//                     <Form.Control
-//                         type="number"
-//                         name="hiddenLayerCount"
-//                         value={inputData.hiddenLayerCount}
-//                         onChange={handleInputChange}
-//                     />
-//                 </Col>
-//             </Form.Group>
-//             {inputData.hiddenLayerArray.map((layer, index) => (
-//                 <div key={index}>
-//                     <Form.Group as={Row} controlId={`hiddenLayer-${index}-type`}>
-//                         <Form.Label column sm="4">Type:</Form.Label>
-//                         <Col sm="8">
-//                             <Form.Control
-//                                 type="text"
-//                                 name={`hiddenLayerArray[${index}].type`}
-//                                 value={layer.type}
-//                                 onChange={(event) => handleLayerChange(event, index)}
-//                             />
-//                         </Col>
-//                     </Form.Group>
-//                     {/* Add input fields for specific parameters of each layer type */}
-//                     {/* For example, for convolutional layers */}
-//                     {layer.type === 'conv' && (
-//                         <>
-//                             <Form.Group as={Row} controlId={`hiddenLayer-${index}-numberOfNeurons`}>
-//                                 <Form.Label column sm="4">Number of Neurons:</Form.Label>
-//                                 <Col sm="8">
-//                                     <Form.Control
-//                                         type="number"
-//                                         name={`hiddenLayerArray[${index}].numberOfNeurons`}
-//                                         value={layer.numberOfNeurons}
-//                                         onChange={(event) => handleLayerChange(event, index)}
-//                                     />
-//                                 </Col>
-//                             </Form.Group>
-//                             <Form.Group as={Row} controlId={`hiddenLayer-${index}-kernel`}>
-//                                 <Form.Label column sm="4">Kernel Size (e.g., "3,3"):</Form.Label>
-//                                 <Col sm="8">
-//                                     <Form.Control
-//                                         type="text"
-//                                         name={`hiddenLayerArray[${index}].kernel`}
-//                                         value={layer.kernel.join(',')}
-//                                         onChange={(event) => handleLayerChange(event, index)}
-//                                     />
-//                                 </Col>
-//                             </Form.Group>
-//                             {/* Add more parameters as needed */}
-//                         </>
-//                     )}
-//                     {/* Add input fields for other types of layers */}
-//                 </div>
-//             ))}
-//             <Button variant="primary" onClick={addHiddenLayer}>Add Hidden Layer</Button>
-//             {/* Add input fields for optimizer */}
-//             <label>
-//                 Optimizer Type:
-//                 <input
-//                     type="text"
-//                     name="optimizerObject.type"
-//                     value={inputData.optimizerObject.type}
-//                     onChange={handleInputChange}
-//                 />
-//             </label>
-//             <label>
-//                 Learning Rate:
-//                 <input
-//                     type="number"
-//                     name="optimizerObject.learning_rate"
-//                     value={inputData.optimizerObject.learning_rate}
-//                     onChange={handleInputChange}
-//                 />
-//             </label>
-//             {/* Add input fields for loss function */}
-//             <label>
-//                 Loss Function Type:
-//                 <input
-//                     type="text"
-//                     name="lossFunction.type"
-//                     value={inputData.lossFunction.type}
-//                     onChange={handleInputChange}
-//                 />
-//             </label>
-//             {/* Add input fields for evaluation metrics */}
-//             <label>
-//                 Evaluation Metrics:
-//                 <input
-//                     type="text"
-//                     name="evaluationMetrics"
-//                     value={inputData.evaluationMetrics.join(',')}
-//                     onChange={(event) => setInputData(prevData => ({ ...prevData, evaluationMetrics: event.target.value.split(',') }))}
-//                 />
-//             </label>
-//             <label>
-//                 Number of Epochs:
-//                 <input
-//                     type="number"
-//                     name="numberOfEpochs"
-//                     value={inputData.numberOfEpochs}
-//                     onChange={handleInputChange}
-//                 />
-//             </label>
-//             <label>
-//                 Batch Size:
-//                 <input
-//                     type="number"
-//                     name="batchSize"
-//                     value={inputData.batchSize}
-//                     onChange={handleInputChange}
-//                 />
-//             </label>
-//             <label>
-//                 Class Mode:
-//                 <input
-//                     type="text"
-//                     name="classMode"
-//                     value={inputData.classMode}
-//                     onChange={handleInputChange}
-//                 />
-//             </label>
-//             <Button variant="success" onClick={trainCNNModel}>Train CNN Model</Button>
-//             <DownloadTrainedModel selectedModel={'cnn'} extension={'.h5'} />
-//         </Form>
-//     </div>
-//   );
-// }

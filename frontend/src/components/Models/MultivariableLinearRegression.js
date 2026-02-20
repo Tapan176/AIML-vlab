@@ -1,119 +1,120 @@
 /* eslint-disable jsx-a11y/img-redundant-alt */
 import React, { useState } from 'react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faArrowLeft, faArrowRight } from '@fortawesome/free-solid-svg-icons';
 import constants from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
 import DownloadModelPredictions from '../DownloadModelPredictions/DownloadModelPredictions';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowLeft, faArrowRight } from '@fortawesome/free-solid-svg-icons';
+import HyperparamPanel from '../shared/HyperparamPanel';
+import ModelInfoPanel from '../shared/ModelInfoPanel';
+import '../ModelCss/ModelPage.css';
 
-import '../ModelCss/multivariableLinearRegression.css';
+const MODEL_CODE = 'multivariable_linear_regression';
 
 export default function MultivariableLinearRegression() {
     const [inputData, setInputData] = useState({ X: [], y: [] });
-    const [results, setResults] = useState({ coefficients: [], intercept: 0, predictions: [], evaluation_metrics: {}, outputImageUrls: [] });
-
+    const [hyperparams, setHyperparams] = useState({});
+    const [results, setResults] = useState(null);
+    const [datasetData, setDatasetData] = useState('');
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [infoOpen, setInfoOpen] = useState(false);
 
-    // const images = results.outputImageUrls.length > 0 ? results.outputImageUrls.map(url => `${constants.API_BASE_URL}/${url}?timestamp=${Date.now()}`) : [];
-    const images = results.outputImageUrls.map(url => `${constants.API_BASE_URL}/${url}?timestamp=${Date.now()}`);
-
-    const prevImage = () => {
-        setCurrentImageIndex((prevIndex) => (prevIndex === 0 ? images.length - 1 : prevIndex - 1));
-    };
-
-    const nextImage = () => {
-        setCurrentImageIndex((prevIndex) => (prevIndex === images.length - 1 ? 0 : prevIndex + 1));
-    };
-
-    const handleDatasetUpload = (data) => {
-        setInputData({
-            ...inputData,
-            X: data.X || [],
-            y: data.y || []
-        });
-    };
+    const images = results?.outputImageUrls?.map(url => `${constants.API_BASE_URL}/${url}?timestamp=${Date.now()}`) || [];
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setInputData({
-            ...inputData,
-            [name]: value.split(',').map(parseFloat)
-        });
+        setInputData({ ...inputData, [name]: value.split(',').map(parseFloat) });
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setLoading(true);
+        setError('');
         try {
+            let dataToSend;
+            if (datasetData && datasetData.csv_data) {
+                dataToSend = { filename: datasetData.filename, hyperparams };
+            } else {
+                dataToSend = { X: inputData.X, y: inputData.y, hyperparams };
+            }
             const response = await fetch(`${constants.API_BASE_URL}/multivariable-linear-regression`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(inputData),
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(dataToSend),
             });
             if (!response.ok) {
-                throw new Error('Network response was not ok');
+                const errData = await response.json();
+                throw new Error(errData.error || 'Request failed');
             }
-            const data = await response.json();
-            setResults(data);
-        } catch (error) {
-            console.error('Error:', error);
+            setResults(await response.json());
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
         }
     };
 
     return (
-        <div className="container mt-5">
-            <h1>Multivariable Linear Regression</h1>
-            <ShowDataset onDatasetUpload={handleDatasetUpload} />
+        <div className="model-page">
+            <div className="model-header">
+                <h1>Multivariable Linear Regression</h1>
+                <button className="btn-info-toggle" onClick={() => setInfoOpen(true)}>📖 Info</button>
+            </div>
 
-            <form className="my-4" onSubmit={handleSubmit}>
-                <div className="mb-3">
-                    <label htmlFor="XInput" className="form-label">X (comma separated values):</label>
-                    <input type="text" className="form-control" id="XInput" name="X" onChange={handleChange} />
+            <div className="dataset-section">
+                <ShowDataset onDatasetUpload={setDatasetData} />
+            </div>
+
+            <form className="model-form" onSubmit={handleSubmit}>
+                <div className="form-grid">
+                    <div className="form-group">
+                        <label>X (comma separated)</label>
+                        <input type="text" name="X" onChange={handleChange} placeholder="Feature values" />
+                    </div>
+                    <div className="form-group">
+                        <label>y (comma separated)</label>
+                        <input type="text" name="y" onChange={handleChange} placeholder="Target values" />
+                    </div>
                 </div>
-                <div className="mb-3">
-                    <label htmlFor="yInput" className="form-label">y (comma separated values):</label>
-                    <input type="text" className="form-control" id="yInput" name="y" onChange={handleChange} />
-                </div>
-                <button type="submit" className="btn btn-primary">Run</button>
+                <HyperparamPanel modelCode={MODEL_CODE} hyperparams={hyperparams} onChange={(n, v) => setHyperparams(p => ({ ...p, [n]: v }))} />
+                <button type="submit" className="btn-run" disabled={loading}>
+                    {loading ? '⏳ Training...' : '▶ Run Model'}
+                </button>
             </form>
 
-            {results.coefficients.length > 0 && (
-                <><div className="result-section mt-3">
-                    <h2>Results:</h2>
-                    <p>Coefficients: {results.coefficients.join(', ')}</p>
-                    <p>Intercept: {results.intercept}</p>
-                    <p>Predictions: {results.predictions.join(', ')}</p>
-                </div>
+            {error && <div className="model-error">❌ {error}</div>}
 
-                <div className="evaluation-metrics mt-3">
-                    <h2>Evaluation Metrics:</h2>
-                    <p>Mean Absolute Error (MAE): {results.evaluation_metrics.MAE}</p>
-                    <p>Mean Squared Error (MSE): {results.evaluation_metrics.MSE}</p>
-                    <p>R-squared (R2) Score: {results.evaluation_metrics.R2}</p>
-                </div></>
-            )}
-
-            {results.outputImageUrls.length > 0 && (
-                <div className="graph-section mt-3">
-                    <h2>Output</h2>
-                    <div className="image-carousel d-flex align-items-center justify-content-between">
-                        <button className="btn btn-link" onClick={prevImage}>
-                            <FontAwesomeIcon icon={faArrowLeft} />
-                        </button>
-                        <img src={images[currentImageIndex]} alt={`Image ${currentImageIndex + 1}`} className="img-fluid" />
-                        <button className="btn btn-link" onClick={nextImage}>
-                            <FontAwesomeIcon icon={faArrowRight} />
-                        </button>
+            {results && (
+                <div className="results-card">
+                    <h2>Regression Results</h2>
+                    <div className="metrics-grid">
+                        {results.MAE != null && <div className="metric-item"><div className="metric-label">MAE</div><div className="metric-value">{results.MAE.toFixed(4)}</div></div>}
+                        {results.MSE != null && <div className="metric-item"><div className="metric-label">MSE</div><div className="metric-value">{results.MSE.toFixed(4)}</div></div>}
+                        {results.R2 != null && <div className="metric-item"><div className="metric-label">R² Score</div><div className="metric-value">{results.R2.toFixed(4)}</div></div>}
                     </div>
                 </div>
             )}
 
-            <div className="download-section mt-3">
-                <DownloadModelPredictions selectedModel={'multivariable_linear_regression'} extension={'.csv'} />
-                <DownloadTrainedModel selectedModel={'multivariable_linear_regression'} extension={'.pkl'} />
+            {images.length > 0 && (
+                <div className="output-section">
+                    <h2>Visualizations</h2>
+                    <div className="image-carousel">
+                        <button type="button" className="carousel-btn" onClick={() => setCurrentImageIndex(i => i === 0 ? images.length - 1 : i - 1)}><FontAwesomeIcon icon={faArrowLeft} /></button>
+                        <img src={images[currentImageIndex]} alt={`Output ${currentImageIndex + 1}`} />
+                        <button type="button" className="carousel-btn" onClick={() => setCurrentImageIndex(i => i === images.length - 1 ? 0 : i + 1)}><FontAwesomeIcon icon={faArrowRight} /></button>
+                    </div>
+                </div>
+            )}
+
+            <div className="download-section">
+                <DownloadModelPredictions selectedModel="multivariable_linear_regression" extension=".csv" />
+                <DownloadTrainedModel selectedModel="multivariable_linear_regression" extension=".pkl" />
             </div>
+
+            <ModelInfoPanel modelCode={MODEL_CODE} isOpen={infoOpen} onClose={() => setInfoOpen(false)} />
         </div>
     );
 }

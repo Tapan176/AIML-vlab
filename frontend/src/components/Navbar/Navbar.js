@@ -1,69 +1,82 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom'; // Assuming you're using React Router for navigation
-import ProfileDropdown from '../Profile/ProfileDropdown';
+import React, { useState, useRef, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
+import './Navbar.css';
 
-export default function Navbar({ isLoggedIn, user, onLogout }) {
-  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+const Navbar = () => {
+    const { user, isAuthenticated, logout } = useAuth();
+    const { isDark, toggleTheme } = useTheme();
+    const [dropdownOpen, setDropdownOpen] = useState(false);
+    const dropdownRef = useRef(null);
+    const location = useLocation();
 
-  const toggleProfileDropdown = () => {
-    setShowProfileDropdown(!showProfileDropdown);
-  };
+    useEffect(() => {
+        const handleClick = (e) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+                setDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClick);
+        return () => document.removeEventListener('mousedown', handleClick);
+    }, []);
 
-  const closeProfileDropdown = () => {
-    setShowProfileDropdown(false);
-  };
+    const isActive = (path) => location.pathname === path;
 
-  const handleLogout = () => {
-    onLogout(); // Call the logout function passed from props
-    closeProfileDropdown(); // Close the profile dropdown after logging out
-  };
+    return (
+        <nav className="navbar">
+            <div className="nav-container">
+                <Link to="/" className="nav-brand">
+                    <span className="brand-icon">🧪</span>
+                    <span className="brand-text">AIML<span className="brand-highlight">Lab</span></span>
+                </Link>
 
-  return (
-    <nav className="navbar navbar-expand-lg bg-body-tertiary">
-      <div className="container-fluid">
-        <Link className="navbar-brand" to="/">AI Model Hub</Link>
-        <ul className="navbar-nav me-auto mb-2 mb-lg-0 flex-row">
-          <li className="nav-item">
-            <Link className="nav-link active" to="/">Home</Link>
-          </li>
-          <li className="nav-item">
-            <Link className="nav-link" to="/about">About</Link>
-          </li>
-          <li className="nav-item">
-            <Link className="nav-link" to="/contact-us">Contact Us</Link>
-          </li>
-        </ul>
-        <form className="d-flex align-items-center" role="search">
-          <input className="mx-2" type="search" placeholder="Search" aria-label="Search" style={{ height: '40px', 'padding-top': '0.375rem 0.75rem', borderRadius: '0.25rem', textAlign: 'center' }} />
-          <button className="btn btn-outline-success" type="submit" style={{ height: '40px', padding: '0.375rem 0.75rem', borderRadius: '0.25rem' }}>Search</button>
-        </form>
-        {isLoggedIn ? (
-          <div className="profile-icon" onClick={toggleProfileDropdown}>
-            <img
-              src={process.env.PUBLIC_URL + '/Assets/profile.jpg'}
-              alt="Profile"
-              className="rounded-circle"
-              style={{ width: '40px', height: '40px', cursor: 'pointer' }}
-            />
-            {/* {showProfile && (
-              <div className="profile-dropdown">
-                <ProfileDropdown user={user} onLogout={onLogout} />
-              </div>
-            )} */}
-          </div>
-        ) : (
-          <Link className="btn btn-primary mx-2" to="/login" style={{ height: '40px', padding: '0.375rem 0.75rem', borderRadius: '0.25rem' }}>Login/Register</Link>
-        )}
-      </div>
-      {/* Render Profile dropdown outside the Navbar */}
-      {showProfileDropdown && (
-        <ProfileDropdown user={user} onLogout={handleLogout} onClose={() => setShowProfileDropdown(false)}/>
-      )}
+                <div className="nav-links">
+                    <Link to="/" className={`nav-link ${isActive('/') ? 'active' : ''}`}>Home</Link>
+                    <Link to="/lab" className={`nav-link ${isActive('/lab') ? 'active' : ''}`}>Lab</Link>
+                    <Link to="/about" className={`nav-link ${isActive('/about') ? 'active' : ''}`}>About</Link>
+                    {isAuthenticated && (
+                        <Link to="/dashboard" className={`nav-link ${isActive('/dashboard') ? 'active' : ''}`}>Dashboard</Link>
+                    )}
+                </div>
 
-      {/* Add click event listener to close dropdown when clicking outside */}
-      {showProfileDropdown && (
-        <div className="overlay" onClick={closeProfileDropdown}></div>
-      )}
-    </nav>
-  );
-}
+                <div className="nav-actions">
+                    <button className="theme-toggle" onClick={toggleTheme} title={isDark ? 'Switch to Light' : 'Switch to Dark'}>
+                        {isDark ? '☀️' : '🌙'}
+                    </button>
+
+                    {isAuthenticated ? (
+                        <div className="profile-menu" ref={dropdownRef}>
+                            <button className="avatar-btn" onClick={() => setDropdownOpen(!dropdownOpen)}>
+                                <span className="avatar">
+                                    {user?.first_name?.charAt(0)?.toUpperCase() || 'U'}
+                                </span>
+                            </button>
+                            {dropdownOpen && (
+                                <div className="dropdown-menu">
+                                    <div className="dropdown-header">
+                                        <span className="dropdown-name">{user?.first_name} {user?.last_name}</span>
+                                        <span className="dropdown-email">{user?.email}</span>
+                                    </div>
+                                    <div className="dropdown-divider"></div>
+                                    <Link to="/profile" className="dropdown-item" onClick={() => setDropdownOpen(false)}>👤 My Profile</Link>
+                                    <Link to="/edit-profile" className="dropdown-item" onClick={() => setDropdownOpen(false)}>⚙️ Settings</Link>
+                                    <Link to="/dashboard" className="dropdown-item" onClick={() => setDropdownOpen(false)}>📊 Dashboard</Link>
+                                    <div className="dropdown-divider"></div>
+                                    <button className="dropdown-item danger" onClick={() => { logout(); setDropdownOpen(false); }}>🚪 Logout</button>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="auth-buttons">
+                            <Link to="/login" className="nav-btn-outline">Sign In</Link>
+                            <Link to="/signup" className="nav-btn-primary">Sign Up</Link>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </nav>
+    );
+};
+
+export default Navbar;

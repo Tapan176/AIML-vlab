@@ -1,0 +1,90 @@
+import React, { useState } from 'react';
+import constants from '../../constants';
+import ShowDataset from '../Dataset/ShowDataset';
+import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
+import ModelInfoPanel from '../shared/ModelInfoPanel';
+import '../ModelCss/ModelPage.css';
+
+export default function TextClassification() {
+    const [datasetData, setDatasetData] = useState('');
+    const [textColumn, setTextColumn] = useState('');
+    const [labelColumn, setLabelColumn] = useState('');
+    const [maxFeatures, setMaxFeatures] = useState(5000);
+    const [alpha, setAlpha] = useState(1.0);
+    const [results, setResults] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [infoOpen, setInfoOpen] = useState(false);
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setError('');
+        try {
+            const response = await fetch(`${constants.API_BASE_URL}/text-classification`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    filename: datasetData?.filename,
+                    text_column: textColumn || undefined,
+                    label_column: labelColumn || undefined,
+                    hyperparams: { max_features: maxFeatures, alpha },
+                }),
+            });
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.error || 'Training failed');
+            }
+            setResults(await response.json());
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="model-page">
+            <div className="model-header">
+                <h1>Text Classification</h1>
+                <button className="btn-info-toggle" onClick={() => setInfoOpen(true)}>📖 Info</button>
+            </div>
+            <div className="dataset-section"><ShowDataset onDatasetUpload={setDatasetData} /></div>
+            <form className="model-form" onSubmit={handleSubmit}>
+                <div className="form-grid">
+                    <div className="form-group">
+                        <label>Text Column <small>(auto-detected if empty)</small></label>
+                        <input type="text" placeholder="e.g. text" value={textColumn} onChange={(e) => setTextColumn(e.target.value)} />
+                    </div>
+                    <div className="form-group">
+                        <label>Label Column <small>(auto-detected if empty)</small></label>
+                        <input type="text" placeholder="e.g. category" value={labelColumn} onChange={(e) => setLabelColumn(e.target.value)} />
+                    </div>
+                    <div className="form-group">
+                        <label>Max Features</label>
+                        <input type="number" min="100" max="50000" value={maxFeatures} onChange={(e) => setMaxFeatures(parseInt(e.target.value))} />
+                    </div>
+                    <div className="form-group">
+                        <label>Alpha (Smoothing)</label>
+                        <input type="number" step="0.1" min="0.001" max="10" value={alpha} onChange={(e) => setAlpha(parseFloat(e.target.value))} />
+                    </div>
+                </div>
+                <button type="submit" className="btn-run" disabled={loading}>{loading ? '⏳ Classifying...' : '▶ Classify Text'}</button>
+            </form>
+            {error && <div className="model-error">❌ {error}</div>}
+            {results && (
+                <div className="results-card">
+                    <h2>Results</h2>
+                    <div className="metrics-grid">
+                        <div className="metric-item"><div className="metric-label">Accuracy</div><div className="metric-value">{(results.accuracy * 100).toFixed(2)}%</div></div>
+                        <div className="metric-item"><div className="metric-label">Precision</div><div className="metric-value">{(results.precision * 100).toFixed(2)}%</div></div>
+                        <div className="metric-item"><div className="metric-label">Recall</div><div className="metric-value">{(results.recall * 100).toFixed(2)}%</div></div>
+                        <div className="metric-item"><div className="metric-label">F1 Score</div><div className="metric-value">{(results.f1_score * 100).toFixed(2)}%</div></div>
+                    </div>
+                </div>
+            )}
+            <div className="download-section"><DownloadTrainedModel selectedModel="text_classification" extension=".pkl" /></div>
+            <ModelInfoPanel modelCode="text_classification" isOpen={infoOpen} onClose={() => setInfoOpen(false)} />
+        </div>
+    );
+}

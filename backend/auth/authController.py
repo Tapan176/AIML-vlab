@@ -1,81 +1,133 @@
+"""
+Authentication controller — handles login, signup, password management.
+Generates JWT tokens for session management.
+"""
 import bcrypt
 import jwt
+from datetime import datetime, timedelta
 from mongoDb.connection import get_db
 from bson import ObjectId
+from config import JWT_SECRET, JWT_ALGORITHM, JWT_EXPIRY_HOURS
+
+
+def _generate_token(user_id, email):
+    """Generate a JWT access token."""
+    payload = {
+        'user_id': str(user_id),
+        'email': email,
+        'iat': datetime.utcnow(),
+        'exp': datetime.utcnow() + timedelta(hours=JWT_EXPIRY_HOURS)
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+def _sanitize_user(user):
+    """Remove sensitive fields and convert ObjectId for JSON serialization."""
+    user['_id'] = str(user['_id'])
+    user.pop('password', None)
+    return user
+
 
 def login(email, password):
     db = get_db()
     user = db.users.find_one({"email": email})
-    
+
     if not user:
         raise Exception("user_not_found")
-    
+
     if not bcrypt.checkpw(password.encode('utf-8'), user['password'].encode('utf-8')):
         raise Exception("incorrect_password")
 
-    # Convert ObjectId to string for JSON serialization
-    user['_id'] = str(user['_id'])
+    # Generate JWT token
+    token = _generate_token(user['_id'], user['email'])
 
-    return user
+    return {
+        'user': _sanitize_user(user),
+        'token': token
+    }
 
-def signup(first_name, last_name, email, password, phone, countryCode, termsAccepted,):
+
+def signup(first_name, last_name, email, password, phone, country_code, terms_accepted):
     db = get_db()
     existing_user = db.users.find_one({"email": email})
-    
+
     if existing_user:
         raise Exception("user_already_exists")
-    
+
     hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-    
+
     user_data = {
         "first_name": first_name,
         "last_name": last_name,
         "email": email,
         "password": hashed_password,
         "phone": phone,
-        "countryCode": countryCode,
-        "termsAccepted": termsAccepted,
+        "countryCode": country_code,
+        "termsAccepted": terms_accepted,
+        "created_at": datetime.utcnow(),
     }
-    
-    # Insert user data into the database
+
     result = db.users.insert_one(user_data)
+    user_data['_id'] = result.inserted_id
 
-    # Get the inserted user's _id
-    inserted_id = result.inserted_id
+    # Auto-login: generate token
+    token = _generate_token(user_data['_id'], email)
 
-    # Convert ObjectId to string for serialization
-    if isinstance(inserted_id, ObjectId):
-        user_data['_id'] = str(inserted_id)  # Convert ObjectId to string
+    return {
+        'user': _sanitize_user(user_data),
+        'token': token
+    }
 
-    return user_data['_id']
 
 def forgot_password(email):
     db = get_db()
     user = db.users.find_one({"email": email})
-    
+
     if not user:
         raise Exception("user_not_found")
-    
-    # Implement your token generation and email sending logic here
-    reset_token = jwt.encode({"email": email}, 'your_secret_key').decode('utf-8')
-    # Send email with reset link
-    
-    return user
+
+    # Generate a password reset token (short expiry)
+    reset_token = jwt.encode(
+        {
+            "email": email,
+            "type": "password_reset",
+            "exp": datetime.utcnow() + timedelta(hours=1)
+        },
+        JWT_SECRET,
+        algorithm=JWT_ALGORITHM
+    )
+
+    # TODO: Send email with reset link containing reset_token
+
+    return {"message": "Password reset link sent to your email", "reset_token": reset_token}
+
 
 def reset_password(token, new_password):
     db = get_db()
-    decoded = jwt.decode(token, 'your_secret_key')
-    
+
+    try:
+        decoded = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    except jwt.ExpiredSignatureError:
+        raise Exception("reset_token_expired")
+    except jwt.InvalidTokenError:
+        raise Exception("invalid_reset_token")
+
+    if decoded.get('type') != 'password_reset':
+        raise Exception("invalid_reset_token")
+
     user = db.users.find_one({"email": decoded['email']})
-    
+
     if not user:
         raise Exception("user_not_found")
-    
+
     if bcrypt.checkpw(new_password.encode('utf-8'), user['password'].encode('utf-8')):
         raise Exception("new_password_same_as_old_password")
-    
+
     hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-    
-    db.users.update_one({"email": decoded['email']}, {"$set": {"password": hashed_password}})
-    
-    return user
+
+    db.users.update_one(
+        {"email": decoded['email']},
+        {"$set": {"password": hashed_password}}
+    )
+
+    return {"message": "Password reset successfully"}

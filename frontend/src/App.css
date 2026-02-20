@@ -1,0 +1,4 @@
+/* App-level styles — minimal, most theming is in index.css */
+.App {
+    min-height: 100vh;
+}

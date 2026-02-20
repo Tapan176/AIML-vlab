@@ -99,7 +99,7 @@ def build_cnn_model(
 
     return classifier
 
-def train_cnn(request):
+def train_cnn(request, validated_params=None, user_id=None, session_version=None):
     data = request.json
     # input_shape = tuple(data['inputShape'])
     numberOfNeuronsInInputLayer = data['numberOfNeuronsInInputLayer']
@@ -154,7 +154,7 @@ def train_cnn(request):
                         callbacks=[early_stopping])
 
     # Save the model
-    saveTrainedModel(model, "cnn", "Keras")
+    saveTrainedModel(model, "cnn", "Keras", user_id=user_id, version=session_version)
     # model.save("cnn.h5")
 
     return ({'message': 'Model trained successfully.'})
