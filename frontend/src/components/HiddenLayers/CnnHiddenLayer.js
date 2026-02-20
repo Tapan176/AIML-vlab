@@ -1,119 +1,121 @@
 import React from 'react';
+import '../ModelCss/ModelPage.css';
 
 const HiddenLayer = ({ index, layer, onChange, onRemove }) => {
-  const handleInputChange = (e, key) => {
-    onChange(index, { ...layer, [key]: e.target.value });
-  };
+    const handleChange = (key, value) => {
+        onChange(index, { ...layer, [key]: value });
+    };
 
-  return (
-    <div>
-      <h3>Hidden Layer {index + 1}</h3>
-      <label>Type:</label>
-      <select value={layer.type} onChange={(e) => handleInputChange(e, 'type')}>
-        <option value="conv">Convolutional</option>
-        <option value="pooling">Pooling</option>
-        <option value="flatten">Flatten</option>
-        <option value="dense">Dense</option>
-        <option value="dropout">Dropout</option>
-      </select>
-      {layer.type === 'conv' && (
-        <div>
-          <label>Number of Neurons:</label>
-          <input
-            type="number"
-            value={layer.numberOfNeurons}
-            onChange={(e) => handleInputChange(e, 'numberOfNeurons')}
-          />
-          <label>Kernel:</label>
-          <input
-            type="text"
-            value={layer.kernel}
-            onChange={(e) => handleInputChange(e, 'kernel')}
-          />
-          <label>Activation Function:</label>
-          {/* <input
-            type="text"
-            value={layer.activationFunction}
-            onChange={(e) => handleInputChange(e, 'activationFunction')}
-          /> */}
-          <select value={layer.activationFunction} onChange={(e) => handleInputChange(e, 'activationFunction')}>
-            <option value="relu">Relu</option>
-            <option value="leaky_relu">Leaky Relu</option>
-            <option value="softmax">Softmax</option>
-            <option value="prelu">Prelu</option>
-            <option value="elu">Elu</option>
-            <option value="tanh">Tanh</option>
-            <option value="sigmoid">Sigmoid</option>
-          </select>
+    return (
+        <div className="hidden-layer-card">
+            <div className="layer-card-header">
+                <h4>Layer {index + 1}</h4>
+                <button className="btn-remove-layer" onClick={() => onRemove(index)}>✕ Remove</button>
+            </div>
+            <div className="layer-params">
+                <div>
+                    <label>Type</label>
+                    <select value={layer.type} onChange={(e) => handleChange('type', e.target.value)}>
+                        <option value="conv">Convolutional</option>
+                        <option value="pooling">Pooling</option>
+                        <option value="flatten">Flatten</option>
+                        <option value="dense">Dense</option>
+                        <option value="dropout">Dropout</option>
+                    </select>
+                </div>
+
+                {layer.type === 'conv' && (
+                    <>
+                        <div>
+                            <label>Neurons</label>
+                            <input type="number" value={layer.numberOfNeurons || 64} onChange={(e) => handleChange('numberOfNeurons', parseInt(e.target.value))} />
+                        </div>
+                        <div>
+                            <label>Kernel Size</label>
+                            <input type="text" value={Array.isArray(layer.kernel) ? layer.kernel.join(',') : layer.kernel} onChange={(e) => handleChange('kernel', e.target.value.split(',').map(Number))} />
+                        </div>
+                        <div>
+                            <label>Activation</label>
+                            <select value={layer.activationFunction || 'relu'} onChange={(e) => handleChange('activationFunction', e.target.value)}>
+                                <option value="relu">ReLU</option>
+                                <option value="leaky_relu">Leaky ReLU</option>
+                                <option value="softmax">Softmax</option>
+                                <option value="prelu">PReLU</option>
+                                <option value="elu">ELU</option>
+                                <option value="tanh">Tanh</option>
+                                <option value="sigmoid">Sigmoid</option>
+                            </select>
+                        </div>
+                    </>
+                )}
+
+                {layer.type === 'pooling' && (
+                    <>
+                        <div>
+                            <label>Pooling Type</label>
+                            <select value={layer.poolingType || 'maxPool'} onChange={(e) => handleChange('poolingType', e.target.value)}>
+                                <option value="maxPool">Max Pooling</option>
+                                <option value="avgPool">Average Pooling</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label>Pool Size</label>
+                            <input type="text" value={Array.isArray(layer.poolingSize) ? layer.poolingSize.join(',') : layer.poolingSize} onChange={(e) => handleChange('poolingSize', e.target.value.split(',').map(Number))} />
+                        </div>
+                    </>
+                )}
+
+                {layer.type === 'dense' && (
+                    <>
+                        <div>
+                            <label>Units</label>
+                            <input type="number" value={layer.units || 128} onChange={(e) => handleChange('units', parseInt(e.target.value))} />
+                        </div>
+                        <div>
+                            <label>Activation</label>
+                            <select value={layer.activationFunction || 'relu'} onChange={(e) => handleChange('activationFunction', e.target.value)}>
+                                <option value="relu">ReLU</option>
+                                <option value="softmax">Softmax</option>
+                                <option value="sigmoid">Sigmoid</option>
+                                <option value="tanh">Tanh</option>
+                            </select>
+                        </div>
+                    </>
+                )}
+
+                {layer.type === 'dropout' && (
+                    <div>
+                        <label>Dropout Rate</label>
+                        <input type="number" step="0.05" min="0" max="1" value={layer.dropoutRate || 0.5} onChange={(e) => handleChange('dropoutRate', parseFloat(e.target.value))} />
+                    </div>
+                )}
+            </div>
         </div>
-      )}
-      {layer.type === 'pooling' && (
-        <div>
-          <label>Pooling Type:</label>
-          <select
-            value={layer.poolingType}
-            onChange={(e) => handleInputChange(e, 'poolingType')}
-          >
-            <option value="maxPool">Max Pooling</option>
-            <option value="avgPool">Average Pooling</option>
-          </select>
-          <label>Pooling Size:</label>
-          <input
-            type="text"
-            value={layer.poolingSize}
-            onChange={(e) => handleInputChange(e, 'poolingSize')}
-          />
-        </div>
-      )}
-      {layer.type === 'dense' && (
-        <div>
-          <label>Units:</label>
-          <input
-            type="number"
-            value={layer.units}
-            onChange={(e) => handleInputChange(e, 'units')}
-          />
-          <label>Activation Function:</label>
-          <input
-            type="text"
-            value={layer.activationFunction}
-            onChange={(e) => handleInputChange(e, 'activationFunction')}
-          />
-        </div>
-      )}
-      {layer.type === 'dropout' && (
-        <div>
-          <label>Dropout Rate:</label>
-          <input
-            type="number"
-            step="0.1"
-            min="0"
-            max="1"
-            value={layer.dropoutRate}
-            onChange={(e) => handleInputChange(e, 'dropoutRate')}
-          />
-        </div>
-      )}
-      <button onClick={() => onRemove(index)}>Remove Layer</button>
-    </div>
-  );
+    );
 };
 
 const CnnHiddenLayer = ({ layers, onChange, onAddLayer, onRemoveLayer }) => {
-  return (
-    <div>
-      {layers.map((layer, index) => (
-        <HiddenLayer
-          key={index}
-          index={index}
-          layer={layer}
-          onChange={onChange}
-          onRemove={onRemoveLayer}
-        />
-      ))}
-      <button onClick={onAddLayer}>Add Layer</button>
-    </div>
-  );
+    return (
+        <div className="hidden-layers-section">
+            <div className="hidden-layers-header">
+                <h3>🧱 Hidden Layers ({layers.length})</h3>
+            </div>
+            <div className="hidden-layers-list">
+                {layers.map((layer, index) => (
+                    <HiddenLayer
+                        key={index}
+                        index={index}
+                        layer={layer}
+                        onChange={onChange}
+                        onRemove={onRemoveLayer}
+                    />
+                ))}
+                <button className="btn-add-layer" onClick={onAddLayer}>
+                    ＋ Add Layer
+                </button>
+            </div>
+        </div>
+    );
 };
 
 export default CnnHiddenLayer;

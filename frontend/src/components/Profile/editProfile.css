@@ -1,37 +1,78 @@
-/* Apply CSS styles similar to other components to the Edit Profile form */
-
-.editProfileDiv {
-    max-width: 400px;
-    margin: 0 auto;
-    padding: 20px;
-    background-color: #f8f8f8;
-    border: 1px solid #ddd;
-    border-radius: 5px;
+/* EditProfile */
+.edit-profile-container {
+    min-height: calc(100vh - 64px);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 3rem 2rem;
 }
 
-.form-label {
-    margin-bottom: 10px;
-    font-weight: bold;
-}
-
-.form-control {
+.edit-profile-card {
     width: 100%;
-    padding: 8px;
-    border: 1px solid #ccc;
-    border-radius: 3px;
-    margin-bottom: 15px;
+    max-width: 500px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 2.5rem;
+    box-shadow: var(--shadow-md);
 }
 
-.btn-primary {
-    padding: 10px 20px;
-    background-color: #007bff;
-    color: #fff;
-    border: none;
-    border-radius: 3px;
+.edit-profile-card h2 {
+    color: var(--text-primary);
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+}
+
+.edit-profile-card .form-group {
+    margin-bottom: 1.25rem;
+}
+
+.edit-profile-card label {
+    display: block;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-weight: 500;
+    margin-bottom: 0.4rem;
+}
+
+.edit-profile-card input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    transition: border-color 0.2s;
+    box-sizing: border-box;
+}
+
+.edit-profile-card input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    margin-top: 1.5rem;
+}
+
+.btn-cancel {
+    padding: 0.75rem 1.5rem;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 0.9rem;
     cursor: pointer;
-    font-size: 16px;
+    transition: all 0.2s;
 }
 
-.btn-primary:hover {
-    background-color: #0056b3;
+.btn-cancel:hover {
+    border-color: var(--danger);
+    color: var(--danger);
 }

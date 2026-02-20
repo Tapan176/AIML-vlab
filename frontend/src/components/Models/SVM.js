@@ -1,140 +1,80 @@
 /* eslint-disable jsx-a11y/img-redundant-alt */
 import React, { useState } from 'react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faArrowLeft, faArrowRight } from '@fortawesome/free-solid-svg-icons';
 import constants from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
-import DownloadModelPredictions from '../DownloadModelPredictions/DownloadModelPredictions';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowLeft, faArrowRight } from '@fortawesome/free-solid-svg-icons'; // Import icons from Font Awesome
+import HyperparamPanel from '../shared/HyperparamPanel';
+import ModelInfoPanel from '../shared/ModelInfoPanel';
+import '../ModelCss/ModelPage.css';
+
+const MODEL_CODE = 'svm';
 
 export default function SVM() {
-    const [inputData, setInputData] = useState({ X: [], y: [] });
-    const [results, setResults] = useState({
-        confusion_matrix: [],
-        predictions: [],
-        accuracy: 0,
-        precision: 0,
-        recall: 0,
-        f1_score: 0,
-        outputImageUrls: []
-    });
+    const [hyperparams, setHyperparams] = useState({});
+    const [results, setResults] = useState(null);
     const [datasetData, setDatasetData] = useState('');
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [infoOpen, setInfoOpen] = useState(false);
 
-    const images = results.outputImageUrls.map(url => `${constants.API_BASE_URL}/${url}?timestamp=${Date.now()}`);
-
-    const prevImage = () => {
-        setCurrentImageIndex((prevIndex) => (prevIndex === 0 ? images.length - 1 : prevIndex - 1));
-    };
-
-    const nextImage = () => {
-        setCurrentImageIndex((prevIndex) => (prevIndex === images.length - 1 ? 0 : prevIndex + 1));
-    };
-
-    const handleDatasetUpload = (data) => {
-        setDatasetData(data);
-    };
-
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setInputData({ ...inputData, [name]: value.split(',').map(parseFloat) });
-    };
+    const images = results?.outputImageUrls?.map(url => `${constants.API_BASE_URL}/${url}?timestamp=${Date.now()}`) || [];
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setLoading(true);
+        setError('');
         try {
-            let dataToSend;
-            if (datasetData && datasetData.csv_data) {
-                dataToSend = { filename: datasetData.filename };
-            } else {
-                dataToSend = { X: inputData.X, y: inputData.y };
-            }
-
             const response = await fetch(`${constants.API_BASE_URL}/support-vector-machine`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(dataToSend),
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ filename: datasetData?.filename, hyperparams }),
             });
-            console.log(response);
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-
-            const data = await response.json();
-            setResults(data);
-        } catch (error) {
-            console.error('Error:', error);
-        }
+            if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Failed'); }
+            setResults(await response.json());
+        } catch (err) { setError(err.message); }
+        finally { setLoading(false); }
     };
 
     return (
-        <div className="container mt-5">
-            <h1>Support Vector Classification</h1>
-            <ShowDataset onDatasetUpload={handleDatasetUpload} />
-
-            <form className="my-4" onSubmit={handleSubmit}>
-                <div className="mb-3">
-                    <label htmlFor="XInput" className="form-label">
-                        X (comma separated values):
-                    </label>
-                    <input
-                        type="text"
-                        className="form-control"
-                        id="XInput"
-                        name="X"
-                        onChange={handleChange}
-                    />
-                </div>
-                <div className="mb-3">
-                    <label htmlFor="yInput" className="form-label">
-                        y (comma separated values):
-                    </label>
-                    <input
-                        type="text"
-                        className="form-control"
-                        id="yInput"
-                        name="y"
-                        onChange={handleChange}
-                    />
-                </div>
-                <button type="submit" className="btn btn-primary">
-                    Run
-                </button>
+        <div className="model-page">
+            <div className="model-header">
+                <h1>Support Vector Machine</h1>
+                <button className="btn-info-toggle" onClick={() => setInfoOpen(true)}>📖 Info</button>
+            </div>
+            <div className="dataset-section"><ShowDataset onDatasetUpload={setDatasetData} /></div>
+            <form className="model-form" onSubmit={handleSubmit}>
+                <HyperparamPanel modelCode={MODEL_CODE} hyperparams={hyperparams} onChange={(n, v) => setHyperparams(p => ({ ...p, [n]: v }))} />
+                <button type="submit" className="btn-run" disabled={loading}>{loading ? '⏳ Training...' : '▶ Run Model'}</button>
             </form>
-
-            {results.confusion_matrix.length > 0 && (
-                <div className="result-section mt-3">
-                    <h2>Results:</h2>
-                    <p>Confusion Matrix: {results.confusion_matrix.join(', ')}</p>
-                    <p>Predictions: {results.predictions.join(', ')}</p>
-                    <p>Accuracy: {results.accuracy}</p>
-                    <p>Precision: {results.precision}</p>
-                    <p>Recall: {results.recall}</p>
-                    <p>F1 Score: {results.f1_score}</p>
-                </div>
-            )}
-
-            {results.outputImageUrls.length > 0 && (
-                <div className="graph-section mt-3">
-                    <h2>Output</h2>
-                    <div className="image-carousel d-flex align-items-center justify-content-between">
-                        <button className="btn btn-link" onClick={prevImage}>
-                            <FontAwesomeIcon icon={faArrowLeft} />
-                        </button>
-                        <img src={images[currentImageIndex]} alt={`Image ${currentImageIndex + 1}`} className="img-fluid" />
-                        <button className="btn btn-link" onClick={nextImage}>
-                            <FontAwesomeIcon icon={faArrowRight} />
-                        </button>
+            {error && <div className="model-error">❌ {error}</div>}
+            {results && (
+                <div className="results-card">
+                    <h2>Classification Results</h2>
+                    <div className="metrics-grid">
+                        {results.accuracy != null && <div className="metric-item"><div className="metric-label">Accuracy</div><div className="metric-value">{(results.accuracy * 100).toFixed(2)}%</div></div>}
+                        {results.precision != null && <div className="metric-item"><div className="metric-label">Precision</div><div className="metric-value">{(results.precision * 100).toFixed(2)}%</div></div>}
+                        {results.recall != null && <div className="metric-item"><div className="metric-label">Recall</div><div className="metric-value">{(results.recall * 100).toFixed(2)}%</div></div>}
+                        {results.f1_score != null && <div className="metric-item"><div className="metric-label">F1 Score</div><div className="metric-value">{(results.f1_score * 100).toFixed(2)}%</div></div>}
                     </div>
                 </div>
             )}
-
-            <div className="download-section mt-3">
-                <DownloadModelPredictions selectedModel={'simple_linear_regression'} extension={'.csv'} />
-                <DownloadTrainedModel selectedModel={'support_vector_machine'} extension={'.pkl'} />
+            {images.length > 0 && (
+                <div className="output-section">
+                    <h2>Visualizations</h2>
+                    <div className="image-carousel">
+                        <button type="button" className="carousel-btn" onClick={() => setCurrentImageIndex(i => i === 0 ? images.length - 1 : i - 1)}><FontAwesomeIcon icon={faArrowLeft} /></button>
+                        <img src={images[currentImageIndex]} alt={`Output ${currentImageIndex + 1}`} />
+                        <button type="button" className="carousel-btn" onClick={() => setCurrentImageIndex(i => i === images.length - 1 ? 0 : i + 1)}><FontAwesomeIcon icon={faArrowRight} /></button>
+                    </div>
+                </div>
+            )}
+            <div className="download-section">
+                <DownloadTrainedModel selectedModel="svm" extension=".pkl" />
             </div>
+            <ModelInfoPanel modelCode={MODEL_CODE} isOpen={infoOpen} onClose={() => setInfoOpen(false)} />
         </div>
     );
 }

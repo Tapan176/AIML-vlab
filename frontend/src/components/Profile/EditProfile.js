@@ -1,97 +1,81 @@
 import React, { useState } from 'react';
-import { useNavigate  } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import './EditProfile.css';
 
-import './editProfile.css';
+const EditProfile = () => {
+    const { user, updateProfile } = useAuth();
+    const navigate = useNavigate();
 
-const EditProfile = ({ user }) => {
-  const navigate = useNavigate();
-  const [formData, setFormData] = useState({
-    firstName: user.first_name,
-    lastName: user.last_name,
-    phone: user.phone,
-    email: user.email,
-    countryCode: user.countryCode
-  });
+    const [formData, setFormData] = useState({
+        first_name: user?.first_name || '',
+        last_name: user?.last_name || '',
+        email: user?.email || '',
+        phone: user?.phone || '',
+    });
+    const [loading, setLoading] = useState(false);
+    const [message, setMessage] = useState('');
+    const [error, setError] = useState('');
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prevFormData) => ({
-      ...prevFormData,
-      [name]: value
-    }));
-  };
+    const handleChange = (e) => {
+        setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    navigate('/');
-    // Here you can implement logic to submit updated formData to server
-    // console.log('Updated User Data:', formData);
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError('');
+        setMessage('');
+        setLoading(true);
 
-    // Example: Call API to update user details with formData
-    // updateUserData(formData);
-  };
+        try {
+            await updateProfile(formData);
+            setMessage('Profile updated successfully!');
+        } catch (err) {
+            setError(err.message || 'Failed to update profile');
+        }
+        setLoading(false);
+    };
 
-  return (
-    <div className="editProfileDiv mt-5">
-            <h2>Edit Profile</h2>
-            <form onSubmit={handleSubmit}>
-                <div className="mb-3">
-                    <label htmlFor="firstName" className="form-label">First Name</label>
-                    <input
-                        type="text"
-                        className="form-control"
-                        id="firstName"
-                        name="firstName"
-                        value={formData.firstName}
-                        onChange={handleChange}
-                    />
-                </div>
-                <div className="mb-3">
-                    <label htmlFor="lastName" className="form-label">Last Name</label>
-                    <input
-                        type="text"
-                        className="form-control"
-                        id="lastName"
-                        name="lastName"
-                        value={formData.lastName}
-                        onChange={handleChange}
-                    />
-                </div>
-                <div className="mb-3">
-                    <label htmlFor="phone" className="form-label">Phone</label>
-                    <input
-                        type="text"
-                        className="form-control"
-                        id="phone"
-                        name="phone"
-                        value={formData.phone}
-                        onChange={handleChange}
-                    />
-                </div>
-                <div className="mb-3">
-                    <label htmlFor="email" className="form-label">Email</label>
-                    <input
-                        type="email"
-                        className="form-control"
-                        id="email"
-                        name="email"
-                        value={formData.email}
-                        onChange={handleChange}
-                    />
-                </div>
-                <div className="mb-3">
-                    <label htmlFor="countryCode" className="form-label">Country Code</label>
-                    <input
-                        type="text"
-                        className="form-control"
-                        id="countryCode"
-                        name="countryCode"
-                        value={formData.countryCode}
-                        onChange={handleChange}
-                    />
-                </div>
-                <button type="submit" className="btn btn-primary">Update Profile</button>
-            </form>
+    if (!user) {
+        navigate('/login');
+        return null;
+    }
+
+    return (
+        <div className="edit-profile-container">
+            <div className="edit-profile-card">
+                <h2>Edit Profile</h2>
+
+                {error && <div className="auth-error">{error}</div>}
+                {message && <div className="auth-success">{message}</div>}
+
+                <form onSubmit={handleSubmit}>
+                    <div className="form-row">
+                        <div className="form-group">
+                            <label>First Name</label>
+                            <input name="first_name" value={formData.first_name} onChange={handleChange} required />
+                        </div>
+                        <div className="form-group">
+                            <label>Last Name</label>
+                            <input name="last_name" value={formData.last_name} onChange={handleChange} required />
+                        </div>
+                    </div>
+                    <div className="form-group">
+                        <label>Email</label>
+                        <input name="email" type="email" value={formData.email} onChange={handleChange} required />
+                    </div>
+                    <div className="form-group">
+                        <label>Phone</label>
+                        <input name="phone" value={formData.phone} onChange={handleChange} />
+                    </div>
+                    <div className="form-actions">
+                        <button type="button" className="btn-cancel" onClick={() => navigate(-1)}>Cancel</button>
+                        <button type="submit" className="auth-btn" disabled={loading} style={{ width: 'auto', padding: '0.75rem 2rem' }}>
+                            {loading ? <span className="spinner-sm"></span> : 'Save Changes'}
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     );
 };

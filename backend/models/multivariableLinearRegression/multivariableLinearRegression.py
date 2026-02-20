@@ -1,84 +1,87 @@
-from flask import request, jsonify
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import pandas as pd
 import numpy as np
+import csv
 import os
 import matplotlib
-matplotlib.use('Agg')  # To avoid GUI when saving plots
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from utils.saveTrainedModel import saveTrainedModel
+from config import UPLOAD_DIR, IMAGES_DIR, PREDICTIONS_DIR, ensure_dir
 
-def save_result_images(X, y, X_train, model, title, xlabel, ylabel, output_path):
-    # Remove the old image if it exists
-    if os.path.exists(output_path):
-        os.remove(output_path)
 
-    plt.scatter(X, y, color='red')
-    plt.plot(X_train, model.predict(X_train), color='blue')
-    plt.title(title)
-    plt.xlabel(xlabel)
-    plt.ylabel(ylabel)
-    plt.savefig(output_path)
-    plt.close()
-
-def multivariateLinearRegression(request):
+def multivariateLinearRegression(request, validated_params=None, user_id=None, session_version=None):
     data = request.json
-    directory = 'static/uploads'
+    params = validated_params or {}
+    test_size = params.get('test_size', 0.33)
+    random_state = params.get('random_state', 0)
 
     X = None
     y = None
 
-    if 'X' in data and 'y' in data:  # If X and y are provided
-        X = np.array(data['X'])
-        y = np.array(data['y'])
-    elif 'filename' in data:  # If filename is provided
-        filepath = os.path.join(directory, data['filename'])
+    if 'filename' in data:
+        filepath = os.path.join(UPLOAD_DIR, data['filename'])
         try:
             dataset = pd.read_csv(filepath)
             X = dataset.iloc[:, :-1].values
             y = dataset.iloc[:, -1].values
+            columnNames = dataset.columns.tolist()
         except FileNotFoundError:
-            return jsonify({"error": "File not found"})
+            return {"error": "File not found"}
         except Exception as e:
-            return jsonify({"error": str(e)})
+            return {"error": str(e)}
     else:
-        return jsonify({"error": "Neither X and y nor filename provided"})
+        return {"error": "Filename required for multivariate regression"}
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=1/3, random_state=0)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=random_state)
 
-    regressor = LinearRegression()
-    regressor.fit(X_train, y_train)
+    sc = StandardScaler()
+    X_train = sc.fit_transform(X_train)
+    X_test = sc.transform(X_test)
 
-    saveTrainedModel(regressor, "multivariable_linear_regression", "scikit-learn")
+    model = LinearRegression()
+    model.fit(X_train, y_train)
 
-    y_pred = regressor.predict(X_test)
+    model_path = saveTrainedModel(model, "multivariable_linear_regression", "scikit-learn", user_id=user_id, version=session_version)
+
+    y_pred = model.predict(X_test)
 
     mae = mean_absolute_error(y_test, y_pred)
     mse = mean_squared_error(y_test, y_pred)
     r2 = r2_score(y_test, y_pred)
 
-    outputImageDir = 'static/images'
-    if not os.path.exists(outputImageDir):
-        os.makedirs(outputImageDir)
+    # Save predictions
+    pred_dir = ensure_dir(PREDICTIONS_DIR)
+    predictions_output_file = os.path.join(pred_dir, 'multivariable_linear_regression.csv')
+    pred_dataset = pd.DataFrame(X_test, columns=columnNames[:-1])
+    pred_dataset[columnNames[-1]] = y_test
+    pred_dataset['Predictions'] = y_pred
+    pred_dataset.to_csv(predictions_output_file, index=False)
 
-    outputImageUrls = [
-        os.path.join(outputImageDir, 'linearRegressionTrainGraph.jpg'),
-        os.path.join(outputImageDir, 'linearRegressionTestGraph.jpg')
-    ]
-
-    save_result_images(X_train[:, 0], y_train, X_train[:, 0], regressor, title='Training', xlabel='X', ylabel='y', output_path=outputImageUrls[0])
-    save_result_images(X_test[:, 0], y_test, X_train[:, 0], regressor, title='Test', xlabel='X', ylabel='y', output_path=outputImageUrls[1])
+    # Actual vs Predicted plot
+    img_dir = ensure_dir(IMAGES_DIR)
+    plot_path = os.path.join(img_dir, 'multivariableLinearRegression.jpg')
+    if os.path.exists(plot_path):
+        os.remove(plot_path)
+    plt.scatter(y_test, y_pred, color='blue', alpha=0.6)
+    plt.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'r--')
+    plt.title('Actual vs Predicted')
+    plt.xlabel('Actual')
+    plt.ylabel('Predicted')
+    plt.savefig(plot_path)
+    plt.close()
 
     return {
-        "coefficients": regressor.coef_.tolist(),
-        "intercept": regressor.intercept_,
+        "coefficients": model.coef_.tolist(),
+        "intercept": model.intercept_,
         "predictions": y_pred.tolist(),
-        "evaluation_metrics": {
-            "MAE": mae,
-            "MSE": mse,
-            "R2": r2
-        },
-        "outputImageUrls": outputImageUrls
+        "outputImageUrls": [plot_path],
+        "predictions_output_file": predictions_output_file,
+        "trained_model_path": model_path,
+        "evaluation_metrics": {"MAE": mae, "MSE": mse, "R2": r2},
+        "actual_values": y_test.tolist(),
+        "hyperparams_used": params,
     }
