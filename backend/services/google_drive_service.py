@@ -1,0 +1,199 @@
+import os
+import io
+import json
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from google.auth.transport.requests import Request
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseUpload, MediaIoBaseDownload
+from werkzeug.datastructures import FileStorage
+from config import BASE_DIR
+
+# If modifying these scopes, delete the file token.json.
+SCOPES = ['https://www.googleapis.com/auth/drive.file']
+
+# The ID of the root folder in Google Drive where app data will be stored.
+# If None, the service will create an 'AIML_VLab_Data' folder in the root and use it.
+APP_ROOT_FOLDER_ID = None
+
+creds_path = os.path.join(BASE_DIR, 'credentials.json')
+token_path = os.path.join(BASE_DIR, 'token.json')
+
+def get_drive_service():
+    """Shows basic usage of the Drive v3 API.
+    Prints the names and ids of the first 10 files the user has access to.
+    """
+    creds = None
+    # The file token.json stores the user's access and refresh tokens, and is
+    # created automatically when the authorization flow completes for the first
+    # time.
+    if os.path.exists(token_path):
+        creds = Credentials.from_authorized_user_file(token_path, SCOPES)
+    
+    # If there are no (valid) credentials available, let the user log in.
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            if not os.path.exists(creds_path):
+                print(f"WARNING: Google Drive credentials not found at {creds_path}. Drive integration will fail.")
+                return None
+            flow = InstalledAppFlow.from_client_secrets_file(
+                creds_path, SCOPES)
+            creds = flow.run_local_server(port=0)
+        # Save the credentials for the next run
+        with open(token_path, 'w') as token:
+            token.write(creds.to_json())
+
+    try:
+        service = build('drive', 'v3', credentials=creds)
+        return service
+    except Exception as e:
+        print(f"Error connecting to Google Drive: {e}")
+        return None
+
+def get_or_create_app_folder(service):
+    """Ensure the base app folder exists."""
+    global APP_ROOT_FOLDER_ID
+    if APP_ROOT_FOLDER_ID:
+        return APP_ROOT_FOLDER_ID
+
+    folder_name = 'AIML_VLab_Data'
+    query = f"name='{folder_name}' and mimeType='application/vnd.google-apps.folder' and trashed=false"
+    results = service.files().list(q=query, spaces='drive', fields='nextPageToken, files(id, name)').execute()
+    items = results.get('files', [])
+
+    if not items:
+        file_metadata = {
+            'name': folder_name,
+            'mimeType': 'application/vnd.google-apps.folder'
+        }
+        folder = service.files().create(body=file_metadata, fields='id').execute()
+        APP_ROOT_FOLDER_ID = folder.get('id')
+    else:
+        APP_ROOT_FOLDER_ID = items[0].get('id')
+    
+    return APP_ROOT_FOLDER_ID
+
+def get_or_create_subfolder(service, parent_id, folder_name):
+    query = f"name='{folder_name}' and '{parent_id}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false"
+    results = service.files().list(q=query, spaces='drive', fields='files(id, name)').execute()
+    items = results.get('files', [])
+
+    if not items:
+        file_metadata = {
+            'name': folder_name,
+            'parents': [parent_id],
+            'mimeType': 'application/vnd.google-apps.folder'
+        }
+        folder = service.files().create(body=file_metadata, fields='id').execute()
+        return folder.get('id')
+    else:
+        return items[0].get('id')
+
+def upload_file_to_drive(file_obj, filename, folder_type='datasets', user_id=None):
+    """
+    Uploads a file to Google Drive.
+    folder_type: 'datasets', 'models', or 'profiles'
+    """
+    service = get_drive_service()
+    if not service:
+        raise Exception("Google Drive service is not configured.")
+
+    root_id = get_or_create_app_folder(service)
+    
+    # Get the specific folder (datasets, models, etc)
+    type_folder_id = get_or_create_subfolder(service, root_id, folder_type)
+    
+    parent_folder_id = type_folder_id
+    if user_id:
+        # Create a user-specific folder inside the type folder
+        user_folder_id = get_or_create_subfolder(service, type_folder_id, str(user_id))
+        parent_folder_id = user_folder_id
+
+    # Read the file content
+    if isinstance(file_obj, FileStorage):
+        file_content = file_obj.read()
+    elif isinstance(file_obj, str) and os.path.exists(file_obj):
+        with open(file_obj, 'rb') as f:
+            file_content = f.read()
+    else:
+        file_content = file_obj # Assume bytes
+        
+    media = MediaIoBaseUpload(io.BytesIO(file_content), mimetype='application/octet-stream', resumable=True)
+    
+    file_metadata = {
+        'name': filename,
+        'parents': [parent_folder_id]
+    }
+
+    # Upload
+    file = service.files().create(body=file_metadata, media_body=media, fields='id, webContentLink, webViewLink').execute()
+    
+    # Make it readable by anyone with the link so frontend can access images directly if needed
+    try:
+        service.permissions().create(
+            fileId=file.get('id'),
+            body={'type': 'anyone', 'role': 'reader'},
+        ).execute()
+    except Exception as e:
+        print(f"Warning: Could not set public permission on file {filename}: {e}")
+        
+    return {
+        'id': file.get('id'),
+        'webContentLink': file.get('webContentLink'),
+        'webViewLink': file.get('webViewLink')
+    }
+
+def download_file_from_drive(file_id, destination_path):
+    """
+    Downloads a file from Google Drive to the local path.
+    """
+    service = get_drive_service()
+    if not service:
+        raise Exception("Google Drive service is not configured.")
+
+    request = service.files().get_media(fileId=file_id)
+    fh = io.FileIO(destination_path, 'wb')
+    downloader = MediaIoBaseDownload(fh, request)
+    done = False
+    while done is False:
+        status, done = downloader.next_chunk()
+    return destination_path
+
+def stream_file_from_drive(file_id):
+    """
+    Streams a file from Google Drive into a BytesIO object. Returns (BytesIO, mimetype).
+    """
+    service = get_drive_service()
+    if not service:
+        raise Exception("Google Drive service is not configured.")
+
+    request = service.files().get(fileId=file_id, fields='mimeType')
+    file_metadata = request.execute()
+    mime_type = file_metadata.get('mimeType', 'application/octet-stream')
+
+    request = service.files().get_media(fileId=file_id)
+    fh = io.BytesIO()
+    downloader = MediaIoBaseDownload(fh, request)
+    done = False
+    while done is False:
+        status, done = downloader.next_chunk()
+        
+    fh.seek(0)
+    return fh, mime_type
+
+def delete_file_from_drive(file_id):
+    """
+    Deletes a file from Google Drive.
+    """
+    service = get_drive_service()
+    if not service:
+        raise Exception("Google Drive service is not configured.")
+        
+    try:
+        service.files().delete(fileId=file_id).execute()
+        return True
+    except Exception as e:
+        print(f"Error deleting file from Drive: {e}")
+        return False

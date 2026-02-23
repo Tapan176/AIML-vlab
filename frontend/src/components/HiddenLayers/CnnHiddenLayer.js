@@ -10,7 +10,7 @@ const HiddenLayer = ({ index, layer, onChange, onRemove }) => {
         <div className="hidden-layer-card">
             <div className="layer-card-header">
                 <h4>Layer {index + 1}</h4>
-                <button className="btn-remove-layer" onClick={() => onRemove(index)}>✕ Remove</button>
+                <button type="button" className="btn-remove-layer" onClick={() => onRemove(index)}>✕ Remove</button>
             </div>
             <div className="layer-params">
                 <div>
@@ -56,6 +56,7 @@ const HiddenLayer = ({ index, layer, onChange, onRemove }) => {
                             <select value={layer.poolingType || 'maxPool'} onChange={(e) => handleChange('poolingType', e.target.value)}>
                                 <option value="maxPool">Max Pooling</option>
                                 <option value="avgPool">Average Pooling</option>
+                                <option value="minPool">Min Pooling</option>
                             </select>
                         </div>
                         <div>
@@ -110,7 +111,7 @@ const CnnHiddenLayer = ({ layers, onChange, onAddLayer, onRemoveLayer }) => {
                         onRemove={onRemoveLayer}
                     />
                 ))}
-                <button className="btn-add-layer" onClick={onAddLayer}>
+                <button type="button" className="btn-add-layer" onClick={onAddLayer}>
                     ＋ Add Layer
                 </button>
             </div>

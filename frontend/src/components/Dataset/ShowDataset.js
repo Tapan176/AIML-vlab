@@ -1,11 +1,61 @@
 /* eslint-disable jsx-a11y/img-redundant-alt */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import constants from '../../constants';
 
-export default function ShowDataset({ onDatasetUpload }) {
+export default function ShowDataset({ onDatasetUpload, ...props }) {
     const [csvData, setCsvData] = useState(null);
     const [imageLinks, setImageLinks] = useState([]);
     const [showDataset, setShowDataset] = useState(false);
+    
+    // Cloud Dataset Selection State
+    const [cloudDatasets, setCloudDatasets] = useState([]);
+    const [selectedCloudDataset, setSelectedCloudDataset] = useState('');
+    const { allowedTypes } = props;
+
+    useEffect(() => {
+        const fetchDatasets = async () => {
+            const token = localStorage.getItem('token');
+            try {
+                const [defaultRes, userRes] = await Promise.all([
+                    fetch(`${constants.API_BASE_URL}/datasets/default`, { headers: { 'Authorization': `Bearer ${token}` } }),
+                    fetch(`${constants.API_BASE_URL}/user-datasets`, { headers: { 'Authorization': `Bearer ${token}` } })
+                ]);
+                const defaultData = await defaultRes.json();
+                const userData = await userRes.json();
+                
+                let combined = [
+                    ...(defaultData.datasets || []).map(d => ({ ...d, group: 'Default' })),
+                    ...(userData.datasets || []).map(d => ({ ...d, group: 'My Uploads' }))
+                ];
+
+                // Filter by allowedTypes if provided (e.g., ['csv'] or ['zip'])
+                if (allowedTypes && allowedTypes.length > 0) {
+                    combined = combined.filter(d => {
+                        const ext = d.filename.split('.').pop().toLowerCase();
+                        return allowedTypes.includes(ext);
+                    });
+                }
+
+                setCloudDatasets(combined);
+            } catch (err) {
+                console.error("Failed to fetch cloud datasets:", err);
+            }
+        };
+        fetchDatasets();
+    }, []);
+
+    function handleCloudSelection(e) {
+        const filename = e.target.value;
+        setSelectedCloudDataset(filename);
+        if (filename) {
+            setCsvData(null);
+            setImageLinks([]);
+            setShowDataset(false); // Can't preview cloud datasets easily right now
+            onDatasetUpload({ filename });
+        } else {
+            onDatasetUpload(null);
+        }
+    }
 
     function handleUpload() {
         const fileInput = document.getElementById('formFileMultiple');
@@ -19,8 +69,12 @@ export default function ShowDataset({ onDatasetUpload }) {
         const formData = new FormData();
         formData.append('file', file);
 
+        const token = localStorage.getItem('token');
         fetch(`${constants.API_BASE_URL}/upload`, {
             method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            },
             body: formData,
         })
         .then(response => {
@@ -38,6 +92,10 @@ export default function ShowDataset({ onDatasetUpload }) {
                 setImageLinks(data.image_links.map(link => `${constants.API_BASE_URL}/${link}`));
                 console.log(imageLinks);
                 setCsvData(null);
+                onDatasetUpload(data);
+            } else {
+                setCsvData(null);
+                setImageLinks([]);
                 onDatasetUpload(data);
             }
             // Set showDataset to true to indicate that the dataset is ready to be displayed
@@ -58,11 +116,47 @@ export default function ShowDataset({ onDatasetUpload }) {
     }
 
     return (
-        <div style={{ maxWidth: '100%' }}>
-            <h2>Upload Your Dataset</h2>
-            <input className="form-control" type="file" id="formFileMultiple" multiple /><br/>
-            <button onClick={handleUpload}>Upload Dataset</button>&nbsp;&nbsp;
-            <button onClick={handleShow}>{showDataset ? 'Hide Dataset' : 'Show Dataset'}</button>
+        <div className="dataset-selection-container" style={{ maxWidth: '100%', marginBottom: '20px' }}>
+            <h2>Dataset Selection</h2>
+            
+            <div style={{ padding: '15px', border: '1px solid #ccc', borderRadius: '8px', marginBottom: '20px' }}>
+                <h4>1. Select from Cloud Library</h4>
+                <select 
+                    className="form-control" 
+                    value={selectedCloudDataset} 
+                    onChange={handleCloudSelection} 
+                    style={{ maxWidth: '400px', marginBottom: '10px' }}
+                >
+                    <option value="">-- Choose a dataset from the cloud --</option>
+                    <optgroup label="Default Datasets">
+                        {cloudDatasets.filter(d => d.group === 'Default').length === 0 ? (
+                            <option value="" disabled>No default datasets available</option>
+                        ) : cloudDatasets.filter(d => d.group === 'Default').map(d => (
+                            <option key={`def-${d._id}`} value={d.filename}>{d.filename}</option>
+                        ))}
+                    </optgroup>
+                    <optgroup label="My Uploads">
+                        {cloudDatasets.filter(d => d.group === 'My Uploads').length === 0 ? (
+                            <option value="" disabled>No user datasets available</option>
+                        ) : cloudDatasets.filter(d => d.group === 'My Uploads').map(d => (
+                            <option key={`usr-${d._id}`} value={d.filename}>{d.filename}</option>
+                        ))}
+                    </optgroup>
+                </select>
+                {selectedCloudDataset && <div style={{ color: 'green', fontSize: '0.9em' }}>✓ Selected: {selectedCloudDataset}</div>}
+            </div>
+
+            <div style={{ padding: '15px', border: '1px solid #ccc', borderRadius: '8px' }}>
+                <h4>2. Or Upload New Dataset Locally</h4>
+                <input className="form-control" type="file" id="formFileMultiple" multiple 
+                       style={{ maxWidth: '400px', marginBottom: '10px' }}
+                       accept={allowedTypes ? allowedTypes.map(t => typeof t === 'string' && !t.startsWith('.') ? `.${t}` : t).join(',') : undefined}
+                /><br/>
+                <button className="btn-upload" onClick={handleUpload}>Upload Dataset</button>&nbsp;&nbsp;
+                <button className="btn-preview" onClick={handleShow} disabled={!csvData && imageLinks.length === 0}>
+                    {showDataset ? 'Hide Preview' : 'Show Preview'}
+                </button>
+            </div>
             {/* Render CSV data if it's available */}
             {showDataset && csvData && (
                 <><br /><br />

@@ -12,7 +12,11 @@ import EditProfile from './components/Profile/EditProfile';
 import ProfilePage from './components/Profile/ProfilePage';
 import Dashboard from './components/Dashboard/Dashboard';
 import AboutUs from './components/AboutUs/AboutUs';
+import Settings from './components/Profile/Settings';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
+import AdminDashboard from './components/Admin/AdminDashboard';
+import DatasetLibrary from './components/Dataset/DatasetLibrary';
+import DataStudio from './components/Studio/DataStudio';
 import './App.css';
 
 function App() {
@@ -26,9 +30,15 @@ function App() {
                             <Route path="/" element={<LandingPage />} />
                             <Route path="/lab" element={<Home />} />
                             <Route path="/about" element={<AboutUs />} />
+                            <Route path="/datasets" element={<DatasetLibrary />} />
                             <Route path="/login" element={<Login />} />
                             <Route path="/signup" element={<Signup />} />
                             <Route path="/forgot-password" element={<ForgotPassword />} />
+                            <Route path="/studio" element={
+                                <ProtectedRoute>
+                                    <DataStudio />
+                                </ProtectedRoute>
+                            } />
                             <Route path="/profile" element={
                                 <ProtectedRoute>
                                     <ProfilePage />
@@ -39,9 +49,19 @@ function App() {
                                     <EditProfile />
                                 </ProtectedRoute>
                             } />
+                            <Route path="/settings" element={
+                                <ProtectedRoute>
+                                    <Settings />
+                                </ProtectedRoute>
+                            } />
                             <Route path="/dashboard" element={
                                 <ProtectedRoute>
                                     <Dashboard />
+                                </ProtectedRoute>
+                            } />
+                            <Route path="/admin" element={
+                                <ProtectedRoute>
+                                    <AdminDashboard />
                                 </ProtectedRoute>
                             } />
                         </Routes>

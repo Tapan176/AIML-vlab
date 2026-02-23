@@ -44,7 +44,19 @@ export const AuthProvider = ({ children }) => {
     }, []);
 
     useEffect(() => {
+        const handleStorageChange = (e) => {
+            if (e.key === 'aiml_token') {
+                if (e.newValue) {
+                    fetchCurrentUser(e.newValue);
+                } else {
+                    setToken(null);
+                    setUser(null);
+                }
+            }
+        };
+        window.addEventListener('storage', handleStorageChange);
         fetchCurrentUser(token);
+        return () => window.removeEventListener('storage', handleStorageChange);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -99,6 +111,36 @@ export const AuthProvider = ({ children }) => {
         return data;
     };
 
+    const uploadProfilePhoto = async (file) => {
+        const formData = new FormData();
+        formData.append('photo', file);
+        
+        const res = await fetch(`${API_URL}/upload-profile-photo`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            },
+            body: formData
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Photo upload failed');
+        setUser(data.user);
+        return data;
+    };
+
+    const deleteAccount = async () => {
+        const res = await fetch(`${API_URL}/delete-account`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Account deletion failed');
+        logout();
+        return data;
+    };
+
     const value = {
         user,
         token,
@@ -108,6 +150,8 @@ export const AuthProvider = ({ children }) => {
         signup,
         logout,
         updateProfile,
+        uploadProfilePhoto,
+        deleteAccount,
     };
 
     return (

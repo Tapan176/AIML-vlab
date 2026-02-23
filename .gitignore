@@ -12,3 +12,7 @@ node_modules/
 dist/
 build/
 .DS_Store
+
+# Google Drive Secrets
+backend/credentials.json
+backend/token.json

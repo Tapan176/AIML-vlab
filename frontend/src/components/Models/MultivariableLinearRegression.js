@@ -1,5 +1,5 @@
 /* eslint-disable jsx-a11y/img-redundant-alt */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft, faArrowRight } from '@fortawesome/free-solid-svg-icons';
 import constants from '../../constants';
@@ -22,6 +22,22 @@ export default function MultivariableLinearRegression() {
     const [error, setError] = useState('');
     const [infoOpen, setInfoOpen] = useState(false);
 
+
+    useEffect(() => {
+        const cached = localStorage.getItem(`multivariable_linear_regression_dataset`);
+        if (cached) {
+            try { setDatasetData(JSON.parse(cached)); } catch(e) {}
+        }
+    }, []);
+
+    const handleDatasetSelect = (data) => {
+        setDatasetData(data);
+        if (data && data.filename) {
+            localStorage.setItem(`multivariable_linear_regression_dataset`, JSON.stringify(data));
+        } else {
+            localStorage.removeItem(`multivariable_linear_regression_dataset`);
+        }
+    };
     const images = results?.outputImageUrls?.map(url => `${constants.API_BASE_URL}/${url}?timestamp=${Date.now()}`) || [];
 
     const handleChange = (e) => {
@@ -35,7 +51,7 @@ export default function MultivariableLinearRegression() {
         setError('');
         try {
             let dataToSend;
-            if (datasetData && datasetData.csv_data) {
+            if (datasetData && datasetData.filename) {
                 dataToSend = { filename: datasetData.filename, hyperparams };
             } else {
                 dataToSend = { X: inputData.X, y: inputData.y, hyperparams };
@@ -65,7 +81,12 @@ export default function MultivariableLinearRegression() {
             </div>
 
             <div className="dataset-section">
-                <ShowDataset onDatasetUpload={setDatasetData} />
+                <ShowDataset onDatasetUpload={handleDatasetSelect} allowedTypes={['csv']} />
+                {datasetData && datasetData.filename && (
+                    <div style={{ marginTop: '10px', color: '#34c759' }}>
+                        ✓ Cached dataset: <strong>{datasetData.filename}</strong>
+                    </div>
+                )}
             </div>
 
             <form className="model-form" onSubmit={handleSubmit}>

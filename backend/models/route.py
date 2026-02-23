@@ -3,10 +3,10 @@ Model routes — endpoints for training all 11 ML models.
 Supports hyperparameter tuning, user-scoped storage, and training sessions.
 """
 from flask import Blueprint, request, jsonify
-from auth.authMiddleware import token_required
-from services.hyperparamValidator import validate_hyperparams, get_model_schema
-from services.trainingSessionService import create_session, update_session_results, update_session_error, get_user_sessions, get_session
-from services.datasetService import get_user_datasets
+from auth.auth_middleware import token_required
+from services.hyperparam_validator import validate_hyperparams, get_model_schema
+from services.training_session_service import create_session, update_session_results, update_session_error, get_user_sessions, get_session
+from services.dataset_service import get_user_datasets
 
 from models.linearRegression.linearRegression import simpleLinearRegression
 # CNN/ANN are lazy-loaded at call time to avoid TensorFlow protobuf import errors at startup
@@ -170,20 +170,41 @@ def db_scan():
 
 
 @model_routes.route('/cnn', methods=['POST'])
-def cnn():
+@token_required
+def cnn(current_user):
     """CNN training — lazy-loads TensorFlow to avoid startup protobuf conflicts."""
     try:
         from models.cnn.cnn import train_cnn as _train_cnn
     except ImportError as e:
         return jsonify({"error": f"CNN requires TensorFlow: {e}"}), 500
+        
     data = request.get_json() or {}
     user_hyperparams = data.get('hyperparams', {})
     try:
         validated_params = validate_hyperparams('cnn', user_hyperparams)
     except Exception as e:
         return jsonify({"error": str(e)}), 400
-    user_id = None  # Will be set from token if needed
-    return jsonify(_train_cnn(request, validated_params=validated_params, user_id=user_id)), 200
+        
+    user_id = current_user['_id']
+    dataset_id = data.get('dataset_id')
+    
+    session = create_session(user_id, 'cnn', validated_params, dataset_id)
+    session_id = session['_id']
+    
+    try:
+        results = _train_cnn(request, validated_params=validated_params, user_id=user_id, session_version=session['version'])
+        update_session_results(
+            session_id,
+            results.get('evaluation_metrics') or results.get('results') or results,
+            results.get('outputImageUrls', []),
+            results.get('trained_model_path', ''),
+            results.get('predictions_output_file', '')
+        )
+        results['session_id'] = str(session_id)
+        return jsonify(results), 200
+    except Exception as e:
+        update_session_error(session_id, str(e))
+        return jsonify({"error": str(e)}), 500
 
 
 @model_routes.route('/ann', methods=['POST'])

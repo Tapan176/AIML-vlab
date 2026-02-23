@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import './Auth.css';
@@ -11,7 +11,13 @@ const Signup = () => {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
-    const { signup } = useAuth();
+    const { signup, user } = useAuth();
+
+    useEffect(() => {
+        if (user) {
+            navigate('/lab');
+        }
+    }, [user, navigate]);
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
@@ -46,40 +52,36 @@ const Signup = () => {
             <div className="auth-card">
                 <div className="auth-header">
                     <h2>Create Account</h2>
-                    <p>Join the AI/ML Virtual Lab</p>
+                    <p>Join AIML Lab</p>
                 </div>
 
                 {error && <div className="auth-error">{error}</div>}
 
                 <form onSubmit={handleSubmit} className="auth-form">
-                    <div className="form-row">
-                        <div className="form-group">
-                            <label htmlFor="firstName">First Name</label>
-                            <input id="firstName" name="firstName" value={formData.firstName}
-                                onChange={handleChange} placeholder="John" required />
-                        </div>
-                        <div className="form-group">
-                            <label htmlFor="lastName">Last Name</label>
-                            <input id="lastName" name="lastName" value={formData.lastName}
-                                onChange={handleChange} placeholder="Doe" required />
-                        </div>
+                    <div className="form-group">
+                        <label htmlFor="firstName">First Name</label>
+                        <input id="firstName" name="firstName" value={formData.firstName}
+                            onChange={handleChange} placeholder="John" required />
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="lastName">Last Name</label>
+                        <input id="lastName" name="lastName" value={formData.lastName}
+                            onChange={handleChange} placeholder="Doe" required />
                     </div>
                     <div className="form-group">
                         <label htmlFor="signup-email">Email</label>
                         <input id="signup-email" name="email" type="email" value={formData.email}
                             onChange={handleChange} placeholder="you@example.com" required />
                     </div>
-                    <div className="form-row">
-                        <div className="form-group" style={{flex: '0 0 100px'}}>
-                            <label htmlFor="countryCode">Code</label>
-                            <input id="countryCode" name="countryCode" value={formData.countryCode}
-                                onChange={handleChange} placeholder="+91" />
-                        </div>
-                        <div className="form-group">
-                            <label htmlFor="phone">Phone</label>
-                            <input id="phone" name="phone" value={formData.phone}
-                                onChange={handleChange} placeholder="1234567890" />
-                        </div>
+                    <div className="form-group">
+                        <label htmlFor="countryCode">Country Code</label>
+                        <input id="countryCode" name="countryCode" value={formData.countryCode}
+                            onChange={handleChange} placeholder="+91" />
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="phone">Phone Number</label>
+                        <input id="phone" name="phone" value={formData.phone}
+                            onChange={handleChange} placeholder="1234567890" />
                     </div>
                     <div className="form-group">
                         <label htmlFor="signup-password">Password</label>

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import models from '../models.json';
+import React, { useState, useEffect } from 'react';
+import { API_URL } from '../../constants';
 import './styles.css';
 
 const MODEL_CATEGORIES = {
@@ -26,6 +26,22 @@ const Sidebar = ({ loadComponent, activeModel }) => {
     const [expandedCategories, setExpandedCategories] = useState(
         Object.keys(MODEL_CATEGORIES).reduce((acc, cat) => ({ ...acc, [cat]: true }), {})
     );
+    const [models, setModels] = useState([]);
+
+    useEffect(() => {
+        const fetchModels = async () => {
+            try {
+                const res = await fetch(`${API_URL}/models/info`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setModels(data);
+                }
+            } catch (err) {
+                console.error("Failed to fetch model master data:", err);
+            }
+        };
+        fetchModels();
+    }, []);
 
     const toggleCategory = (cat) => {
         setExpandedCategories(prev => ({ ...prev, [cat]: !prev[cat] }));

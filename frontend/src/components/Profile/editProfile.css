@@ -24,6 +24,33 @@
     margin-bottom: 1.5rem;
 }
 
+.profile-avatar-large {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), #a78bfa);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    font-weight: 700;
+    margin: 0 auto 1rem;
+}
+
+.btn-upload-photo {
+    background: var(--bg-input) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-color) !important;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.btn-upload-photo:hover {
+    border-color: var(--accent) !important;
+    color: var(--accent) !important;
+}
+
 .edit-profile-card .form-group {
     margin-bottom: 1.25rem;
 }

@@ -1,12 +1,20 @@
 import React from 'react';
 import constants from '../../constants';
 
-export default function DownloadTrainedModel({ selectedModel, extension }) {
+export default function DownloadTrainedModel({ selectedModel, extension, sessionId }) {
     const downloadTrainedModel = async () => {
         try {
-            const response = await fetch(
-                `${constants.API_BASE_URL}/download-trained-model?model_name=${selectedModel}&extension=${extension}`
-            );
+            const token = localStorage.getItem('aiml_token');
+            const endpoint = sessionId 
+                ? `${constants.API_BASE_URL}/download-trained-model/${sessionId}`
+                : `${constants.API_BASE_URL}/download-trained-model?model_name=${selectedModel}&extension=${extension}`;
+            
+            const response = await fetch(endpoint, {
+                headers: token && sessionId ? { 'Authorization': `Bearer ${token}` } : {}
+            });
+            
+            if (!response.ok) throw new Error('Download failed');
+            
             const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');

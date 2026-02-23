@@ -37,12 +37,15 @@ def build_cnn_model(
         if hiddenLayer['type'] == 'conv':
             classifier.add(Conv2D(hiddenLayer['numberOfNeurons'], tuple(hiddenLayer['kernel']), activation=hiddenLayer['activationFunction']))
         elif hiddenLayer['type'] == 'pooling':
+            pool_size = tuple(hiddenLayer.get('poolingSize', (2, 2)))
             if hiddenLayer['poolingType'] == 'maxPool':
-                classifier.add(MaxPooling2D(pool_size=tuple(hiddenLayer['poolingSize'])))
+                classifier.add(MaxPooling2D(pool_size=pool_size))
             elif hiddenLayer['poolingType'] == 'minPool':
-                classifier.add(min_pooling(pool_size=tuple(hiddenLayer['poolingSize']), strides=tuple(hiddenLayer['minPoolStride'])))
-            elif hiddenLayer['poolingType'] == 'averagePool':
-                classifier.add(AvgPool2D(pool_size=tuple(hiddenLayer['poolingSize']), strides=tuple(hiddenLayer['avgPoolStride'])))
+                strides = tuple(hiddenLayer.get('minPoolStride', pool_size))
+                classifier.add(min_pooling(pool_size=pool_size, strides=strides))
+            elif hiddenLayer['poolingType'] in ['averagePool', 'avgPool']:
+                strides = tuple(hiddenLayer.get('avgPoolStride', pool_size))
+                classifier.add(AvgPool2D(pool_size=pool_size, strides=strides))
         elif hiddenLayer['type'] == 'flatten':
             classifier.add(Flatten())
         elif hiddenLayer['type'] == 'dense':
@@ -154,7 +157,7 @@ def train_cnn(request, validated_params=None, user_id=None, session_version=None
                         callbacks=[early_stopping])
 
     # Save the model
-    saveTrainedModel(model, "cnn", "Keras", user_id=user_id, version=session_version)
+    save_path = saveTrainedModel(model, "cnn", "Keras", user_id=user_id, version=session_version)
     # model.save("cnn.h5")
 
-    return ({'message': 'Model trained successfully.'})
+    return ({'message': 'Model trained successfully.', 'trained_model_path': save_path})

@@ -1,5 +1,5 @@
 /* eslint-disable jsx-a11y/img-redundant-alt */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft, faArrowRight } from '@fortawesome/free-solid-svg-icons';
 import constants from '../../constants';
@@ -19,6 +19,22 @@ export default function DBSCAN() {
     const [error, setError] = useState('');
     const [infoOpen, setInfoOpen] = useState(false);
 
+
+    useEffect(() => {
+        const cached = localStorage.getItem(`dbscan_dataset`);
+        if (cached) {
+            try { setDatasetData(JSON.parse(cached)); } catch(e) {}
+        }
+    }, []);
+
+    const handleDatasetSelect = (data) => {
+        setDatasetData(data);
+        if (data && data.filename) {
+            localStorage.setItem(`dbscan_dataset`, JSON.stringify(data));
+        } else {
+            localStorage.removeItem(`dbscan_dataset`);
+        }
+    };
     const images = results?.outputImageUrls?.map(url => `${constants.API_BASE_URL}/${url}?timestamp=${Date.now()}`) || [];
 
     const handleSubmit = async (e) => {
@@ -43,7 +59,12 @@ export default function DBSCAN() {
                 <h1>DBSCAN</h1>
                 <button className="btn-info-toggle" onClick={() => setInfoOpen(true)}>📖 Info</button>
             </div>
-            <div className="dataset-section"><ShowDataset onDatasetUpload={setDatasetData} /></div>
+            <div className="dataset-section"><ShowDataset onDatasetUpload={handleDatasetSelect} allowedTypes={['csv']} />
+                {datasetData && datasetData.filename && (
+                    <div style={{ marginTop: '10px', color: '#34c759' }}>
+                        ✓ Cached dataset: <strong>{datasetData.filename}</strong>
+                    </div>
+                )}</div>
             <form className="model-form" onSubmit={handleSubmit}>
                 <HyperparamPanel modelCode={MODEL_CODE} hyperparams={hyperparams} onChange={(n, v) => setHyperparams(p => ({ ...p, [n]: v }))} />
                 <button type="submit" className="btn-run" disabled={loading}>{loading ? '⏳ Training...' : '▶ Run Model'}</button>

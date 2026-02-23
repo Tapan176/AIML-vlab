@@ -10,11 +10,12 @@ from bson import ObjectId
 from config import JWT_SECRET, JWT_ALGORITHM, JWT_EXPIRY_HOURS
 
 
-def _generate_token(user_id, email):
+def _generate_token(user_id, email, role="user"):
     """Generate a JWT access token."""
     payload = {
         'user_id': str(user_id),
         'email': email,
+        'role': role,
         'iat': datetime.utcnow(),
         'exp': datetime.utcnow() + timedelta(hours=JWT_EXPIRY_HOURS)
     }
@@ -39,7 +40,7 @@ def login(email, password):
         raise Exception("incorrect_password")
 
     # Generate JWT token
-    token = _generate_token(user['_id'], user['email'])
+    token = _generate_token(user['_id'], user['email'], user.get('role', 'user'))
 
     return {
         'user': _sanitize_user(user),
@@ -49,29 +50,47 @@ def login(email, password):
 
 def signup(first_name, last_name, email, password, phone, country_code, terms_accepted):
     db = get_db()
-    existing_user = db.users.find_one({"email": email})
-
-    if existing_user:
-        raise Exception("user_already_exists")
-
+    
     hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
-    user_data = {
+    update_payload = {
         "first_name": first_name,
         "last_name": last_name,
-        "email": email,
         "password": hashed_password,
         "phone": phone,
         "countryCode": country_code,
         "termsAccepted": terms_accepted,
-        "created_at": datetime.utcnow(),
     }
 
-    result = db.users.insert_one(user_data)
-    user_data['_id'] = result.inserted_id
+    existing_user = db.users.find_one({"email": email})
+
+    if existing_user:
+        # Perform logical UPSERT to maintain single email index constraint
+        db.users.update_one(
+            {"_id": existing_user["_id"]},
+            {"$set": update_payload}
+        )
+        user_id = existing_user["_id"]
+        role = existing_user.get("role", "user")
+        
+        # Pull merged data for returning
+        updated_user = db.users.find_one({"_id": user_id})
+        user_data = updated_user
+    else:
+        # Create fresh user
+        update_payload["email"] = email
+        update_payload["role"] = "user"
+        update_payload["created_at"] = datetime.utcnow()
+        
+        result = db.users.insert_one(update_payload)
+        user_id = result.inserted_id
+        role = "user"
+        
+        update_payload["_id"] = user_id
+        user_data = update_payload
 
     # Auto-login: generate token
-    token = _generate_token(user_data['_id'], email)
+    token = _generate_token(user_id, email, role)
 
     return {
         'user': _sanitize_user(user_data),

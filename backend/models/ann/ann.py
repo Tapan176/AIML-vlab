@@ -32,13 +32,8 @@ def train_ann(request, validated_params=None, user_id=None, session_version=None
         raise ValueError("No dataset filename provided.")
 
     # Load dataset
-    filepath = os.path.join('static', 'uploads', filename)
-    if user_id:
-        filepath = os.path.join('static', 'uploads', str(user_id), filename)
-    if not os.path.exists(filepath):
-        raise FileNotFoundError(f"Dataset not found: {filename}")
-
-    df = pd.read_csv(filepath)
+    from services.dataset_service import get_dataset_df
+    df = get_dataset_df(user_id, filename)
 
     # Use last column as target
     X = df.iloc[:, :-1]

@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import constants from '../../constants';
+import React, { useState, useEffect } from 'react';
+import api from '../../services/api';
 import ShowDataset from '../Dataset/ShowDataset';
 import CnnHiddenLayer from '../HiddenLayers/CnnHiddenLayer';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
+import HyperparamPanel from '../shared/HyperparamPanel';
 import ModelInfoPanel from '../shared/ModelInfoPanel';
 import '../ModelCss/ModelPage.css';
 
@@ -13,16 +14,29 @@ const DEFAULT_LAYER = { type: 'conv', numberOfNeurons: 64, kernel: [3, 3], activ
 export default function CNN() {
     const [datasetData, setDatasetData] = useState('');
     const [layers, setLayers] = useState([{ ...DEFAULT_LAYER }]);
-    const [epochs, setEpochs] = useState(10);
-    const [batchSize, setBatchSize] = useState(32);
-    const [optimizer, setOptimizer] = useState('adam');
-    const [lossFunction, setLossFunction] = useState('categorical_crossentropy');
     const [classMode, setClassMode] = useState('categorical');
+    const [hyperparams, setHyperparams] = useState({});
     const [results, setResults] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [infoOpen, setInfoOpen] = useState(false);
 
+
+    useEffect(() => {
+        const cached = localStorage.getItem(`cnn_dataset`);
+        if (cached) {
+            try { setDatasetData(JSON.parse(cached)); } catch(e) {}
+        }
+    }, []);
+
+    const handleDatasetSelect = (data) => {
+        setDatasetData(data);
+        if (data && data.filename) {
+            localStorage.setItem(`cnn_dataset`, JSON.stringify(data));
+        } else {
+            localStorage.removeItem(`cnn_dataset`);
+        }
+    };
     const handleLayerChange = (index, updatedLayer) => {
         const newLayers = [...layers];
         newLayers[index] = updatedLayer;
@@ -37,21 +51,23 @@ export default function CNN() {
         setLoading(true);
         setError('');
         try {
-            const response = await fetch(`${constants.API_BASE_URL}/cnn`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    filename: datasetData?.filename,
-                    hidden_layers: layers,
-                    epochs,
-                    batch_size: batchSize,
-                    optimizer,
-                    loss: lossFunction,
-                    class_mode: classMode,
-                }),
-            });
-            if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Failed'); }
-            setResults(await response.json());
+            const bodyPayload = {
+                filePath: datasetData?.extracted_file_path || datasetData?.filepath || datasetData?.path || datasetData?.filename, 
+                numberOfNeuronsInInputLayer: layers.length > 0 ? (layers[0].numberOfNeurons || 64) : 64,
+                inputKernelSize: layers.length > 0 ? (layers[0].kernel || [3, 3]) : [3, 3],
+                inputLayerActivationFunction: layers.length > 0 ? (layers[0].activationFunction || 'relu') : 'relu',
+                inputShape: [64, 64, 3], 
+                hiddenLayerArray: layers.length > 0 ? layers.slice(1) : [],
+                optimizerObject: { type: hyperparams.optimizer || 'adam', learning_rate: 0.001 },
+                lossFunction: { type: hyperparams.loss || 'categorical_crossentropy' },
+                evaluationMetrics: ['accuracy'],
+                numberOfEpochs: hyperparams.epochs || 10,
+                batchSize: hyperparams.batch_size || 32,
+                hyperparams,
+                classMode: classMode,
+            };
+            const responseData = await api.post('/cnn', bodyPayload);
+            setResults(responseData);
         } catch (err) { setError(err.message); }
         finally { setLoading(false); }
     };
@@ -64,45 +80,17 @@ export default function CNN() {
             </div>
 
             <div className="dataset-section">
-                <ShowDataset onDatasetUpload={setDatasetData} />
+                <ShowDataset onDatasetUpload={handleDatasetSelect} allowedTypes={['zip']} />
+                {datasetData && datasetData.filename && (
+                    <div style={{ marginTop: '10px', color: '#34c759' }}>
+                        ✓ Cached image directory: <strong>{datasetData.filename}</strong>
+                    </div>
+                )}
             </div>
 
             <form className="model-form" onSubmit={handleSubmit}>
-                {/* Training Settings — all dropdowns for enum values */}
+                {/* Training Settings — generic parameters */}
                 <div className="form-grid">
-                    <div className="form-group">
-                        <label>Epochs</label>
-                        <input type="number" min="1" max="500" value={epochs} onChange={(e) => setEpochs(parseInt(e.target.value))} />
-                    </div>
-                    <div className="form-group">
-                        <label>Batch Size</label>
-                        <select value={batchSize} onChange={(e) => setBatchSize(parseInt(e.target.value))}>
-                            <option value={8}>8</option>
-                            <option value={16}>16</option>
-                            <option value={32}>32</option>
-                            <option value={64}>64</option>
-                            <option value={128}>128</option>
-                        </select>
-                    </div>
-                    <div className="form-group">
-                        <label>Optimizer</label>
-                        <select value={optimizer} onChange={(e) => setOptimizer(e.target.value)}>
-                            <option value="adam">Adam</option>
-                            <option value="sgd">SGD</option>
-                            <option value="rmsprop">RMSprop</option>
-                            <option value="adagrad">Adagrad</option>
-                            <option value="adadelta">Adadelta</option>
-                        </select>
-                    </div>
-                    <div className="form-group">
-                        <label>Loss Function</label>
-                        <select value={lossFunction} onChange={(e) => setLossFunction(e.target.value)}>
-                            <option value="categorical_crossentropy">Categorical Crossentropy</option>
-                            <option value="binary_crossentropy">Binary Crossentropy</option>
-                            <option value="sparse_categorical_crossentropy">Sparse Categorical Crossentropy</option>
-                            <option value="mse">Mean Squared Error</option>
-                        </select>
-                    </div>
                     <div className="form-group">
                         <label>Class Mode</label>
                         <select value={classMode} onChange={(e) => setClassMode(e.target.value)}>
@@ -112,6 +100,12 @@ export default function CNN() {
                         </select>
                     </div>
                 </div>
+
+                <HyperparamPanel
+                    modelCode="cnn"
+                    hyperparams={hyperparams}
+                    onChange={(name, value) => setHyperparams(prev => ({ ...prev, [name]: value }))}
+                />
 
                 {/* Layer Builder */}
                 <CnnHiddenLayer
@@ -139,9 +133,11 @@ export default function CNN() {
                 </div>
             )}
 
-            <div className="download-section">
-                <DownloadTrainedModel selectedModel="cnn" extension=".h5" />
-            </div>
+            {results && (
+                <div className="download-section" style={{ marginTop: '20px' }}>
+                    <DownloadTrainedModel selectedModel="cnn" extension=".h5" sessionId={results.session_id} />
+                </div>
+            )}
 
             <ModelInfoPanel modelCode={MODEL_CODE} isOpen={infoOpen} onClose={() => setInfoOpen(false)} />
         </div>

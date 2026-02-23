@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import constants from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
+import HyperparamPanel from '../shared/HyperparamPanel';
 import ModelInfoPanel from '../shared/ModelInfoPanel';
 import '../ModelCss/ModelPage.css';
 
@@ -9,13 +10,28 @@ export default function TextClassification() {
     const [datasetData, setDatasetData] = useState('');
     const [textColumn, setTextColumn] = useState('');
     const [labelColumn, setLabelColumn] = useState('');
-    const [maxFeatures, setMaxFeatures] = useState(5000);
-    const [alpha, setAlpha] = useState(1.0);
+    const [hyperparams, setHyperparams] = useState({});
     const [results, setResults] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [infoOpen, setInfoOpen] = useState(false);
 
+
+    useEffect(() => {
+        const cached = localStorage.getItem(`textclassification_dataset`);
+        if (cached) {
+            try { setDatasetData(JSON.parse(cached)); } catch(e) {}
+        }
+    }, []);
+
+    const handleDatasetSelect = (data) => {
+        setDatasetData(data);
+        if (data && data.filename) {
+            localStorage.setItem(`textclassification_dataset`, JSON.stringify(data));
+        } else {
+            localStorage.removeItem(`textclassification_dataset`);
+        }
+    };
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -28,7 +44,7 @@ export default function TextClassification() {
                     filename: datasetData?.filename,
                     text_column: textColumn || undefined,
                     label_column: labelColumn || undefined,
-                    hyperparams: { max_features: maxFeatures, alpha },
+                    hyperparams,
                 }),
             });
             if (!response.ok) {
@@ -49,7 +65,12 @@ export default function TextClassification() {
                 <h1>Text Classification</h1>
                 <button className="btn-info-toggle" onClick={() => setInfoOpen(true)}>📖 Info</button>
             </div>
-            <div className="dataset-section"><ShowDataset onDatasetUpload={setDatasetData} /></div>
+            <div className="dataset-section"><ShowDataset onDatasetUpload={handleDatasetSelect} allowedTypes={['csv']} />
+                {datasetData && datasetData.filename && (
+                    <div style={{ marginTop: '10px', color: '#34c759' }}>
+                        ✓ Cached dataset: <strong>{datasetData.filename}</strong>
+                    </div>
+                )}</div>
             <form className="model-form" onSubmit={handleSubmit}>
                 <div className="form-grid">
                     <div className="form-group">
@@ -60,15 +81,12 @@ export default function TextClassification() {
                         <label>Label Column <small>(auto-detected if empty)</small></label>
                         <input type="text" placeholder="e.g. category" value={labelColumn} onChange={(e) => setLabelColumn(e.target.value)} />
                     </div>
-                    <div className="form-group">
-                        <label>Max Features</label>
-                        <input type="number" min="100" max="50000" value={maxFeatures} onChange={(e) => setMaxFeatures(parseInt(e.target.value))} />
-                    </div>
-                    <div className="form-group">
-                        <label>Alpha (Smoothing)</label>
-                        <input type="number" step="0.1" min="0.001" max="10" value={alpha} onChange={(e) => setAlpha(parseFloat(e.target.value))} />
-                    </div>
                 </div>
+                <HyperparamPanel
+                    modelCode="text_classification"
+                    hyperparams={hyperparams}
+                    onChange={(name, value) => setHyperparams(prev => ({ ...prev, [name]: value }))}
+                />
                 <button type="submit" className="btn-run" disabled={loading}>{loading ? '⏳ Classifying...' : '▶ Classify Text'}</button>
             </form>
             {error && <div className="model-error">❌ {error}</div>}

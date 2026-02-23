@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { API_URL } from '../../constants';
 import './Navbar.css';
 
 const Navbar = () => {
@@ -17,8 +18,10 @@ const Navbar = () => {
                 setDropdownOpen(false);
             }
         };
-        document.addEventListener('mousedown', handleClick);
-        return () => document.removeEventListener('mousedown', handleClick);
+        // Use 'click' instead of 'mousedown' to ensure it aligns with onClick events
+        // taking place in the React event lifecycle.
+        document.addEventListener('click', handleClick);
+        return () => document.removeEventListener('click', handleClick);
     }, []);
 
     const isActive = (path) => location.pathname === path;
@@ -34,9 +37,14 @@ const Navbar = () => {
                 <div className="nav-links">
                     <Link to="/" className={`nav-link ${isActive('/') ? 'active' : ''}`}>Home</Link>
                     <Link to="/lab" className={`nav-link ${isActive('/lab') ? 'active' : ''}`}>Lab</Link>
+                    <Link to="/datasets" className={`nav-link ${isActive('/datasets') ? 'active' : ''}`}>Datasets</Link>
+                    <Link to="/studio" className={`nav-link ${isActive('/studio') ? 'active' : ''}`}>Data Studio</Link>
                     <Link to="/about" className={`nav-link ${isActive('/about') ? 'active' : ''}`}>About</Link>
                     {isAuthenticated && (
                         <Link to="/dashboard" className={`nav-link ${isActive('/dashboard') ? 'active' : ''}`}>Dashboard</Link>
+                    )}
+                    {isAuthenticated && user?.role === 'admin' && (
+                        <Link to="/admin" className={`nav-link ${isActive('/admin') ? 'active' : ''}`}>Admin Panel</Link>
                     )}
                 </div>
 
@@ -47,23 +55,35 @@ const Navbar = () => {
 
                     {isAuthenticated ? (
                         <div className="profile-menu" ref={dropdownRef}>
-                            <button className="avatar-btn" onClick={() => setDropdownOpen(!dropdownOpen)}>
-                                <span className="avatar">
-                                    {user?.first_name?.charAt(0)?.toUpperCase() || 'U'}
-                                </span>
+                            <button 
+                                className="avatar-btn" 
+                                type="button"
+                                onClick={(e) => {
+                                    console.log("Avatar clicked, toggling dropdown. Current state:", dropdownOpen);
+                                    setDropdownOpen(prev => !prev);
+                                }}
+                            >
+                                {user?.profile_photo_id ? (
+                                    <img src={`${API_URL}/profile-photo/${user.profile_photo_id}`} alt="Avatar" className="avatar" style={{ objectFit: 'cover' }} />
+                                ) : user?.profile_photo_url ? (
+                                    <img src={user.profile_photo_url} alt="Avatar" className="avatar" style={{ objectFit: 'cover' }} />
+                                ) : (
+                                    <span className="avatar">
+                                        {user?.first_name?.charAt(0)?.toUpperCase() || 'U'}
+                                    </span>
+                                )}
                             </button>
                             {dropdownOpen && (
-                                <div className="dropdown-menu">
-                                    <div className="dropdown-header">
-                                        <span className="dropdown-name">{user?.first_name} {user?.last_name}</span>
-                                        <span className="dropdown-email">{user?.email}</span>
+                                <div className="nav-dropdown-menu">
+                                    <div className="nav-dropdown-header">
+                                        <span className="nav-dropdown-name">{user?.first_name} {user?.last_name}</span>
+                                        <span className="nav-dropdown-email">{user?.email}</span>
                                     </div>
-                                    <div className="dropdown-divider"></div>
-                                    <Link to="/profile" className="dropdown-item" onClick={() => setDropdownOpen(false)}>👤 My Profile</Link>
-                                    <Link to="/edit-profile" className="dropdown-item" onClick={() => setDropdownOpen(false)}>⚙️ Settings</Link>
-                                    <Link to="/dashboard" className="dropdown-item" onClick={() => setDropdownOpen(false)}>📊 Dashboard</Link>
-                                    <div className="dropdown-divider"></div>
-                                    <button className="dropdown-item danger" onClick={() => { logout(); setDropdownOpen(false); }}>🚪 Logout</button>
+                                    <div className="nav-dropdown-divider"></div>
+                                    <Link to="/profile" className="nav-dropdown-item" onClick={() => setDropdownOpen(false)}>👤 Profile</Link>
+                                    <Link to="/settings" className="nav-dropdown-item" onClick={() => setDropdownOpen(false)}>⚙️ Settings</Link>
+                                    <div className="nav-dropdown-divider"></div>
+                                    <button className="nav-dropdown-item danger" onClick={() => { logout(); setDropdownOpen(false); }}>🚪 Logout</button>
                                 </div>
                             )}
                         </div>

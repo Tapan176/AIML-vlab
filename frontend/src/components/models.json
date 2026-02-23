@@ -6,15 +6,15 @@
         "description": [
             {
                 "parameter": "Simple Linear Regression",
-                "description": "Simple Linear Regression is a statistical method used to model the relationship between a single independent variable and a dependent variable. It assumes a linear relationship between the variables, where changes in the independent variable are linearly related to changes in the dependent variable."
+                "description": "Imagine drawing a straight line through a scattering of dots to show a trend. It predicts an outcome based on a single factor (like predicting ice cream sales based purely on the temperature outside)."
             },
             {
                 "parameter": "Intercept",
-                "description": "The intercept term in the linear regression equation represents the value of the dependent variable when all independent variables are set to zero."
+                "description": "The starting point of our line. For our ice cream example, it's how much ice cream you'd sell if the temperature was absolute zero."
             },
             {
                 "parameter": "Coefficient",
-                "description": "The coefficient of each independent variable represents the change in the dependent variable for a one-unit change in the independent variable, holding all other variables constant."
+                "description": "The slope of our line. It tells us how much the outcome changes when our factor goes up by one (e.g., selling 10 more ice creams for every 1 degree hotter)."
             }
         ]
     },
@@ -25,15 +25,15 @@
         "description": [
             {
                 "parameter": "Multivariable Linear Regression",
-                "description": "Multivariable Linear Regression extends simple linear regression to model the relationship between multiple independent variables and a dependent variable. It assumes a linear relationship between the variables, where changes in the independent variables are linearly related to changes in the dependent variable."
+                "description": "Like Simple Linear Regression, but using multiple factors at once. For example, predicting a house's price based on its size, number of bedrooms, AND age, rather than just size alone."
             },
             {
                 "parameter": "Intercept",
-                "description": "The intercept term in the linear regression equation represents the value of the dependent variable when all independent variables are set to zero."
+                "description": "The baseline starting value before we consider any of our factors."
             },
             {
                 "parameter": "Coefficients",
-                "description": "The coefficients of the independent variables represent the change in the dependent variable for a one-unit change in each independent variable, holding all other variables constant."
+                "description": "The weights of importance assigned to each factor. It tells us exactly how much a specific factor (like adding an extra bedroom) impacts the final outcome."
             }
         ]
     },
@@ -44,15 +44,15 @@
         "description": [
             {
                 "parameter": "Logistic Regression",
-                "description": "Logistic Regression is a statistical method used for binary classification problems. It models the probability that an instance belongs to a particular class using the logistic function, which maps the output to the range [0, 1]."
+                "description": "Despite the name, this is used for sorting things into buckets rather than predicting numbers! It calculates the odds of a Yes/No outcome, like categorizing an email as 'Spam' or 'Not Spam'."
             },
             {
                 "parameter": "Intercept",
-                "description": "The intercept term in the logistic regression equation represents the log-odds of the baseline class."
+                "description": "The baseline odds of an event happening before any evidence is gathered."
             },
             {
                 "parameter": "Coefficients",
-                "description": "The coefficients of the independent variables represent the change in the log-odds of the dependent variable for a one-unit change in each independent variable."
+                "description": "How much each piece of evidence tips the scales towards a Yes or a No."
             }
         ]
     },
@@ -63,15 +63,15 @@
         "description": [
             {
                 "parameter": "KNN (K-Nearest Neighbors)",
-                "description": "KNN is a non-parametric classification algorithm that classifies new instances based on the majority class of their k nearest neighbors in the feature space."
+                "description": "Like asking your closest neighbors for advice. If we want to classify a mystery fruit and its 5 most statistically similar neighbors are all apples, the algorithm guesses it's an apple too."
             },
             {
                 "parameter": "K",
-                "description": "The number of nearest neighbors (k) used for classification. A larger k results in smoother decision boundaries but may lead to over-smoothing."
+                "description": "How many neighbors to ask! A small K might be swayed by a weird outlier neighbor, but a massive K might just blend everyone together."
             },
             {
                 "parameter": "Distance Metric",
-                "description": "The distance metric (e.g., Euclidean distance, Manhattan distance) used to measure the distance between instances in the feature space."
+                "description": "The math formula used to decide who your 'closest' neighbors actually are."
             }
         ]
     },
@@ -81,16 +81,16 @@
         "code": "k_means",
         "description": [
             {
-                "parameter": "K-Means",
-                "description": "K-Means is an unsupervised clustering algorithm that partitions data into k clusters based on their similarity in feature space. It aims to minimize the within-cluster variance, typically using the Euclidean distance metric."
+                "parameter": "K-Means Clustering",
+                "description": "An unsupervised sorting hat! If you dump a massive pile of unlabelled data on it, K-Means will naturally organize it into distinct groups by finding similarities, like sorting a messy room into categorized boxes."
             },
             {
-                "parameter": "K",
-                "description": "The number of clusters (k) into which the data should be partitioned. Determining the optimal value of k is crucial for the effectiveness of K-Means."
+                "parameter": "K (Clusters)",
+                "description": "The exact number of boxes you want to sort the data into. You have to tell the algorithm how many groups to look for."
             },
             {
                 "parameter": "Initialization Method",
-                "description": "The method used to initialize the centroids of the clusters, which can significantly affect the convergence of the algorithm (e.g., random initialization, k-means++)."
+                "description": "How the algorithm chooses its initial starting points to begin grouping the data."
             }
         ]
     },
@@ -101,15 +101,15 @@
         "description": [
             {
                 "parameter": "Decision Tree",
-                "description": "Decision Tree is a supervised learning algorithm used for classification and regression tasks. It recursively splits the data into subsets based on the values of features, with the goal of maximizing the purity of the subsets (e.g., maximizing information gain or minimizing impurity)."
+                "description": "A flowchart that makes decisions by asking a series of Yes/No questions. 'Is it raining? Yes -> take umbrella. No -> Is it sunny? Yes -> wear sunglasses.'"
             },
             {
                 "parameter": "Criterion",
-                "description": "The criterion used to measure the impurity of the subsets at each node of the decision tree (e.g., Gini impurity, entropy)."
+                "description": "The mathematical rule the tree uses to decide what the best Yes/No question to ask is at any given step."
             },
             {
                 "parameter": "Maximum Depth",
-                "description": "The maximum depth of the decision tree, which limits the number of levels of splits. Controlling the maximum depth helps prevent overfitting."
+                "description": "How many questions deep the flowchart is allowed to go. Stopping it early prevents it from overcomplicating things."
             }
         ]
     },
@@ -120,15 +120,15 @@
         "description": [
             {
                 "parameter": "Random Forest",
-                "description": "Random Forest is an ensemble learning method that constructs a multitude of decision trees during training and outputs the mode of the classes (classification) or the average prediction (regression) of the individual trees."
+                "description": "A democracy of Decision Trees. Instead of relying on one single flowchart (which might be biased), you build 100 slightly different flowcharts and let them all vote on the final answer."
             },
             {
                 "parameter": "Number of Trees",
-                "description": "The number of decision trees in the random forest ensemble. Increasing the number of trees can improve the performance of the model, but also increases computational complexity."
+                "description": "The size of the voting committee. More trees usually means a better, more stable prediction, but it takes longer to calculate."
             },
             {
                 "parameter": "Maximum Depth",
-                "description": "The maximum depth of each decision tree in the random forest ensemble. Controlling the maximum depth helps prevent overfitting."
+                "description": "How deep/complex each individual tree in the forest is allowed to grow."
             }
         ]
     },
@@ -139,15 +139,15 @@
         "description": [
             {
                 "parameter": "SVM (Support Vector Machine)",
-                "description": "SVM is a supervised learning algorithm used for classification and regression tasks. It constructs a hyperplane in the feature space that separates instances of different classes with the largest possible margin."
+                "description": "Imagine trying to draw the widest possible street between two different neighborhoods of data points. SVM tries to separate categories with as much \"buffer room\" as possible."
             },
             {
                 "parameter": "Kernel",
-                "description": "The kernel function used to transform the input data into a higher-dimensional space where a linear decision boundary can be found. Common kernel functions include linear, polynomial, and radial basis function (RBF) kernels."
+                "description": "A mathematical trick that allows SVM to draw curvy or 3D boundaries if a straight line isn't enough to separate the groups."
             },
             {
                 "parameter": "Regularization Parameter (C)",
-                "description": "The regularization parameter (C) controls the trade-off between maximizing the margin and minimizing the classification error. Higher values of C allow for more complex decision boundaries, but may lead to overfitting."
+                "description": "A strictness dial. A high 'C' means the algorithm will bend over backwards to avoid misclassifying a single dot, while a low 'C' prefers a smoother, softer boundary."
             }
         ]
     },
@@ -158,11 +158,11 @@
         "description": [
             {
                 "parameter": "Naive Bayes",
-                "description": "Naive Bayes is a probabilistic classifier based on Bayes' theorem with the assumption of independence between features. Despite its simplicity, Naive Bayes is often effective for text classification and other tasks."
+                "description": "A lightning-fast, probability-based guesser. It's \"naive\" because it assumes every piece of evidence is completely independent from one another (like assuming having the word 'Win' and having 'Cash' in an email are unrelated coincidences when aggressive spam filtering)."
             },
             {
                 "parameter": "Distribution Assumption",
-                "description": "The distribution assumption made for the features, such as Gaussian (for continuous features) or multinomial (for categorical features)."
+                "description": "Telling the math whether it's looking at bell curves of continuous numbers, or distinct categories."
             }
         ]
     },
@@ -172,16 +172,16 @@
         "code": "dbscan",
         "description": [
             {
-                "parameter": "DBSCAN (Density-Based Spatial Clustering of Applications with Noise)",
-                "description": "DBSCAN is a density-based clustering algorithm that identifies clusters in data based on the density of instances in the feature space. It is capable of discovering clusters of arbitrary shapes and handling noise."
+                "parameter": "DBSCAN Clustering",
+                "description": "An algorithm that identifies dense crowds of data points and ignores the isolated loners (noise). It's amazing for finding oddly shaped clusters, like predicting constellations in the sky."
             },
             {
                 "parameter": "Epsilon (eps)",
-                "description": "The maximum distance between two samples for them to be considered as in the same neighborhood. Points within this distance are considered as part of the same cluster."
+                "description": "The maximum distance two points can be apart for them to be considered 'in the same crowd'."
             },
             {
                 "parameter": "Minimum Samples",
-                "description": "The minimum number of samples required for a cluster to be formed. It determines the density threshold for identifying core points."
+                "description": "The minimum number of people required to officially constitute a 'crowd'."
             }
         ]
     },
@@ -192,19 +192,19 @@
         "description": [
             {
                 "parameter": "ANN (Artificial Neural Network)",
-                "description": "ANN is a computational model inspired by the structure and function of biological neural networks. It consists of interconnected nodes organized in layers, including input, hidden, and output layers."
+                "description": "A virtual brain made of interconnected layers of 'neurons'. Starting with raw input, each layer passes signals forward and practices turning raw data into an intelligent guess."
             },
             {
                 "parameter": "Activation Function",
-                "description": "Activation functions introduce non-linearity into the ANN model, allowing it to learn complex patterns and relationships in the data. Common activation functions include ReLU (Rectified Linear Unit), sigmoid, and tanh."
+                "description": "The 'spark' inside a neuron that decides whether the neuron should fire or stay dormant based on the signals it just received."
             },
             {
                 "parameter": "Number of Hidden Layers",
-                "description": "The number of hidden layers in the ANN architecture. Adding more hidden layers increases the model's capacity to learn complex relationships in the data."
+                "description": "How deep the brain is. Adding more layers allows the brain to understand more complicated, abstract concepts."
             },
             {
                 "parameter": "Number of Neurons per Hidden Layer",
-                "description": "The number of neurons (units) in each hidden layer of the ANN. Tuning the number of neurons affects the model's ability to capture and represent features in the data."
+                "description": "The width of the brain. Adding more neurons in a layer allows the network to memorize more intricate patterns."
             }
         ]
     },
@@ -215,75 +215,95 @@
         "description": [
             {
                 "parameter": "Convolutional Neural Network (CNN)",
-                "description": "Convolutional Neural Network (CNN) is a deep learning model commonly used for image classification, object detection, and other tasks involving visual data. It consists of multiple layers including convolutional, pooling, and fully connected layers."
+                "description": "A specialized brain designed specifically for looking at imagery. It scans images using small mathematical magnifying glasses to piece together shapes, textures, and eventually complex objects like faces or cars."
             },
             {
                 "parameter": "Convolutional Layer",
-                "description": "A convolutional layer applies a set of filters to the input data, detecting features such as edges, textures, or patterns. Each filter performs a convolution operation on the input data and produces feature maps. The layer may include parameters such as the number of filters, filter size, stride, and padding.",
+                "description": "The magnifying glasses (filters) scanning the image to look for specific visual patterns like horizontal lines, corners, or colors.",
                 "parameters": [
                     {
                         "parameter": "Number of Filters",
-                        "description": "Specifies the number of filters (also known as kernels) applied to the input data. Each filter captures different features from the input. Increasing the number of filters allows the network to learn more complex features."
+                        "description": "How many different types of patterns the layer is searching for simultaneously."
                     },
                     {
                         "parameter": "Filter Size",
-                        "description": "Determines the spatial extent of the filters applied to the input data. Common filter sizes include 3x3, 5x5, and 7x7. Larger filter sizes capture larger patterns in the input data, while smaller filter sizes capture finer details."
+                        "description": "The physical size of the magnifying glass sliding over the image."
                     },
                     {
                         "parameter": "Stride",
-                        "description": "Specifies the step size at which the filters move across the input data. A larger stride results in smaller output feature maps, while a smaller stride leads to larger output feature maps. Stride affects the spatial dimensions of the output."
-                    },
-                    {
-                        "parameter": "Padding",
-                        "description": "Padding is used to preserve the spatial dimensions of the input data when applying filters. It adds extra border pixels to the input data, which helps in maintaining the spatial resolution of the output feature maps. Common padding techniques include 'same' and 'valid'."
-                    },
-                    {
-                        "parameter": "Activation Function",
-                        "description": "Activation functions introduce non-linearity into the CNN model, allowing it to learn complex patterns and relationships in the data. Common activation functions include ReLU (Rectified Linear Unit), sigmoid, and tanh. These functions introduce parameters such as thresholds or slopes for customizing their behavior."
+                        "description": "How many pixels the magnifying glass shifts over with every step. Larger strides shrink the image faster."
                     }
                 ]
             },
             {
                 "parameter": "Pooling Layer",
-                "description": "Pooling layers reduce the spatial dimensions of the feature maps generated by convolutional layers. Common pooling operations include max pooling and average pooling, which help in reducing computational complexity and controlling overfitting. Parameters for pooling layers typically include the pooling size and stride.",
+                "description": "A simplification step. It deliberately compresses the image down by keeping only the most important recognized features, reducing the computational load.",
                 "parameters": [
                     {
                         "parameter": "Pooling Size",
-                        "description": "Specifies the size of the pooling window, which determines the area over which pooling is applied. Common pooling sizes include 2x2 and 3x3."
-                    },
-                    {
-                        "parameter": "Stride",
-                        "description": "Specifies the step size at which the pooling window moves across the feature maps. A larger stride results in smaller output feature maps, while a smaller stride leads to larger output feature maps."
+                        "description": "The size of the window used to summarize and compress the image section."
                     }
                 ]
             },
             {
                 "parameter": "Flatten Layer",
-                "description": "The flatten layer is used to convert the multidimensional feature maps produced by convolutional and pooling layers into a one-dimensional array, which can be fed into fully connected layers for further processing."
+                "description": "Takes the 2D visual maps and squashes them into a single 1D line of data so a regular brain (Dense Layer) can analyze it."
             },
             {
                 "parameter": "Dense Layer",
-                "description": "Fully connected layers, also known as dense layers, connect every neuron in one layer to every neuron in the next layer. They are typically used in the final layers of a CNN for classification or regression tasks. Parameters for fully connected layers include the number of neurons and activation functions.",
-                "parameters": [
-                    {
-                        "parameter": "Number of Neurons",
-                        "description": "Specifies the number of neurons in the dense layer. Increasing the number of neurons increases the capacity of the network to learn complex patterns but also increases computational complexity."
-                    },
-                    {
-                        "parameter": "Activation Function",
-                        "description": "Activation functions introduce non-linearity into the dense layer, allowing it to learn complex patterns and relationships in the data. Common activation functions include ReLU (Rectified Linear Unit), sigmoid, and tanh."
-                    }
-                ]
+                "description": "A standard interconnected neural network layer that acts as the final decision-maker, taking all the visual clues and making the final guess."
             },
             {
                 "parameter": "Dropout Layer",
-                "description": "Dropout is a regularization technique used to prevent overfitting in deep neural networks. During training, random neurons are temporarily 'dropped out' of the network with a certain probability, reducing the co-dependence of neurons and forcing the network to learn more robust features.",
-                "parameters": [
-                    {
-                        "parameter": "Dropout Rate",
-                        "description": "Specifies the probability that a neuron will be dropped out during training. Common dropout rates range from 0.1 to 0.5."
-                    }
-                ]
+                "description": "Randomly turns off a percentage of neurons during training to prevent the brain from over-memorizing the exact training images."
+            }
+        ]
+    },
+    {
+        "name": "XGBoost",
+        "url": "xgboost",
+        "code": "xgboost",
+        "description": [
+            {
+                "parameter": "XGBoost",
+                "description": "An extremely powerful, competitively tuned team of decision trees. It builds trees sequentially, where each new tree specifically tries to fix the mistakes made by all the previous ones. It's a favorite algorithm for winning Kaggle data science competitions!"
+            }
+        ]
+    },
+    {
+        "name": "Gradient Boosting",
+        "url": "gradient-boosting",
+        "code": "gradient_boosting",
+        "description": [
+            {
+                "parameter": "Gradient Boosting",
+                "description": "Like a student learning from their mistakes. It builds a model, sees exactly where it failed to predict correctly, and builds another model focused purely on correcting those specific failures."
+            },
+            {
+                "parameter": "Learning Rate",
+                "description": "Controls how much of a contribution each new tree makes. Smaller learning rates are slower but usually lead to better accuracy."
+            }
+        ]
+    },
+    {
+        "name": "Sentiment Analysis",
+        "url": "sentiment-analysis",
+        "code": "sentiment_analysis",
+        "description": [
+            {
+                "parameter": "Sentiment Analysis",
+                "description": "Teaching the computer to read text and determine the underlying emotional tone—whether the writer and text is happy, angry, or neutral. Great for automatically reading product reviews or monitoring social media pulses."
+            }
+        ]
+    },
+    {
+        "name": "Text Classification",
+        "url": "text-classification",
+        "code": "text_classification",
+        "description": [
+            {
+                "parameter": "Text Classification",
+                "description": "A model designed to sort free-form text into predefined categories, like instantly organizing incoming news articles into 'Sports', 'Politics', or 'Technology' bins."
             }
         ]
     }

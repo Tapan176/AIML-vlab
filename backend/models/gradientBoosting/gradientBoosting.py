@@ -14,11 +14,8 @@ def train_gradient_boosting(request, validated_params=None, user_id=None, sessio
     if not filename:
         raise ValueError("No dataset filename provided.")
 
-    filepath = os.path.join('static', 'uploads', str(user_id), filename) if user_id else os.path.join('static', 'uploads', filename)
-    if not os.path.exists(filepath):
-        raise FileNotFoundError(f"Dataset not found: {filename}")
-
-    df = pd.read_csv(filepath)
+    from services.dataset_service import get_dataset_df
+    df = get_dataset_df(user_id, filename)
     X = df.iloc[:, :-1]
     y = df.iloc[:, -1]
 

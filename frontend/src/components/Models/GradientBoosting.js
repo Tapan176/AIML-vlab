@@ -1,20 +1,35 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import constants from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
+import HyperparamPanel from '../shared/HyperparamPanel';
 import ModelInfoPanel from '../shared/ModelInfoPanel';
 import '../ModelCss/ModelPage.css';
 
 export default function GradientBoosting() {
     const [datasetData, setDatasetData] = useState('');
-    const [nEstimators, setNEstimators] = useState(100);
-    const [learningRate, setLearningRate] = useState(0.1);
-    const [maxDepth, setMaxDepth] = useState(3);
+    const [hyperparams, setHyperparams] = useState({});
     const [results, setResults] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [infoOpen, setInfoOpen] = useState(false);
 
+
+    useEffect(() => {
+        const cached = localStorage.getItem(`gradientboosting_dataset`);
+        if (cached) {
+            try { setDatasetData(JSON.parse(cached)); } catch(e) {}
+        }
+    }, []);
+
+    const handleDatasetSelect = (data) => {
+        setDatasetData(data);
+        if (data && data.filename) {
+            localStorage.setItem(`gradientboosting_dataset`, JSON.stringify(data));
+        } else {
+            localStorage.removeItem(`gradientboosting_dataset`);
+        }
+    };
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -25,7 +40,7 @@ export default function GradientBoosting() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     filename: datasetData?.filename,
-                    hyperparams: { n_estimators: nEstimators, learning_rate: learningRate, max_depth: maxDepth },
+                    hyperparams,
                 }),
             });
             if (!response.ok) {
@@ -46,22 +61,18 @@ export default function GradientBoosting() {
                 <h1>Gradient Boosting Classifier</h1>
                 <button className="btn-info-toggle" onClick={() => setInfoOpen(true)}>📖 Info</button>
             </div>
-            <div className="dataset-section"><ShowDataset onDatasetUpload={setDatasetData} /></div>
+            <div className="dataset-section"><ShowDataset onDatasetUpload={handleDatasetSelect} allowedTypes={['csv']} />
+                {datasetData && datasetData.filename && (
+                    <div style={{ marginTop: '10px', color: '#34c759' }}>
+                        ✓ Cached dataset: <strong>{datasetData.filename}</strong>
+                    </div>
+                )}</div>
             <form className="model-form" onSubmit={handleSubmit}>
-                <div className="form-grid">
-                    <div className="form-group">
-                        <label>Number of Estimators</label>
-                        <input type="number" min="10" max="1000" value={nEstimators} onChange={(e) => setNEstimators(parseInt(e.target.value))} />
-                    </div>
-                    <div className="form-group">
-                        <label>Learning Rate</label>
-                        <input type="number" step="0.01" min="0.001" max="1.0" value={learningRate} onChange={(e) => setLearningRate(parseFloat(e.target.value))} />
-                    </div>
-                    <div className="form-group">
-                        <label>Max Depth</label>
-                        <input type="number" min="1" max="20" value={maxDepth} onChange={(e) => setMaxDepth(parseInt(e.target.value))} />
-                    </div>
-                </div>
+                <HyperparamPanel
+                    modelCode="gradient_boosting"
+                    hyperparams={hyperparams}
+                    onChange={(name, value) => setHyperparams(prev => ({ ...prev, [name]: value }))}
+                />
                 <button type="submit" className="btn-run" disabled={loading}>{loading ? '⏳ Training...' : '▶ Train Model'}</button>
             </form>
             {error && <div className="model-error">❌ {error}</div>}

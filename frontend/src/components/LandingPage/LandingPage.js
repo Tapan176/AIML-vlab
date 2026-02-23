@@ -7,7 +7,7 @@ const FEATURES = [
     {
         icon: '🧪',
         title: 'Train ML Models',
-        desc: 'Experiment with 12 different ML models from regression to deep learning — all in your browser.'
+        desc: 'Experiment with 16 different ML models from regression to deep learning — all in your browser.'
     },
     {
         icon: '⚙️',
@@ -66,13 +66,13 @@ const LandingPage = () => {
             <section className="hero">
                 <div className="hero-bg-grid"></div>
                 <div className="hero-content">
-                    <span className="hero-badge">🚀 AI/ML Virtual Laboratory</span>
+                    <span className="hero-badge">🚀 AIML Lab</span>
                     <h1>
                         Train. Tune. <span className="gradient-text">Understand.</span>
                     </h1>
                     <p className="hero-desc">
                         An interactive platform to learn and experiment with machine learning algorithms.
-                        Train 12 different models, tune hyperparameters, and visualize results — all in your browser.
+                        Train 16 different models, tune hyperparameters, and visualize results — all in your browser.
                     </p>
                     <div className="hero-actions">
                         <Link to="/lab" className="btn-primary">Open Lab →</Link>
@@ -81,8 +81,7 @@ const LandingPage = () => {
                         )}
                     </div>
                     <div className="hero-stats">
-                        <div className="stat"><span className="stat-value">12</span><span className="stat-label">ML Models</span></div>
-                        <div className="stat"><span className="stat-value">50+</span><span className="stat-label">Hyperparams</span></div>
+                        <div className="stat"><span className="stat-value">16</span><span className="stat-label">ML Models</span></div>
                         <div className="stat"><span className="stat-value">100%</span><span className="stat-label">Browser-Based</span></div>
                     </div>
                 </div>

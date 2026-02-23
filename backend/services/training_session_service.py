@@ -38,9 +38,21 @@ def create_session(user_id, model_code, hyperparams, dataset_id=None):
     return session
 
 
+from services.google_drive_service import upload_file_to_drive
+import os
+
 def update_session_results(session_id, results, output_images, model_path, predictions_path=None):
     """Update a training session with results after training completes."""
     db = get_db()
+    
+    session = db.training_sessions.find_one({'_id': ObjectId(session_id)})
+    user_id = session.get('user_id') if session else None
+    
+    trained_model_drive_url = None
+    if model_path and os.path.exists(model_path):
+        filename = os.path.basename(model_path)
+        drive_res = upload_file_to_drive(model_path, filename, folder_type='models', user_id=user_id)
+        trained_model_drive_url = drive_res.get('webContentLink')
 
     db.training_sessions.update_one(
         {'_id': ObjectId(session_id)},
@@ -48,6 +60,7 @@ def update_session_results(session_id, results, output_images, model_path, predi
             'results': results,
             'output_images': output_images,
             'trained_model_path': model_path,
+            'trained_model_drive_url': trained_model_drive_url,
             'predictions_path': predictions_path,
             'status': 'completed',
             'completed_at': datetime.utcnow(),

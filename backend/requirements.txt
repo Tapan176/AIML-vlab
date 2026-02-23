@@ -13,3 +13,6 @@ PyJWT
 pymongo
 flask_cors
 python-dotenv
+flask-limiter
+gridfs
+gunicorn

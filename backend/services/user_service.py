@@ -4,6 +4,7 @@ User service — CRUD operations for user profiles.
 import bcrypt
 from mongoDb.connection import get_db
 from bson import ObjectId
+from gridfs import GridFS
 
 
 def get_user_by_id(user_id):
@@ -71,3 +72,41 @@ def change_password(user_id, old_password, new_password):
     )
 
     return True
+
+def delete_user(user_id):
+    """Delete a user account and associated data."""
+    db = get_db()
+    user = db.users.find_one({'_id': ObjectId(user_id)})
+    if user and 'profile_photo_id' in user:
+        try:
+            delete_file_from_drive(user['profile_photo_id'])
+        except Exception:
+            pass
+    db.users.delete_one({'_id': ObjectId(user_id)})
+    return True
+
+from services.google_drive_service import upload_file_to_drive, delete_file_from_drive
+
+def update_profile_photo(user_id, file):
+    """Update user's profile photo in Google Drive."""
+    db = get_db()
+    
+    # Check if user already has a photo
+    user = db.users.find_one({'_id': ObjectId(user_id)})
+    if user and 'profile_photo_id' in user:
+        try:
+            delete_file_from_drive(user['profile_photo_id'])
+        except Exception:
+            pass
+            
+    # Save new file to Google Drive
+    drive_res = upload_file_to_drive(file, file.filename, folder_type='profiles', user_id=user_id)
+    file_id = drive_res.get('id')
+    photo_url = drive_res.get('webContentLink')
+    
+    db.users.update_one(
+        {'_id': ObjectId(user_id)},
+        {'$set': {'profile_photo_id': file_id, 'profile_photo_url': photo_url}}
+    )
+    return get_user_by_id(user_id)
+

@@ -3,8 +3,13 @@ Auth routes — login, signup, password management, user profile.
 """
 from flask import Blueprint, request, jsonify
 from auth.authController import login, signup, forgot_password, reset_password
-from auth.authMiddleware import token_required
-from services.userService import get_user_by_id, update_user_profile, change_password
+from auth.auth_middleware import token_required
+from services.user_service import get_user_by_id, update_user_profile, change_password, delete_user, update_profile_photo
+import io
+from gridfs import GridFS
+from mongoDb.connection import get_db
+from bson import ObjectId
+from flask import send_file
 
 auth_routes = Blueprint('auth_routes', __name__)
 
@@ -116,3 +121,50 @@ def handle_change_password(current_user):
 def handle_logout(current_user):
     """Logout — client-side token clearing. Server acknowledges."""
     return jsonify({"message": "Logged out successfully"}), 200
+
+
+@auth_routes.route('/upload-profile-photo', methods=['PUT'])
+@token_required
+def handle_upload_profile_photo(current_user):
+    """Upload or update profile photo for current user."""
+    try:
+        if 'photo' not in request.files:
+            return jsonify({"error": "No photo provided"}), 400
+        file = request.files['photo']
+        if file.filename == '':
+            return jsonify({"error": "No selected file"}), 400
+            
+        updated_user = update_profile_photo(current_user['_id'], file)
+        return jsonify({"user": updated_user, "message": "Profile photo updated successfully"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@auth_routes.route('/profile-photo/<photo_id>', methods=['GET'])
+def get_profile_photo(photo_id):
+    """Retrieve profile photo from GridFS or via Google Drive proxy."""
+    try:
+        # Google Drive IDs are longer than MongoDB ObjectIDs (which are 24 hex characters)
+        if len(photo_id) > 24:
+            from services.google_drive_service import stream_file_from_drive
+            fh, mimetype = stream_file_from_drive(photo_id)
+            return send_file(fh, mimetype=mimetype)
+            
+        db = get_db()
+        fs = GridFS(db)
+        grid_out = fs.get(ObjectId(photo_id))
+        return send_file(io.BytesIO(grid_out.read()), mimetype=grid_out.content_type)
+    except Exception as e:
+        return jsonify({"error": "Photo not found"}), 404
+
+
+@auth_routes.route('/delete-account', methods=['DELETE'])
+@token_required
+def handle_delete_account(current_user):
+    """Delete current user's account."""
+    try:
+        delete_user(current_user['_id'])
+        return jsonify({"message": "Account deleted successfully"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+

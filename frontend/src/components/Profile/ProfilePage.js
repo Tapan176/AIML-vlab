@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import constants from '../../constants';
+import constants, { API_URL } from '../../constants';
 import './ProfilePage.css';
 
 const ProfilePage = () => {
@@ -43,9 +43,15 @@ const ProfilePage = () => {
     return (
         <div className="profile-page">
             <div className="profile-card">
-                <div className="profile-avatar-large">
-                    {user.first_name?.charAt(0)?.toUpperCase() || 'U'}
-                </div>
+                {user.profile_photo_id ? (
+                    <img src={`${API_URL}/profile-photo/${user.profile_photo_id}`} alt="Profile" className="profile-avatar-large" style={{ objectFit: 'cover' }} />
+                ) : user.profile_photo_url ? (
+                    <img src={user.profile_photo_url} alt="Profile" className="profile-avatar-large" style={{ objectFit: 'cover' }} />
+                ) : (
+                    <div className="profile-avatar-large">
+                        {user.first_name?.charAt(0)?.toUpperCase() || 'U'}
+                    </div>
+                )}
                 <h1>{user.first_name} {user.last_name}</h1>
                 <p className="profile-email">{user.email}</p>
                 {user.phone && <p className="profile-phone">📱 {user.phone}</p>}

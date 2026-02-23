@@ -3,7 +3,9 @@
  * All API calls should use these helpers.
  */
 
-const API_BASE = 'http://localhost:5050';
+import { API_URL } from '../constants';
+
+const API_BASE = API_URL;
 
 function getToken() {
     return localStorage.getItem('aiml_token');

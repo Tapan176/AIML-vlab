@@ -1,0 +1,44 @@
+
+.studio-header { margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid #eee; }
+.studio-header h1 { font-size: 2.2rem; color: #333; margin-bottom: 10px; }
+.studio-header p { color: #666; font-size: 1.1rem; }
+.studio-tabs { display: flex; gap: 15px; margin-bottom: 30px; }
+.studio-tabs button { padding: 12px 24px; font-size: 1rem; font-weight: 500; color: #555; background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; gap: 8px; }
+.studio-tabs button:hover { background: #e9ecef; }
+.studio-tabs button.active { background: #007bff; color: white; border-color: #007bff; box-shadow: 0 4px 12px rgba(0,123,255,0.2); }
+.studio-body { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05), 0 1px 3px rgba(0,0,0,0.1); }
+.dataset-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+.dataset-table th, .dataset-table td { padding: 15px; text-align: left; border-bottom: 1px solid #eee; }
+.dataset-table th { background: #f8f9fa; font-weight: 600; color: #444; }
+.badge { padding: 4px 10px; border-radius: 12px; font-size: 0.85rem; font-weight: 600; }
+.badge-csv { background: #e3f2fd; color: #1976d2; }
+.badge-zip { background: #fce4ec; color: #c2185b; }
+.badge-other { background: #f5f5f5; color: #616161; }
+.btn-delete { background: #ffebee; color: #d32f2f; border: 1px solid #ffcdd2; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; transition: all 0.2s ease; }
+.btn-delete:hover { background: #f44336; color: white; }
+.placeholder-tab { text-align: center; padding: 60px 20px; }
+.placeholder-tab h2 { color: #333; margin-bottom: 15px; }
+.placeholder-tab p { color: #666; max-width: 600px; margin: 0 auto 30px; line-height: 1.6; }
+.coming-soon { display: inline-block; padding: 10px 20px; background: #fff3cd; color: #856404; border-radius: 20px; font-weight: 600; font-size: 0.9rem; border: 1px solid #ffeeba; }
+/* Preprocessing Studio Styles */
+.preprocessing-tab { max-width: 800px; }
+.preprocessing-tab h2 { color: #333; margin-bottom: 10px; }
+.preprocessing-tab p { color: #666; margin-bottom: 25px; }
+.prep-form-group { margin-bottom: 30px; }
+.prep-form-group label { display: block; margin-bottom: 8px; font-weight: 600; color: #444; }
+.prep-form-group select { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; }
+.prep-pipeline { background: #f8f9fa; border: 1px solid #eee; border-radius: 12px; padding: 20px; margin-bottom: 30px; }
+.prep-pipeline h3 { margin-top: 0; margin-bottom: 15px; font-size: 1.2rem; color: #333; }
+.empty-pipeline { color: #888; font-style: italic; padding: 15px 0; }
+.pipeline-node { background: white; border-left: 4px solid #007bff; padding: 15px; margin-bottom: 15px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+.node-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.node-header strong { color: #1a73e8; }
+.btn-remove { background: none; border: none; color: #d32f2f; cursor: pointer; font-size: 1.1rem; }
+.pipeline-node input { width: 100%; box-sizing: border-box; }
+.prep-actions h4 { margin-bottom: 15px; color: #444; }
+.button-tray { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 40px; }
+.button-tray button { padding: 8px 16px; background: white; border: 1px solid #007bff; color: #007bff; border-radius: 20px; font-weight: 500; cursor: pointer; }
+.button-tray button:hover { background: #e3f2fd; }
+.btn-run-prep { width: 100%; padding: 15px; background: #28a745; color: white; border: none; border-radius: 8px; font-size: 1.1rem; font-weight: 600; cursor: pointer; }
+.btn-run-prep:disabled { background: #ccc; cursor: not-allowed; }
+

@@ -5,8 +5,10 @@ All constants and settings are loaded from .env — no hardcoded values.
 import os
 from dotenv import load_dotenv
 
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+
 # Load environment variables from .env file
-load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
+load_dotenv(os.path.join(BASE_DIR, '.env'))
 
 
 # --- MongoDB ---
@@ -27,6 +29,7 @@ PREDICTIONS_DIR = os.getenv('PREDICTIONS_DIR', 'predictions')
 # --- Server ---
 FLASK_PORT = int(os.getenv('FLASK_PORT', '5050'))
 FLASK_DEBUG = os.getenv('FLASK_DEBUG', 'true').lower() == 'true'
+ALLOWED_ORIGINS = os.getenv('ALLOWED_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000,http://localhost:5050,http://127.0.0.1:5050').split(',')
 
 # --- Upload Limits ---
 ALLOWED_CSV_EXTENSIONS = set(os.getenv('ALLOWED_CSV_EXTENSIONS', 'csv').split(','))

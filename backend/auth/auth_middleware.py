@@ -54,3 +54,15 @@ def token_required(f):
         return f(current_user, *args, **kwargs)
 
     return decorated
+
+def admin_required(f):
+    """Decorator to protect routes requiring admin privileges."""
+    @wraps(f)
+    @token_required
+    def decorated(current_user, *args, **kwargs):
+        if current_user.get('role') != 'admin':
+            return jsonify({'error': 'Admin privileges required'}), 403
+            
+        return f(current_user, *args, **kwargs)
+
+    return decorated

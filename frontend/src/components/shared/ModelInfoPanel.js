@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import models from '../models.json';
+import { API_URL } from '../../constants';
 import '../ModelCss/ModelPage.css';
+
+let cachedModelsMaster = null;
 
 /**
  * Slide-out drawer that shows model description & parameters.
@@ -10,9 +12,27 @@ export default function ModelInfoPanel({ modelCode, isOpen, onClose }) {
     const [modelData, setModelData] = useState(null);
 
     useEffect(() => {
-        const found = models.find(m => m.code === modelCode);
-        setModelData(found || null);
-    }, [modelCode]);
+        if (!isOpen) return;
+        
+        const fetchModelInfo = async () => {
+            if (cachedModelsMaster) {
+                const found = cachedModelsMaster.find(m => m.code === modelCode);
+                setModelData(found || null);
+                return;
+            }
+            try {
+                const res = await fetch(`${API_URL}/models/info`);
+                if (res.ok) {
+                    cachedModelsMaster = await res.json();
+                    const found = cachedModelsMaster.find(m => m.code === modelCode);
+                    setModelData(found || null);
+                }
+            } catch (err) {
+                console.error("Failed to fetch model info:", err);
+            }
+        };
+        fetchModelInfo();
+    }, [modelCode, isOpen]);
 
     if (!modelData) return null;
 

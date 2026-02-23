@@ -22,9 +22,9 @@ def kMeans(request, validated_params=None, user_id=None, session_version=None):
 
     X = None
     if 'filename' in data:
-        filepath = os.path.join(UPLOAD_DIR, data['filename'])
         try:
-            dataset = pd.read_csv(filepath)
+            from services.dataset_service import get_dataset_df
+            dataset = get_dataset_df(user_id, data['filename'])
             X = dataset.iloc[:, [2, 3]].values
         except FileNotFoundError:
             return {"error": "File not found"}

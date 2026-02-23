@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import constants from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
+import HyperparamPanel from '../shared/HyperparamPanel';
 import ModelInfoPanel from '../shared/ModelInfoPanel';
 import '../ModelCss/ModelPage.css';
 
@@ -12,15 +13,28 @@ const DEFAULT_LAYER = { units: 64, activation: 'relu', dropout: 0 };
 export default function ANN() {
     const [datasetData, setDatasetData] = useState('');
     const [layers, setLayers] = useState([{ ...DEFAULT_LAYER }, { units: 32, activation: 'relu', dropout: 0 }]);
-    const [epochs, setEpochs] = useState(50);
-    const [batchSize, setBatchSize] = useState(32);
-    const [optimizer, setOptimizer] = useState('adam');
-    const [lossFunction, setLossFunction] = useState('binary_crossentropy');
+    const [hyperparams, setHyperparams] = useState({});
     const [results, setResults] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [infoOpen, setInfoOpen] = useState(false);
 
+
+    useEffect(() => {
+        const cached = localStorage.getItem(`ann_dataset`);
+        if (cached) {
+            try { setDatasetData(JSON.parse(cached)); } catch(e) {}
+        }
+    }, []);
+
+    const handleDatasetSelect = (data) => {
+        setDatasetData(data);
+        if (data && data.filename) {
+            localStorage.setItem(`ann_dataset`, JSON.stringify(data));
+        } else {
+            localStorage.removeItem(`ann_dataset`);
+        }
+    };
     const handleLayerChange = (index, key, value) => {
         const updated = [...layers];
         updated[index] = { ...updated[index], [key]: value };
@@ -41,11 +55,11 @@ export default function ANN() {
                 body: JSON.stringify({
                     filename: datasetData?.filename,
                     hidden_layers: layers,
-                    epochs,
-                    batch_size: batchSize,
-                    optimizer,
-                    loss: lossFunction,
-                    hyperparams: { epochs, batch_size: batchSize, optimizer, loss: lossFunction },
+                    epochs: hyperparams.epochs || 50,
+                    batch_size: hyperparams.batch_size || 32,
+                    optimizer: hyperparams.optimizer || 'adam',
+                    loss: hyperparams.loss || 'binary_crossentropy',
+                    hyperparams,
                 }),
             });
             if (!response.ok) {
@@ -68,45 +82,21 @@ export default function ANN() {
             </div>
 
             <div className="dataset-section">
-                <ShowDataset onDatasetUpload={setDatasetData} />
+                <ShowDataset onDatasetUpload={handleDatasetSelect} allowedTypes={['csv']} />
+                {datasetData && datasetData.filename && (
+                    <div style={{ marginTop: '10px', color: '#34c759' }}>
+                        ✓ Cached dataset: <strong>{datasetData.filename}</strong>
+                    </div>
+                )}
             </div>
 
             <form className="model-form" onSubmit={handleSubmit}>
                 {/* Training Settings */}
-                <div className="form-grid">
-                    <div className="form-group">
-                        <label>Epochs</label>
-                        <input type="number" min="1" max="500" value={epochs} onChange={(e) => setEpochs(parseInt(e.target.value))} />
-                    </div>
-                    <div className="form-group">
-                        <label>Batch Size</label>
-                        <select value={batchSize} onChange={(e) => setBatchSize(parseInt(e.target.value))}>
-                            <option value={8}>8</option>
-                            <option value={16}>16</option>
-                            <option value={32}>32</option>
-                            <option value={64}>64</option>
-                            <option value={128}>128</option>
-                        </select>
-                    </div>
-                    <div className="form-group">
-                        <label>Optimizer</label>
-                        <select value={optimizer} onChange={(e) => setOptimizer(e.target.value)}>
-                            <option value="adam">Adam</option>
-                            <option value="sgd">SGD</option>
-                            <option value="rmsprop">RMSprop</option>
-                            <option value="adagrad">Adagrad</option>
-                        </select>
-                    </div>
-                    <div className="form-group">
-                        <label>Loss Function</label>
-                        <select value={lossFunction} onChange={(e) => setLossFunction(e.target.value)}>
-                            <option value="binary_crossentropy">Binary Crossentropy</option>
-                            <option value="categorical_crossentropy">Categorical Crossentropy</option>
-                            <option value="sparse_categorical_crossentropy">Sparse Categorical Crossentropy</option>
-                            <option value="mse">Mean Squared Error</option>
-                        </select>
-                    </div>
-                </div>
+                <HyperparamPanel
+                    modelCode="ann"
+                    hyperparams={hyperparams}
+                    onChange={(name, value) => setHyperparams(prev => ({ ...prev, [name]: value }))}
+                />
 
                 {/* ANN Layer Builder */}
                 <div className="hidden-layers-section">

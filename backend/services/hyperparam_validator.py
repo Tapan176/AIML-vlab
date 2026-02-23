@@ -102,6 +102,14 @@ VALIDATION_SCHEMAS = {
         'alpha': {'type': float, 'min': 0.001, 'max': 10.0},
         'test_size': {'type': float, 'min': 0.05, 'max': 0.5},
     },
+    'cnn': {
+        'epochs': {'type': int, 'min': 1, 'max': 500},
+        'batch_size': {'type': int, 'min': 1, 'max': 512},
+        'optimizer': {'type': str, 'options': ['adam', 'sgd', 'rmsprop', 'adagrad', 'adadelta']},
+        'loss': {'type': str, 'options': ['binary_crossentropy', 'categorical_crossentropy', 'sparse_categorical_crossentropy', 'mse']},
+        'validation_split': {'type': float, 'min': 0.05, 'max': 0.5},
+        'test_size': {'type': float, 'min': 0.05, 'max': 0.5},
+    },
 }
 
 

@@ -23,9 +23,9 @@ def multivariateLinearRegression(request, validated_params=None, user_id=None, s
     y = None
 
     if 'filename' in data:
-        filepath = os.path.join(UPLOAD_DIR, data['filename'])
         try:
-            dataset = pd.read_csv(filepath)
+            from services.dataset_service import get_dataset_df
+            dataset = get_dataset_df(user_id, data['filename'])
             X = dataset.iloc[:, :-1].values
             y = dataset.iloc[:, -1].values
             columnNames = dataset.columns.tolist()

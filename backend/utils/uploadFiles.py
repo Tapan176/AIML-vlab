@@ -52,7 +52,10 @@ def remove_extension(filename):
     base_name, extension = os.path.splitext(filename)
     return base_name
 
-def handle_upload_file(request):
+from services.google_drive_service import upload_file_to_drive
+from services.dataset_service import save_dataset
+
+def handle_upload_file(request, user_id):
     if 'file' not in request.files:
         return ({'error': 'No file part'})
 
@@ -71,20 +74,29 @@ def handle_upload_file(request):
     file.save(filepath)
 
     if filename.endswith('.csv'):
-        # Parse CSV file and send data to frontend
         csv_data = parse_csv(filepath)
-        return ({'csv_data': csv_data, 'filename': filename})
+        drive_res = upload_file_to_drive(file, filename, folder_type='datasets', user_id=user_id)
+        # record inside dataset registry
+        save_dataset(user_id, filename, filepath, file_type='csv', csv_data=csv_data, drive_id=drive_res.get('id'))
+        
+        return ({'csv_data': csv_data, 'filename': filename, 'drive_id': drive_res.get('id')})
 
     elif filename.endswith('.zip'):
-        # Extract zip file
         extracted_path = os.path.join('static/uploads', 'extracted')
         extracted_file_path = os.path.join('static/uploads', 'extracted', remove_extension(filename))
         with zipfile.ZipFile(filepath, 'r') as zip_ref:
             zip_ref.extractall(extracted_path)
         
-        # Get image links from extracted directory
         image_links = get_image_links(os.path.join(extracted_path, remove_extension(filename), 'train'))
+        
+        # upload raw zip to drive
+        drive_res = upload_file_to_drive(filepath, filename, folder_type='datasets', user_id=user_id)
+        # record inside dataset registry
+        save_dataset(user_id, filename, filepath, file_type='zip', image_links=image_links, extracted_path=extracted_file_path, drive_id=drive_res.get('id'))
 
-        return ({'image_links': image_links, 'filepath': extracted_path, 'filename': filename, 'extracted_file_path': extracted_file_path })
+        return ({'image_links': image_links, 'filepath': extracted_path, 'filename': filename, 'extracted_file_path': extracted_file_path, 'drive_id': drive_res.get('id') })
 
-    return ({'message': 'File uploaded successfully', 'filename': filename})
+    # Generic file
+    drive_res = upload_file_to_drive(file, filename, folder_type='datasets', user_id=user_id)
+    save_dataset(user_id, filename, filepath, file_type='other', drive_id=drive_res.get('id'))
+    return ({'message': 'File uploaded successfully', 'filename': filename, 'drive_id': drive_res.get('id')})

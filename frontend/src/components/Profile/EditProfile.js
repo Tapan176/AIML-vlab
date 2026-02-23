@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { API_URL } from '../../constants';
 import './EditProfile.css';
 
 const EditProfile = () => {
-    const { user, updateProfile } = useAuth();
+    const { user, updateProfile, uploadProfilePhoto, deleteAccount } = useAuth();
     const navigate = useNavigate();
 
     const [formData, setFormData] = useState({
@@ -36,6 +37,32 @@ const EditProfile = () => {
         setLoading(false);
     };
 
+    const handlePhotoChange = async (e) => {
+        if (e.target.files && e.target.files[0]) {
+            try {
+                setLoading(true);
+                await uploadProfilePhoto(e.target.files[0]);
+                setMessage('Profile photo updated successfully!');
+            } catch (err) {
+                setError(err.message || 'Failed to update photo');
+            }
+            setLoading(false);
+        }
+    };
+
+    const handleDeleteAccount = async () => {
+        if (window.confirm("Are you sure you want to delete your account? This action cannot be undone.")) {
+            try {
+                setLoading(true);
+                await deleteAccount();
+                navigate('/');
+            } catch (err) {
+                setError(err.message || 'Failed to delete account');
+                setLoading(false);
+            }
+        }
+    };
+
     if (!user) {
         navigate('/login');
         return null;
@@ -48,6 +75,24 @@ const EditProfile = () => {
 
                 {error && <div className="auth-error">{error}</div>}
                 {message && <div className="auth-success">{message}</div>}
+
+                <div className="profile-photo-section">
+                    <div className="photo-preview-container">
+                        {user.profile_photo_id ? (
+                            <img src={`${API_URL}/profile-photo/${user.profile_photo_id}`} alt="Profile" className="profile-photo-preview photo-circular" style={{ objectFit: 'cover' }} />
+                        ) : user.profile_photo_url ? (
+                            <img src={user.profile_photo_url} alt="Profile" className="profile-photo-preview photo-circular" style={{ objectFit: 'cover' }} />
+                        ) : (
+                            <div className="profile-avatar-large photo-circular">
+                                {user.first_name?.charAt(0)?.toUpperCase() || 'U'}
+                            </div>
+                        )}
+                    </div>
+                    <label className="auth-btn btn-upload-photo" style={{ width: 'auto', display: 'inline-block', marginTop: '1rem', cursor: 'pointer' }}>
+                        Change Photo
+                        <input type="file" accept="image/*" onChange={handlePhotoChange} style={{ display: 'none' }} disabled={loading} />
+                    </label>
+                </div>
 
                 <form onSubmit={handleSubmit}>
                     <div className="form-row">
