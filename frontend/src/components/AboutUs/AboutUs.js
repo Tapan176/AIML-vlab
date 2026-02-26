@@ -51,7 +51,7 @@ const AboutUs = () => {
                         <div className="feature-card">
                             <span className="feature-icon">🎨</span>
                             <h3>Generative AI</h3>
-                            <p>StyleGAN2 for high-quality image generation</p>
+                            <p>StyleGAN for high-quality image generation</p>
                         </div>
                     </div>
                 </section>

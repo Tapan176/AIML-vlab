@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import './Auth.css';
@@ -9,14 +9,18 @@ const Login = () => {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
-    const { login, user } = useAuth();
+    const { login, isAuthenticated, user } = useAuth();
 
-    useEffect(() => {
-        if (user) {
-            if (user.role === 'admin') navigate('/admin');
-            else navigate('/lab');
+    // Auto-redirect if already logged in across tabs
+    React.useEffect(() => {
+        if (isAuthenticated && user) {
+            if (user.role === 'admin') {
+                navigate('/admin');
+            } else {
+                navigate('/lab');
+            }
         }
-    }, [user, navigate]);
+    }, [isAuthenticated, user, navigate]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();

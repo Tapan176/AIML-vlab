@@ -18,6 +18,7 @@ export default function ANN() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [infoOpen, setInfoOpen] = useState(false);
+    const [logs, setLogs] = useState([]);
 
 
     useEffect(() => {
@@ -48,30 +49,62 @@ export default function ANN() {
         e.preventDefault();
         setLoading(true);
         setError('');
+        setLogs([]);
+        setResults(null);
         try {
-            const response = await fetch(`${constants.API_BASE_URL}/ann`, {
+            const bodyPayload = {
+                filename: datasetData?.filename,
+                hidden_layers: layers,
+                epochs: hyperparams.epochs || 50,
+                batch_size: hyperparams.batch_size || 32,
+                optimizer: hyperparams.optimizer || 'adam',
+                loss: hyperparams.loss || 'binary_crossentropy',
+                hyperparams,
+            };
+
+            const API_BASE = constants.API_BASE_URL || (process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api');
+            const response = await fetch(`${API_BASE}/ann`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    filename: datasetData?.filename,
-                    hidden_layers: layers,
-                    epochs: hyperparams.epochs || 50,
-                    batch_size: hyperparams.batch_size || 32,
-                    optimizer: hyperparams.optimizer || 'adam',
-                    loss: hyperparams.loss || 'binary_crossentropy',
-                    hyperparams,
-                }),
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('aiml_token')}`
+                },
+                body: JSON.stringify(bodyPayload)
             });
+
             if (!response.ok) {
                 const errData = await response.json();
-                throw new Error(errData.error || 'Failed');
+                throw new Error(errData.error || 'Training failed');
             }
-            setResults(await response.json());
-        } catch (err) {
-            setError(err.message);
-        } finally {
-            setLoading(false);
-        }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder('utf-8');
+            let done = false;
+
+            while (!done) {
+                const { value, done: readerDone } = await reader.read();
+                done = readerDone;
+                if (value) {
+                    const chunk = decoder.decode(value, { stream: true });
+                    const events = chunk.split('\n\n');
+                    events.forEach(event => {
+                        if (event.startsWith('data: ')) {
+                            try {
+                                const parsed = JSON.parse(event.replace('data: ', ''));
+                                if (parsed.log) {
+                                    setLogs(prev => [...prev, parsed.log]);
+                                } else if (parsed.status === 'completed') {
+                                    setResults(parsed);
+                                } else if (parsed.error) {
+                                    setError(parsed.error);
+                                }
+                            } catch (e) { }
+                        }
+                    });
+                }
+            }
+        } catch (err) { setError(err.message); }
+        finally { setLoading(false); }
     };
 
     return (
@@ -145,6 +178,18 @@ export default function ANN() {
             </form>
 
             {error && <div className="model-error">❌ {error}</div>}
+
+            {logs.length > 0 && (
+                <div className="terminal-container" style={{ marginTop: '20px', background: '#1e1e1e', color: '#00ff00', padding: '15px', borderRadius: '8px', fontFamily: 'monospace', height: '300px', overflowY: 'auto' }}>
+                    <div style={{ borderBottom: '1px solid #333', paddingBottom: '10px', marginBottom: '10px', color: '#888' }}>
+                        Live Training Console
+                    </div>
+                    {logs.map((log, index) => (
+                        <div key={index}>{log}</div>
+                    ))}
+                    {loading && <div className="cursor-blink" style={{ marginTop: '10px' }}>_</div>}
+                </div>
+            )}
 
             {results && (
                 <div className="results-card">

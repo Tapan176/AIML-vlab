@@ -52,6 +52,10 @@ MODEL_CODES = [
     'dbscan',
     'ann',
     'cnn',
+    'resnet',
+    'lstm',
+    'yolo',
+    'stylegan',
 ]
 
 # Default hyperparameter values per model
@@ -150,6 +154,36 @@ DEFAULT_HYPERPARAMS = {
         'max_features': 5000,
         'alpha': 1.0,
         'test_size': 0.2,
+    },
+    'resnet': {
+        'epochs': 50,
+        'batch_size': 32,
+        'optimizer': 'adam',
+        'loss': 'categorical_crossentropy',
+        'validation_split': 0.2,
+        'learning_rate': 0.001,
+    },
+    'lstm': {
+        'epochs': 50,
+        'batch_size': 32,
+        'optimizer': 'adam',
+        'loss': 'mse',
+        'validation_split': 0.2,
+        'sequence_length': 10,
+    },
+    'yolo': {
+        'epochs': 50,
+        'batch_size': 16,
+        'imgsz': 640,
+        'optimizer': 'auto',
+    },
+    'stylegan': {
+        'epochs': 300,
+        'batch_size': 32,
+        'z_dim': 256,
+        'w_dim': 256,
+        'log_resolution': 10,
+        'learning_rate': 0.00002,
     },
 }
 

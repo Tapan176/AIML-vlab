@@ -108,16 +108,60 @@ def train_ann(request, validated_params=None, user_id=None, session_version=None
     model.compile(optimizer=optimizer, loss=loss_fn, metrics=metrics)
 
     # Train
-    early_stopping = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
-    history = model.fit(
-        X_train, y_train,
-        epochs=int(epochs),
-        batch_size=int(batch_size),
-        validation_split=float(validation_split),
-        callbacks=[early_stopping],
-        verbose=0,
-    )
+    import json
+    import time
+    yield f"data: {json.dumps({'log': 'Compiling Artificial Neural Network Architecture...'})}\n\n"
 
+    # Train
+    best_val_loss = float('inf')
+    patience = 5
+    patience_counter = 0
+    total_epochs = int(epochs)
+
+    yield f"data: {json.dumps({'log': f'Starting Training for {total_epochs} epochs...'})}\n\n"
+
+    last_val_accuracy = 0
+    last_val_loss = 0
+    stopped_epoch = total_epochs
+
+    for epoch in range(1, total_epochs + 1):
+        history = model.fit(
+            X_train, y_train,
+            epochs=1,
+            batch_size=int(batch_size),
+            validation_split=float(validation_split),
+            verbose=0,
+        )
+
+        train_loss = history.history['loss'][0]
+        train_acc = history.history.get('accuracy', history.history.get('acc', [0]))[0]
+        val_loss = history.history.get('val_loss', [0])[0]
+        val_acc = history.history.get('val_accuracy', history.history.get('val_acc', [0]))[0]
+        
+        last_val_accuracy = val_acc
+        last_val_loss = val_loss
+
+        yield f"data: {json.dumps({'log': f'Epoch [{epoch}/{total_epochs}] loss: {train_loss:.4f} - accuracy: {train_acc:.4f} - val_loss: {val_loss:.4f} - val_accuracy: {val_acc:.4f}'})}\n\n"
+
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            patience_counter = 0
+            model.save_weights('/tmp/best_ann_weights.h5')
+        else:
+            patience_counter += 1
+            if patience_counter >= patience:
+                yield f"data: {json.dumps({'log': f'Early stopping triggered at epoch {epoch}. Restoring best weights...'})}\n\n"
+                try:
+                    model.load_weights('/tmp/best_ann_weights.h5')
+                except:
+                    pass
+                stopped_epoch = epoch
+                break
+                
+        time.sleep(0.05)
+
+    yield f"data: {json.dumps({'log': 'Evaluating on holdout testing set...'})}\n\n"
+    
     # Evaluate on test set
     eval_results = model.evaluate(X_test, y_test, verbose=0)
     test_loss = eval_results[0]
@@ -125,13 +169,7 @@ def train_ann(request, validated_params=None, user_id=None, session_version=None
 
     # Save model
     model_path = saveTrainedModel(model, "ann", "Keras", user_id=user_id, version=session_version)
+    
+    yield f"data: {json.dumps({'log': f'Training Complete! Test Accuracy: {test_accuracy:.4f}'})}\n\n"
 
-    return {
-        'message': 'ANN model trained successfully.',
-        'accuracy': float(test_accuracy),
-        'loss': float(test_loss),
-        'val_accuracy': float(history.history.get('val_accuracy', [0])[-1]),
-        'val_loss': float(history.history.get('val_loss', [0])[-1]),
-        'epochs_trained': len(history.history['loss']),
-        'trained_model_path': model_path,
-    }
+    yield f"data: {json.dumps({'status': 'completed', 'accuracy': float(test_accuracy), 'loss': float(test_loss), 'val_accuracy': float(last_val_accuracy), 'val_loss': float(last_val_loss), 'epochs_trained': stopped_epoch, 'trained_model_path': model_path})}\n\n"

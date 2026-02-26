@@ -5,7 +5,7 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseUpload, MediaIoBaseDownload
+from googleapiclient.http import MediaIoBaseUpload, MediaIoBaseDownload, MediaFileUpload
 from werkzeug.datastructures import FileStorage
 from config import BASE_DIR
 
@@ -111,24 +111,32 @@ def upload_file_to_drive(file_obj, filename, folder_type='datasets', user_id=Non
         user_folder_id = get_or_create_subfolder(service, type_folder_id, str(user_id))
         parent_folder_id = user_folder_id
 
-    # Read the file content
+    # 100MB chunks for scalable massive file streaming
+    CHUNK_SIZE = 100 * 1024 * 1024 
+    
+    media = None
     if isinstance(file_obj, FileStorage):
-        file_content = file_obj.read()
+        media = MediaIoBaseUpload(file_obj.stream, mimetype='application/octet-stream', chunksize=CHUNK_SIZE, resumable=True)
     elif isinstance(file_obj, str) and os.path.exists(file_obj):
-        with open(file_obj, 'rb') as f:
-            file_content = f.read()
+        media = MediaFileUpload(file_obj, mimetype='application/octet-stream', chunksize=CHUNK_SIZE, resumable=True)
+    elif hasattr(file_obj, 'read'):
+        media = MediaIoBaseUpload(file_obj, mimetype='application/octet-stream', chunksize=CHUNK_SIZE, resumable=True)
     else:
         file_content = file_obj # Assume bytes
-        
-    media = MediaIoBaseUpload(io.BytesIO(file_content), mimetype='application/octet-stream', resumable=True)
+        media = MediaIoBaseUpload(io.BytesIO(file_content), mimetype='application/octet-stream', chunksize=CHUNK_SIZE, resumable=True)
     
     file_metadata = {
         'name': filename,
         'parents': [parent_folder_id]
     }
 
-    # Upload
-    file = service.files().create(body=file_metadata, media_body=media, fields='id, webContentLink, webViewLink').execute()
+    # Upload iteratively in chunks to avoid OOM
+    request = service.files().create(body=file_metadata, media_body=media, fields='id, webContentLink, webViewLink')
+    response = None
+    while response is None:
+        status, response = request.next_chunk()
+        
+    file = response
     
     # Make it readable by anyone with the link so frontend can access images directly if needed
     try:
@@ -154,11 +162,14 @@ def download_file_from_drive(file_id, destination_path):
         raise Exception("Google Drive service is not configured.")
 
     request = service.files().get_media(fileId=file_id)
-    fh = io.FileIO(destination_path, 'wb')
-    downloader = MediaIoBaseDownload(fh, request)
-    done = False
-    while done is False:
-        status, done = downloader.next_chunk()
+    CHUNK_SIZE = 100 * 1024 * 1024
+    
+    with open(destination_path, 'wb') as fh:
+        downloader = MediaIoBaseDownload(fh, request, chunksize=CHUNK_SIZE)
+        done = False
+        while done is False:
+            status, done = downloader.next_chunk()
+            
     return destination_path
 
 def stream_file_from_drive(file_id):
@@ -174,8 +185,12 @@ def stream_file_from_drive(file_id):
     mime_type = file_metadata.get('mimeType', 'application/octet-stream')
 
     request = service.files().get_media(fileId=file_id)
-    fh = io.BytesIO()
-    downloader = MediaIoBaseDownload(fh, request)
+    # Using SpooledTemporaryFile to spill to disk if > 100MB, avoiding RAM Exhaustion on 30GB Zips
+    import tempfile
+    CHUNK_SIZE = 100 * 1024 * 1024
+    fh = tempfile.SpooledTemporaryFile(max_size=CHUNK_SIZE, mode='w+b')
+    
+    downloader = MediaIoBaseDownload(fh, request, chunksize=CHUNK_SIZE)
     done = False
     while done is False:
         status, done = downloader.next_chunk()

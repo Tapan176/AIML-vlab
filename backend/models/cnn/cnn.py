@@ -132,32 +132,85 @@ def train_cnn(request, validated_params=None, user_id=None, session_version=None
         evaluationMetrics,
     )
 
+    import json
+    import time
+    yield f"data: {json.dumps({'log': 'Compiling Convolutional Neural Network Architecture...'})}\n\n"
+
     # Fitting the CNN
-    # Note: You should replace these paths with your actual dataset paths
     train_datagen = ImageDataGenerator(rescale=1./255, shear_range=0.2, zoom_range=0.2, horizontal_flip=True)
     test_datagen = ImageDataGenerator(rescale=1./255)
 
-    training_set = train_datagen.flow_from_directory(train_dataset_path,
-                                                     target_size=inputShape[:2],
-                                                     batch_size=batchSize,
-                                                     class_mode=classMode)
+    try:
+        training_set = train_datagen.flow_from_directory(train_dataset_path,
+                                                        target_size=inputShape[:2],
+                                                        batch_size=batchSize,
+                                                        class_mode=classMode)
 
-    test_set = test_datagen.flow_from_directory(test_dataset_path,
-                                                target_size=inputShape[:2],
-                                                batch_size=batchSize,
-                                                class_mode=classMode)
+        test_set = test_datagen.flow_from_directory(test_dataset_path,
+                                                    target_size=inputShape[:2],
+                                                    batch_size=batchSize,
+                                                    class_mode=classMode)
+    except Exception as e:
+        yield f"data: {json.dumps({'error': f'Failed to load image directory: {str(e)}'})}\n\n"
+        return
 
-    early_stopping = EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True)
+    yield f"data: {json.dumps({'log': f'Found {training_set.samples} training images and {test_set.samples} validation images in {train_dataset_path}.'})}\n\n"
 
-    model.fit_generator(training_set,
-                        steps_per_epoch=len(training_set),
-                        epochs=numberOfEpochs,
-                        validation_data=test_set,
-                        validation_steps=len(test_set),
-                        callbacks=[early_stopping])
+    best_val_loss = float('inf')
+    patience = 3
+    patience_counter = 0
+    total_epochs = int(numberOfEpochs)
 
+    yield f"data: {json.dumps({'log': f'Starting CNN Training for {total_epochs} epochs...'})}\n\n"
+
+    last_val_accuracy = 0
+    last_val_loss = 0
+    stopped_epoch = total_epochs
+
+    for epoch in range(1, total_epochs + 1):
+        try:
+            history = model.fit(
+                training_set,
+                steps_per_epoch=len(training_set),
+                epochs=1,
+                validation_data=test_set,
+                validation_steps=len(test_set),
+                verbose=0
+            )
+
+            train_loss = history.history['loss'][0]
+            train_acc = history.history.get('accuracy', history.history.get('acc', [0]))[0]
+            val_loss = history.history.get('val_loss', [0])[0]
+            val_acc = history.history.get('val_accuracy', history.history.get('val_acc', [0]))[0]
+            
+            last_val_accuracy = val_acc
+            last_val_loss = val_loss
+
+            yield f"data: {json.dumps({'log': f'Epoch [{epoch}/{total_epochs}] loss: {train_loss:.4f} - accuracy: {train_acc:.4f} - val_loss: {val_loss:.4f} - val_accuracy: {val_acc:.4f}'})}\n\n"
+
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                patience_counter = 0
+                model.save_weights('/tmp/best_cnn_weights.h5')
+            else:
+                patience_counter += 1
+                if patience_counter >= patience:
+                    yield f"data: {json.dumps({'log': f'Early stopping triggered at epoch {epoch}. Restoring best weights...'})}\n\n"
+                    try:
+                        model.load_weights('/tmp/best_cnn_weights.h5')
+                    except:
+                        pass
+                    stopped_epoch = epoch
+                    break
+                    
+            time.sleep(0.05)
+        except Exception as e:
+            yield f"data: {json.dumps({'error': f'Training aborted during epoch {epoch}: {str(e)}'})}\n\n"
+            return
+            
+    yield f"data: {json.dumps({'log': 'Training Complete. Saving model artifacts...'})}\n\n"
+    
     # Save the model
     save_path = saveTrainedModel(model, "cnn", "Keras", user_id=user_id, version=session_version)
-    # model.save("cnn.h5")
 
-    return ({'message': 'Model trained successfully.', 'trained_model_path': save_path})
+    yield f"data: {json.dumps({'status': 'completed', 'accuracy': float(last_val_accuracy), 'loss': float(last_val_loss), 'epochs_trained': stopped_epoch, 'trained_model_path': save_path})}\n\n"

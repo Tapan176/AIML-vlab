@@ -2,10 +2,13 @@ import React, { useState, useEffect } from 'react';
 import constants from '../../constants';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTrash, faDatabase, faMagic, faTags } from '@fortawesome/free-solid-svg-icons';
+import { useAuth } from '../../context/AuthContext';
+import ShowDataset from '../Dataset/ShowDataset';
 import Sidebar from '../Sidebar/Sidebar';
 import './DataStudio.css';
 
 export default function DataStudio() {
+    const { isAuthenticated } = useAuth();
     const [datasets, setDatasets] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('manager'); // 'manager', 'preprocessing', 'annotation'
@@ -32,8 +35,18 @@ export default function DataStudio() {
     };
 
     useEffect(() => {
-        fetchDatasets();
-    }, []);
+        if (isAuthenticated) {
+            fetchDatasets();
+        } else {
+            setLoading(false);
+        }
+    }, [isAuthenticated]);
+
+    const handleDatasetUploadDirect = (data) => {
+        if (data && data.filename) {
+            fetchDatasets();
+        }
+    };
 
     const handleDelete = async (id, filename) => {
         if (!window.confirm(`Are you sure you want to permanently delete "${filename}" from your cloud library?`)) return;
@@ -130,9 +143,22 @@ export default function DataStudio() {
                 </div>
 
                 <div className="studio-body">
+                    {!isAuthenticated ? (
+                        <div className="auth-required-message" style={{ textAlign: 'center', padding: '60px', color: 'var(--text-secondary)' }}>
+                            <FontAwesomeIcon icon={faTags} size="3x" style={{ marginBottom: '20px' }} />
+                            <h2>Authentication Required</h2>
+                            <p>Please log in to your AIML Lab account to securely manage your datasets, generate preprocessing pipelines, and establish deep learning annotations.</p>
+                        </div>
+                    ) : (
+                    <>
                     {activeTab === 'manager' && (
                         <div className="manager-tab">
                             <h2>My Cloud Uploads</h2>
+                            
+                            <div className="upload-container" style={{ margin: '20px 0', padding: '20px', background: 'var(--bg-card)', borderRadius: '12px' }}>
+                                <h3>Direct Dataset Upload</h3>
+                                <ShowDataset onDatasetUpload={handleDatasetUploadDirect} />
+                            </div>
                             {loading ? (
                                 <p>Loading datasets...</p>
                             ) : datasets.length === 0 ? (
@@ -216,12 +242,11 @@ export default function DataStudio() {
                                     <button onClick={() => addOperation('dropna')}>Drop Nulls (DropNA)</button>
                                     <button onClick={() => addOperation('fillna_mean')}>Impute Mean</button>
                                     <button onClick={() => addOperation('fillna_median')}>Impute Median</button>
-                                    <button onClick={() => addOperation('fillna_mode')}>Impute Mode</button>
                                     <button onClick={() => addOperation('drop_columns')}>Drop Columns</button>
-                                    <button onClick={() => addOperation('standard_scale')}>Standard Scaler</button>
-                                    <button onClick={() => addOperation('minmax_scale')}>Min-Max Scaling</button>
+                                    <button onClick={() => addOperation('standard_scale')}>Standardize (Z-Score)</button>
+                                    <button onClick={() => addOperation('minmax_scale')}>Normalize (MinMax)</button>
+                                    <button onClick={() => addOperation('robust_scale')}>Robust Scaler (Outliers)</button>
                                     <button onClick={() => addOperation('label_encode')}>Label Encoding</button>
-                                    <button onClick={() => addOperation('one_hot_encode')}>One-Hot Encoding</button>
                                 </div>
                             </div>
 
@@ -241,6 +266,8 @@ export default function DataStudio() {
                             <p>Draw bounding boxes around objects within your image datasets to export YOLOv8-compatible training architectures.</p>
                             <div className="coming-soon">Construction in Progress Phase 10</div>
                         </div>
+                    )}
+                    </>
                     )}
                 </div>
             </div>

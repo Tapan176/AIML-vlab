@@ -6,18 +6,20 @@ const MODEL_CATEGORIES = {
     'Regression': ['simple_linear_regression', 'multivariable_linear_regression'],
     'Classification': ['logistic_regression', 'knn', 'decision_tree', 'random_forest', 'svm', 'naive_bayes'],
     'Clustering': ['k_means', 'dbscan'],
-    'Neural Networks': ['ann', 'cnn'],
+    'Neural Networks': ['ann', 'cnn', 'resnet', 'lstm', 'yolo'],
     'Ensemble': ['gradient_boosting', 'xgboost'],
     'NLP': ['sentiment_analysis', 'text_classification'],
+    'Generative AI': ['stylegan'],
 };
 
 const CATEGORY_ICONS = {
     'Regression': '📈',
     'Classification': '🎯',
     'Clustering': '🔮',
-    'Neural Networks': '🧠',
+    'Neural Networks': '🕸️',
     'Ensemble': '🌲',
     'NLP': '📝',
+    'Generative AI': '✨',
 };
 
 const Sidebar = ({ loadComponent, activeModel }) => {

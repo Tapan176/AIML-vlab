@@ -44,6 +44,9 @@ export const AuthProvider = ({ children }) => {
     }, []);
 
     useEffect(() => {
+        fetchCurrentUser(token);
+        
+        // Listen for storage events to sync authentication state across multiple tabs
         const handleStorageChange = (e) => {
             if (e.key === 'aiml_token') {
                 if (e.newValue) {
@@ -54,11 +57,11 @@ export const AuthProvider = ({ children }) => {
                 }
             }
         };
+
         window.addEventListener('storage', handleStorageChange);
-        fetchCurrentUser(token);
         return () => window.removeEventListener('storage', handleStorageChange);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [fetchCurrentUser]);
 
     const login = async (email, password) => {
         const res = await fetch(`${API_URL}/login`, {

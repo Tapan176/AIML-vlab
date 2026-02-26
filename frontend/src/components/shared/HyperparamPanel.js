@@ -29,7 +29,17 @@ export default function HyperparamPanel({ modelCode, hyperparams, onChange }) {
 
     const paramEntries = schema ? Object.entries(schema) : [];
 
+    const labelOverrides = {
+        'imgsz': 'Image Resolution (imgsz)',
+        'cos_lr': 'Cosine Learning Rate',
+        'lr': 'Learning Rate',
+        'fliplr': 'Horizontal Flip (fliplr)',
+        'mosaic': 'Mosaic Augmentation'
+    };
+
     const formatLabel = (name) => {
+        if (labelOverrides[name]) return labelOverrides[name];
+        
         return name
             .replace(/_/g, ' ')
             .replace(/\b\w/g, c => c.toUpperCase());

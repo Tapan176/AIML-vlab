@@ -93,10 +93,6 @@ export default function ShowDataset({ onDatasetUpload, ...props }) {
                 console.log(imageLinks);
                 setCsvData(null);
                 onDatasetUpload(data);
-            } else {
-                setCsvData(null);
-                setImageLinks([]);
-                onDatasetUpload(data);
             }
             // Set showDataset to true to indicate that the dataset is ready to be displayed
             setShowDataset(true);
@@ -146,16 +142,20 @@ export default function ShowDataset({ onDatasetUpload, ...props }) {
                 {selectedCloudDataset && <div style={{ color: 'green', fontSize: '0.9em' }}>✓ Selected: {selectedCloudDataset}</div>}
             </div>
 
-            <div style={{ padding: '15px', border: '1px solid #ccc', borderRadius: '8px' }}>
-                <h4>2. Or Upload New Dataset Locally</h4>
-                <input className="form-control" type="file" id="formFileMultiple" multiple 
-                       style={{ maxWidth: '400px', marginBottom: '10px' }}
-                       accept={allowedTypes ? allowedTypes.map(t => typeof t === 'string' && !t.startsWith('.') ? `.${t}` : t).join(',') : undefined}
-                /><br/>
-                <button className="btn-upload" onClick={handleUpload}>Upload Dataset</button>&nbsp;&nbsp;
-                <button className="btn-preview" onClick={handleShow} disabled={!csvData && imageLinks.length === 0}>
-                    {showDataset ? 'Hide Preview' : 'Show Preview'}
-                </button>
+            <div style={{ padding: '15px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                <h4 style={{ marginBottom: '15px' }}>2. Or Upload New Dataset Locally</h4>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <input className="form-control" type="file" id="formFileMultiple" multiple 
+                           style={{ maxWidth: '300px' }}
+                           accept={allowedTypes ? allowedTypes.map(t => typeof t === 'string' && !t.startsWith('.') ? `.${t}` : t).join(',') : undefined}
+                    />
+                    <button className="btn-primary" onClick={handleUpload} style={{ padding: '8px 16px', border: 'none', borderRadius: '8px', cursor: 'pointer', background: '#6c63ff', color: 'white' }}>
+                        ⬆ Upload Dataset
+                    </button>
+                    <button className="btn-secondary" onClick={handleShow} disabled={!csvData && imageLinks.length === 0} style={{ padding: '8px 16px', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', background: 'var(--bg-card)', color: 'var(--text-primary)' }}>
+                        {showDataset ? '👁 Hide Preview' : '👁 Show Preview'}
+                    </button>
+                </div>
             </div>
             {/* Render CSV data if it's available */}
             {showDataset && csvData && (

@@ -81,6 +81,13 @@ def perform_preprocessing(current_user, dataset_id, operations):
                 num_cols = [c for c in columns if pd.api.types.is_numeric_dtype(df[c])]
                 if num_cols:
                     df[num_cols] = scaler.fit_transform(df[num_cols])
+
+            elif action == 'robust_scale':
+                from sklearn.preprocessing import RobustScaler
+                scaler = RobustScaler()
+                num_cols = [c for c in columns if pd.api.types.is_numeric_dtype(df[c])]
+                if num_cols:
+                    df[num_cols] = scaler.fit_transform(df[num_cols])
                     
             elif action == 'label_encode':
                 from sklearn.preprocessing import LabelEncoder

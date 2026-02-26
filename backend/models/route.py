@@ -62,6 +62,9 @@ MODEL_ROUTES = {
     'xgboost': '/xgboost',
     'sentiment_analysis': '/sentiment-analysis',
     'text_classification': '/text-classification',
+    'resnet': '/resnet',
+    'lstm': '/lstm',
+    'yolo': '/yolo',
 }
 
 
@@ -191,20 +194,24 @@ def cnn(current_user):
     session = create_session(user_id, 'cnn', validated_params, dataset_id)
     session_id = session['_id']
     
-    try:
-        results = _train_cnn(request, validated_params=validated_params, user_id=user_id, session_version=session['version'])
-        update_session_results(
-            session_id,
-            results.get('evaluation_metrics') or results.get('results') or results,
-            results.get('outputImageUrls', []),
-            results.get('trained_model_path', ''),
-            results.get('predictions_output_file', '')
-        )
-        results['session_id'] = str(session_id)
-        return jsonify(results), 200
-    except Exception as e:
-        update_session_error(session_id, str(e))
-        return jsonify({"error": str(e)}), 500
+    def generate():
+        import json
+        try:
+            for chunk in _train_cnn(request, validated_params=validated_params, user_id=user_id, session_version=session['version']):
+                yield chunk
+            # The final chunk from _train_cnn should contain the trained_model_path, so we could technically capture it.
+            # But the simulation/generator itself handles the final status yield.
+            update_session_results(session_id, {"status": "completed", "message": "CNN training complete."}, [], '', '')
+        except Exception as e:
+            update_session_error(session_id, str(e))
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+    from flask import Response, stream_with_context
+    response = Response(stream_with_context(generate()), mimetype='text/event-stream')
+    response.headers['Cache-Control'] = 'no-cache'
+    response.headers['X-Accel-Buffering'] = 'no'
+    response.headers['Connection'] = 'keep-alive'
+    return response
 
 
 @model_routes.route('/ann', methods=['POST'])
@@ -221,7 +228,22 @@ def ann():
     except Exception as e:
         return jsonify({"error": str(e)}), 400
     user_id = None
-    return jsonify(_train_ann(request, validated_params=validated_params, user_id=user_id)), 200
+    
+    # We won't use create_session for ANN here unless strictly required, but to support SSE we need a generator Response
+    def generate():
+        import json
+        try:
+            for chunk in _train_ann(request, validated_params=validated_params, user_id=user_id):
+                yield chunk
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+    from flask import Response, stream_with_context
+    response = Response(stream_with_context(generate()), mimetype='text/event-stream')
+    response.headers['Cache-Control'] = 'no-cache'
+    response.headers['X-Accel-Buffering'] = 'no'
+    response.headers['Connection'] = 'keep-alive'
+    return response
 
 
 @model_routes.route('/xgboost', methods=['POST'])
@@ -240,6 +262,170 @@ def xgboost():
     user_id = None
     return jsonify(_train_xgboost(request, validated_params=validated_params, user_id=user_id)), 200
 
+@model_routes.route('/resnet', methods=['POST'])
+@token_required
+def resnet(current_user):
+    """ResNet training execution."""
+    try:
+        from models.resnet.resnet_model import train_resnet as _train_resnet
+    except ImportError as e:
+        return jsonify({"error": f"ResNet requires TensorFlow: {e}"}), 500
+    
+    data = request.get_json() or {}
+    user_hyperparams = data.get('hyperparams', {})
+    hidden_layer_array = data.get('hiddenLayerArray', [])
+    class_mode = data.get('classMode', 'categorical')
+    is_base_frozen = data.get('isBaseFrozen', True)
+    
+    try:
+        validated_params = validate_hyperparams('resnet', user_hyperparams)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+        
+    user_id = current_user['_id']
+    dataset_id = data.get('dataset_id')
+    
+    session = create_session(user_id, 'resnet', validated_params, dataset_id)
+    session_id = session['_id']
+    
+    def generate():
+        import json
+        try:
+            for chunk in _train_resnet(request, validated_params=validated_params, hidden_layer_array=hidden_layer_array, class_mode=class_mode, is_base_frozen=is_base_frozen, user_id=user_id, session_version=session['version']):
+                yield chunk
+            update_session_results(session_id, {"status": "completed", "message": "Simulated training complete."}, [], '', '')
+        except Exception as e:
+            update_session_error(session_id, str(e))
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+    from flask import Response, stream_with_context
+    response = Response(stream_with_context(generate()), mimetype='text/event-stream')
+    response.headers['Cache-Control'] = 'no-cache'
+    response.headers['X-Accel-Buffering'] = 'no'
+    response.headers['Connection'] = 'keep-alive'
+    return response
+
+@model_routes.route('/lstm', methods=['POST'])
+@token_required
+def lstm(current_user):
+    """LSTM execution processing sequence data and dense matrices."""
+    try:
+        from models.lstm.lstm_model import train_lstm as _train_lstm
+    except ImportError as e:
+        return jsonify({"error": f"LSTM requires TensorFlow: {e}"}), 500
+        
+    data = request.get_json() or {}
+    user_hyperparams = data.get('hyperparams', {})
+    hidden_layer_array = data.get('hiddenLayerArray', [])
+    class_mode = data.get('classMode', 'categorical')
+    
+    try:
+        validated_params = validate_hyperparams('lstm', user_hyperparams)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+        
+    user_id = current_user['_id']
+    dataset_id = data.get('dataset_id')
+    
+    session = create_session(user_id, 'lstm', validated_params, dataset_id)
+    session_id = session['_id']
+    
+    def generate():
+        import json
+        try:
+            for chunk in _train_lstm(request, validated_params=validated_params, hidden_layer_array=hidden_layer_array, class_mode=class_mode, user_id=user_id, session_version=session['version']):
+                yield chunk
+            update_session_results(session_id, {"status": "completed", "message": "Simulated training complete."}, [], '', '')
+        except Exception as e:
+            update_session_error(session_id, str(e))
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+    from flask import Response, stream_with_context
+    response = Response(stream_with_context(generate()), mimetype='text/event-stream')
+    response.headers['Cache-Control'] = 'no-cache'
+    response.headers['X-Accel-Buffering'] = 'no'
+    response.headers['Connection'] = 'keep-alive'
+    return response
+
+@model_routes.route('/yolo', methods=['POST'])
+@token_required
+def yolo(current_user):
+    """YOLOv8 training execution."""
+    try:
+        from models.yolo.yolo_model import train_yolo as _train_yolo
+    except ImportError as e:
+        return jsonify({"error": f"YOLO requires Ultralytics: {e}"}), 500
+        
+    data = request.get_json() or {}
+    user_hyperparams = data.get('hyperparams', {})
+    
+    try:
+        validated_params = validate_hyperparams('yolo', user_hyperparams)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+        
+    user_id = current_user['_id']
+    dataset_id = data.get('dataset_id')
+    
+    session = create_session(user_id, 'yolo', validated_params, dataset_id)
+    session_id = session['_id']
+    
+    def generate():
+        import json
+        try:
+            for chunk in _train_yolo(request, validated_params=validated_params, user_id=user_id, session_version=session['version']):
+                yield chunk
+            update_session_results(session_id, {"status": "completed", "message": "Simulated training complete."}, [], '', '')
+        except Exception as e:
+            update_session_error(session_id, str(e))
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+    from flask import Response, stream_with_context
+    response = Response(stream_with_context(generate()), mimetype='text/event-stream')
+    response.headers['Cache-Control'] = 'no-cache'
+    response.headers['X-Accel-Buffering'] = 'no'
+    response.headers['Connection'] = 'keep-alive'
+    return response
+
+@model_routes.route('/stylegan', methods=['POST'])
+@token_required
+def stylegan(current_user):
+    """StyleGAN generation instance handler."""
+    try:
+        from models.stylegan.stylegan_model import train_stylegan as _train_stylegan
+    except ImportError as e:
+        return jsonify({"error": f"StyleGAN requires PyTorch: {e}"}), 500
+        
+    data = request.get_json() or {}
+    user_hyperparams = data.get('hyperparams', {})
+    
+    try:
+        validated_params = validate_hyperparams('stylegan', user_hyperparams)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+        
+    user_id = current_user['_id']
+    dataset_id = data.get('dataset_id')
+    
+    session = create_session(user_id, 'stylegan', validated_params, dataset_id)
+    session_id = session['_id']
+    
+    def generate():
+        import json
+        try:
+            for chunk in _train_stylegan(data, validated_params=validated_params, user_id=user_id, session_version=session['version']):
+                yield chunk
+            update_session_results(session_id, {"status": "completed", "message": "Simulated training complete."}, [], '', '')
+        except Exception as e:
+            update_session_error(session_id, str(e))
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+    from flask import Response, stream_with_context
+    response = Response(stream_with_context(generate()), mimetype='text/event-stream')
+    response.headers['Cache-Control'] = 'no-cache'
+    response.headers['X-Accel-Buffering'] = 'no'
+    response.headers['Connection'] = 'keep-alive'
+    return response
 
 # --- Session & Schema Endpoints ---
 

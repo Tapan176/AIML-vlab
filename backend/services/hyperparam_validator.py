@@ -110,6 +110,36 @@ VALIDATION_SCHEMAS = {
         'validation_split': {'type': float, 'min': 0.05, 'max': 0.5},
         'test_size': {'type': float, 'min': 0.05, 'max': 0.5},
     },
+    'resnet': {
+        'epochs': {'type': int, 'min': 1, 'max': 500},
+        'batch_size': {'type': int, 'min': 1, 'max': 512},
+        'optimizer': {'type': str, 'options': ['adam', 'sgd', 'rmsprop', 'adagrad', 'adadelta']},
+        'loss': {'type': str, 'options': ['binary_crossentropy', 'categorical_crossentropy', 'sparse_categorical_crossentropy']},
+        'validation_split': {'type': float, 'min': 0.05, 'max': 0.5},
+        'learning_rate': {'type': float, 'min': 0.00001, 'max': 1.0},
+    },
+    'lstm': {
+        'epochs': {'type': int, 'min': 1, 'max': 500},
+        'batch_size': {'type': int, 'min': 1, 'max': 512},
+        'optimizer': {'type': str, 'options': ['adam', 'sgd', 'rmsprop', 'adagrad', 'adadelta']},
+        'loss': {'type': str, 'options': ['mse', 'mae', 'huber_loss', 'binary_crossentropy', 'categorical_crossentropy']},
+        'validation_split': {'type': float, 'min': 0.05, 'max': 0.5},
+        'sequence_length': {'type': int, 'min': 1, 'max': 100},
+    },
+    'yolo': {
+        'epochs': {'type': int, 'min': 1, 'max': 500},
+        'batch_size': {'type': int, 'min': 1, 'max': 128},
+        'imgsz': {'type': int, 'min': 32, 'max': 1280},
+        'optimizer': {'type': str, 'options': ['auto', 'SGD', 'Adam', 'AdamW', 'RMSProp']},
+    },
+    'stylegan': {
+        'epochs': {'type': int, 'min': 1, 'max': 1000},
+        'batch_size': {'type': int, 'min': 1, 'max': 128},
+        'z_dim': {'type': int, 'min': 64, 'max': 1024},
+        'w_dim': {'type': int, 'min': 64, 'max': 1024},
+        'log_resolution': {'type': int, 'min': 6, 'max': 10},
+        'learning_rate': {'type': float, 'min': 0.000001, 'max': 0.1},
+    },
 }
 
 

@@ -19,7 +19,10 @@ const GradientBoosting = lazy(() => import('../Models/GradientBoosting'));
 const XGBoost = lazy(() => import('../Models/XGBoost'));
 const SentimentAnalysis = lazy(() => import('../Models/SentimentAnalysis'));
 const TextClassification = lazy(() => import('../Models/TextClassification'));
-
+const ResNet = lazy(() => import('../Models/ResNet'));
+const LSTM = lazy(() => import('../Models/LSTM'));
+const ObjectDetection = lazy(() => import('../Models/ObjectDetection'));
+const StyleGAN = lazy(() => import('../Models/StyleGAN'));
 const MODEL_COMPONENTS = {
     simple_linear_regression: SimpleLinearRegression,
     multivariable_linear_regression: MultivariableLinearRegression,
@@ -37,6 +40,10 @@ const MODEL_COMPONENTS = {
     xgboost: XGBoost,
     sentiment_analysis: SentimentAnalysis,
     text_classification: TextClassification,
+    resnet: ResNet,
+    lstm: LSTM,
+    yolo: ObjectDetection,
+    stylegan: StyleGAN,
 };
 
 const Home = () => {
@@ -63,7 +70,7 @@ const Home = () => {
                     </Suspense>
                 ) : (
                     <div className="welcome-panel">
-                        <div className="welcome-icon">🧪</div>
+                        <div className="welcome-icon">🧠</div>
                         <h2>Welcome to the AI/ML Lab</h2>
                         <p>Select a model from the sidebar to start training and experimenting.</p>
                         <div className="welcome-cards">

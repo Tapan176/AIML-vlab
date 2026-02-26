@@ -1,7 +1,30 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import './Auth.css';
+
+const COUNTRY_CODES = [
+    { code: '+91', name: 'India (IN)' },
+    { code: '+1', name: 'USA/Canada' },
+    { code: '+44', name: 'UK (GB)' },
+    { code: '+61', name: 'Australia (AU)' },
+    { code: '+49', name: 'Germany (DE)' },
+    { code: '+33', name: 'France (FR)' },
+    { code: '+81', name: 'Japan (JP)' },
+    { code: '+86', name: 'China (CN)' },
+    { code: '+55', name: 'Brazil (BR)' },
+    { code: '+7', name: 'Russia (RU)' },
+    { code: '+27', name: 'South Africa (ZA)' },
+    { code: '+971', name: 'UAE (AE)' },
+    { code: '+65', name: 'Singapore (SG)' },
+    { code: '+60', name: 'Malaysia (MY)' },
+    { code: '+39', name: 'Italy (IT)' },
+    { code: '+34', name: 'Spain (ES)' },
+    { code: '+82', name: 'South Korea (KR)' },
+    { code: '+92', name: 'Pakistan (PK)' },
+    { code: '+880', name: 'Bangladesh (BD)' },
+    { code: '+234', name: 'Nigeria (NG)' }
+];
 
 const Signup = () => {
     const [formData, setFormData] = useState({
@@ -11,13 +34,7 @@ const Signup = () => {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
-    const { signup, user } = useAuth();
-
-    useEffect(() => {
-        if (user) {
-            navigate('/lab');
-        }
-    }, [user, navigate]);
+    const { signup } = useAuth();
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
@@ -58,30 +75,43 @@ const Signup = () => {
                 {error && <div className="auth-error">{error}</div>}
 
                 <form onSubmit={handleSubmit} className="auth-form">
-                    <div className="form-group">
-                        <label htmlFor="firstName">First Name</label>
-                        <input id="firstName" name="firstName" value={formData.firstName}
-                            onChange={handleChange} placeholder="John" required />
-                    </div>
-                    <div className="form-group">
-                        <label htmlFor="lastName">Last Name</label>
-                        <input id="lastName" name="lastName" value={formData.lastName}
-                            onChange={handleChange} placeholder="Doe" required />
+                    <div className="form-row">
+                        <div className="form-group">
+                            <label htmlFor="firstName">First Name</label>
+                            <input type="text" id="firstName" name="firstName" value={formData.firstName}
+                                onChange={handleChange} placeholder="John" required />
+                        </div>
+                        <div className="form-group">
+                            <label htmlFor="lastName">Last Name</label>
+                            <input type="text" id="lastName" name="lastName" value={formData.lastName}
+                                onChange={handleChange} placeholder="Doe" required />
+                        </div>
                     </div>
                     <div className="form-group">
                         <label htmlFor="signup-email">Email</label>
                         <input id="signup-email" name="email" type="email" value={formData.email}
                             onChange={handleChange} placeholder="you@example.com" required />
                     </div>
-                    <div className="form-group">
-                        <label htmlFor="countryCode">Country Code</label>
-                        <input id="countryCode" name="countryCode" value={formData.countryCode}
-                            onChange={handleChange} placeholder="+91" />
-                    </div>
-                    <div className="form-group">
-                        <label htmlFor="phone">Phone Number</label>
-                        <input id="phone" name="phone" value={formData.phone}
-                            onChange={handleChange} placeholder="1234567890" />
+                    <div className="form-row">
+                        <div className="form-group" style={{flex: '0 0 140px'}}>
+                            <label htmlFor="countryCode">Code</label>
+                            <select 
+                                id="countryCode" 
+                                name="countryCode" 
+                                value={formData.countryCode}
+                                onChange={handleChange} 
+                                className="country-code-select"
+                            >
+                                {COUNTRY_CODES.map((c, idx) => (
+                                    <option key={idx} value={c.code}>{c.code} {c.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="form-group">
+                            <label htmlFor="phone">Phone</label>
+                            <input type="tel" id="phone" name="phone" value={formData.phone}
+                                onChange={handleChange} placeholder="1234567890" />
+                        </div>
                     </div>
                     <div className="form-group">
                         <label htmlFor="signup-password">Password</label>

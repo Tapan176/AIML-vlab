@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { API_URL } from '../../constants';
 import '../ModelCss/ModelPage.css';
 
-let cachedModelsMaster = null;
-
 /**
  * Slide-out drawer that shows model description & parameters.
  * Triggered by a toggle button in the model header.
@@ -15,16 +13,11 @@ export default function ModelInfoPanel({ modelCode, isOpen, onClose }) {
         if (!isOpen) return;
         
         const fetchModelInfo = async () => {
-            if (cachedModelsMaster) {
-                const found = cachedModelsMaster.find(m => m.code === modelCode);
-                setModelData(found || null);
-                return;
-            }
             try {
                 const res = await fetch(`${API_URL}/models/info`);
                 if (res.ok) {
-                    cachedModelsMaster = await res.json();
-                    const found = cachedModelsMaster.find(m => m.code === modelCode);
+                    const data = await res.json();
+                    const found = data.find(m => m.code === modelCode);
                     setModelData(found || null);
                 }
             } catch (err) {
