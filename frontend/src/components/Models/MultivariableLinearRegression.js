@@ -1,10 +1,11 @@
-/* eslint-disable jsx-a11y/img-redundant-alt */
+﻿/* eslint-disable jsx-a11y/img-redundant-alt */
 import React, { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft, faArrowRight } from '@fortawesome/free-solid-svg-icons';
 import constants from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
+import DownloadResultsZip from '../DownloadResultsZip/DownloadResultsZip';
 import DownloadModelPredictions from '../DownloadModelPredictions/DownloadModelPredictions';
 import HyperparamPanel from '../shared/HyperparamPanel';
 import ModelInfoPanel from '../shared/ModelInfoPanel';
@@ -38,7 +39,7 @@ export default function MultivariableLinearRegression() {
             localStorage.removeItem(`multivariable_linear_regression_dataset`);
         }
     };
-    const images = results?.outputImageUrls?.map(url => `${constants.API_BASE_URL}/${url}?timestamp=${Date.now()}`) || [];
+    const images = results?.outputImageBase64?.length > 0 ? results.outputImageBase64 : (results?.outputImageUrls?.map(url => `${constants.API_BASE_URL}/${url}?timestamp=${Date.now()}`) || []);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -58,7 +59,7 @@ export default function MultivariableLinearRegression() {
             }
             const response = await fetch(`${constants.API_BASE_URL}/multivariable-linear-regression`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(localStorage.getItem('aiml_token') ? { 'Authorization': `Bearer ${localStorage.getItem('aiml_token')}` } : {}) },
                 body: JSON.stringify(dataToSend),
             });
             if (!response.ok) {
@@ -114,7 +115,7 @@ export default function MultivariableLinearRegression() {
                     <div className="metrics-grid">
                         {results.MAE != null && <div className="metric-item"><div className="metric-label">MAE</div><div className="metric-value">{results.MAE.toFixed(4)}</div></div>}
                         {results.MSE != null && <div className="metric-item"><div className="metric-label">MSE</div><div className="metric-value">{results.MSE.toFixed(4)}</div></div>}
-                        {results.R2 != null && <div className="metric-item"><div className="metric-label">R² Score</div><div className="metric-value">{results.R2.toFixed(4)}</div></div>}
+                        {results.R2 != null && <div className="metric-item"><div className="metric-label">RÂ² Score</div><div className="metric-value">{results.R2.toFixed(4)}</div></div>}
                     </div>
                 </div>
             )}
@@ -130,12 +131,17 @@ export default function MultivariableLinearRegression() {
                 </div>
             )}
 
-            <div className="download-section">
-                <DownloadModelPredictions selectedModel="multivariable_linear_regression" extension=".csv" />
-                <DownloadTrainedModel selectedModel="multivariable_linear_regression" extension=".pkl" />
-            </div>
+            {results && (
+                <div className="download-section">
+                    <DownloadModelPredictions selectedModel="multivariable_linear_regression" extension=".csv" />
+                    <DownloadTrainedModel selectedModel="multivariable_linear_regression" extension=".pkl" />
+                    <DownloadResultsZip sessionId={results.session_id} />
+                </div>
+            )}
 
             <ModelInfoPanel modelCode={MODEL_CODE} isOpen={infoOpen} onClose={() => setInfoOpen(false)} />
         </div>
     );
 }
+
+

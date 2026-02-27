@@ -14,7 +14,7 @@ export default function ShowDataset({ onDatasetUpload, ...props }) {
 
     useEffect(() => {
         const fetchDatasets = async () => {
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('aiml_token');
             try {
                 const [defaultRes, userRes] = await Promise.all([
                     fetch(`${constants.API_BASE_URL}/datasets/default`, { headers: { 'Authorization': `Bearer ${token}` } }),
@@ -69,7 +69,7 @@ export default function ShowDataset({ onDatasetUpload, ...props }) {
         const formData = new FormData();
         formData.append('file', file);
 
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('aiml_token');
         fetch(`${constants.API_BASE_URL}/upload`, {
             method: 'POST',
             headers: {

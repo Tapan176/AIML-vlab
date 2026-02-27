@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import constants from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
+import DownloadResultsZip from '../DownloadResultsZip/DownloadResultsZip';
 import HyperparamPanel from '../shared/HyperparamPanel';
 import ModelInfoPanel from '../shared/ModelInfoPanel';
 import '../ModelCss/ModelPage.css';
@@ -125,7 +126,7 @@ export default function ObjectDetection() {
                 />
 
                 <button type="submit" className="btn-run" disabled={loading} style={{ marginTop: 16 }}>
-                    {loading ? '⏳ Compiling Architecture...' : '▶ Train YOLO'}
+                    {loading ? 'â³ Compiling Architecture...' : '▶ Train YOLO'}
                 </button>
             </form>
 
@@ -157,6 +158,7 @@ export default function ObjectDetection() {
             {results && (
                 <div className="download-section" style={{ marginTop: '20px' }}>
                     <DownloadTrainedModel selectedModel={MODEL_CODE} extension=".pt" sessionId={results.session_id} />
+                    <DownloadResultsZip sessionId={results.session_id} />
                 </div>
             )}
 
@@ -164,3 +166,5 @@ export default function ObjectDetection() {
         </div>
     );
 }
+
+

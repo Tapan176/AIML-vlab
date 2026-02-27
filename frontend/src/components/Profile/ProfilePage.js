@@ -19,7 +19,7 @@ const ProfilePage = () => {
 
     const fetchStats = async () => {
         try {
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('aiml_token');
             const [sessionsRes, datasetsRes] = await Promise.all([
                 fetch(`${constants.API_BASE_URL}/training-sessions`, { headers: { Authorization: `Bearer ${token}` } }),
                 fetch(`${constants.API_BASE_URL}/user-datasets`, { headers: { Authorization: `Bearer ${token}` } }),

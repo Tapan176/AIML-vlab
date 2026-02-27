@@ -100,7 +100,7 @@ def update_profile_photo(user_id, file):
             pass
             
     # Save new file to Google Drive
-    drive_res = upload_file_to_drive(file, file.filename, folder_type='profiles', user_id=user_id)
+    drive_res = upload_file_to_drive(file, file.filename, folder_type='profile', user_id=user_id)
     file_id = drive_res.get('id')
     photo_url = drive_res.get('webContentLink')
     

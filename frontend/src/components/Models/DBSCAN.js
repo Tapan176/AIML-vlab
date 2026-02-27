@@ -1,4 +1,4 @@
-/* eslint-disable jsx-a11y/img-redundant-alt */
+﻿/* eslint-disable jsx-a11y/img-redundant-alt */
 import React, { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft, faArrowRight } from '@fortawesome/free-solid-svg-icons';
@@ -35,7 +35,7 @@ export default function DBSCAN() {
             localStorage.removeItem(`dbscan_dataset`);
         }
     };
-    const images = results?.outputImageUrls?.map(url => `${constants.API_BASE_URL}/${url}?timestamp=${Date.now()}`) || [];
+    const images = results?.outputImageBase64?.length > 0 ? results.outputImageBase64 : (results?.outputImageUrls?.map(url => `${constants.API_BASE_URL}/${url}?timestamp=${Date.now()}`) || []);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -44,7 +44,7 @@ export default function DBSCAN() {
         try {
             const response = await fetch(`${constants.API_BASE_URL}/dbscan`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(localStorage.getItem('aiml_token') ? { 'Authorization': `Bearer ${localStorage.getItem('aiml_token')}` } : {}) },
                 body: JSON.stringify({ filename: datasetData?.filename, hyperparams }),
             });
             if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Failed'); }
@@ -67,7 +67,7 @@ export default function DBSCAN() {
                 )}</div>
             <form className="model-form" onSubmit={handleSubmit}>
                 <HyperparamPanel modelCode={MODEL_CODE} hyperparams={hyperparams} onChange={(n, v) => setHyperparams(p => ({ ...p, [n]: v }))} />
-                <button type="submit" className="btn-run" disabled={loading}>{loading ? '⏳ Training...' : '▶ Run Model'}</button>
+                <button type="submit" className="btn-run" disabled={loading}>{loading ? 'â³ Training...' : '▶ Run Model'}</button>
             </form>
             {error && <div className="model-error">❌ {error}</div>}
             {results && (
@@ -94,3 +94,4 @@ export default function DBSCAN() {
         </div>
     );
 }
+

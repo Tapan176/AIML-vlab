@@ -16,8 +16,8 @@ SCOPES = ['https://www.googleapis.com/auth/drive.file']
 # If None, the service will create an 'AIML_VLab_Data' folder in the root and use it.
 APP_ROOT_FOLDER_ID = None
 
-creds_path = os.path.join(BASE_DIR, 'credentials.json')
-token_path = os.path.join(BASE_DIR, 'token.json')
+creds_path = os.environ.get('GOOGLE_CREDENTIALS_PATH', os.path.join(BASE_DIR, 'credentials.json'))
+token_path = os.environ.get('GOOGLE_TOKEN_PATH', os.path.join(BASE_DIR, 'token.json'))
 
 def get_drive_service():
     """Shows basic usage of the Drive v3 API.
@@ -91,25 +91,32 @@ def get_or_create_subfolder(service, parent_id, folder_name):
     else:
         return items[0].get('id')
 
-def upload_file_to_drive(file_obj, filename, folder_type='datasets', user_id=None):
+def upload_file_to_drive(file_obj, filename, folder_type='datasets', user_id=None, subfolder=None):
     """
     Uploads a file to Google Drive.
-    folder_type: 'datasets', 'models', or 'profiles'
+    Folder hierarchy: AIML_VLab_Data / UserData / {user_id} / {folder_type} / [subfolder] /
+    folder_type: 'datasets', 'trained_models', 'profile', etc.
+    subfolder: optional extra nesting (e.g. session label for trained models).
     """
     service = get_drive_service()
     if not service:
         raise Exception("Google Drive service is not configured.")
 
     root_id = get_or_create_app_folder(service)
-    
-    # Get the specific folder (datasets, models, etc)
-    type_folder_id = get_or_create_subfolder(service, root_id, folder_type)
-    
-    parent_folder_id = type_folder_id
+
     if user_id:
-        # Create a user-specific folder inside the type folder
-        user_folder_id = get_or_create_subfolder(service, type_folder_id, str(user_id))
-        parent_folder_id = user_folder_id
+        # UserData / {user_id} / {folder_type} [/ subfolder]
+        user_data_id = get_or_create_subfolder(service, root_id, 'UserData')
+        user_folder_id = get_or_create_subfolder(service, user_data_id, str(user_id))
+        parent_folder_id = get_or_create_subfolder(service, user_folder_id, folder_type)
+        print(f"DEBUG DIR: root={root_id} -> UserData={user_data_id} -> {user_id}={user_folder_id} -> {folder_type}={parent_folder_id}", flush=True)
+        if subfolder:
+            parent_folder_id = get_or_create_subfolder(service, parent_folder_id, subfolder)
+            print(f"DEBUG DIR: subfolder={subfolder} -> {parent_folder_id}", flush=True)
+    else:
+        # Fallback for anonymous uploads: AIML_VLab_Data / {folder_type}
+        parent_folder_id = get_or_create_subfolder(service, root_id, folder_type)
+        print(f"DEBUG DIR: Anonymous -> folder_type={folder_type} -> {parent_folder_id}", flush=True)
 
     # 100MB chunks for scalable massive file streaming
     CHUNK_SIZE = 100 * 1024 * 1024 
@@ -211,4 +218,33 @@ def delete_file_from_drive(file_id):
         return True
     except Exception as e:
         print(f"Error deleting file from Drive: {e}")
+        return False
+
+def delete_session_folder_from_drive(file_id, expected_folder_name):
+    """
+    Finds the parent folder of a given file. If the parent folder matches 'expected_folder_name',
+    it deletes the entire folder (which removes all files inside it). 
+    """
+    service = get_drive_service()
+    if not service:
+        return False
+    try:
+        file = service.files().get(fileId=file_id, fields='parents').execute()
+        parents = file.get('parents')
+        if parents:
+            parent_id = parents[0]
+            parent_folder = service.files().get(fileId=parent_id, fields='name').execute()
+            if parent_folder.get('name') == expected_folder_name:
+                service.files().delete(fileId=parent_id).execute()
+                print(f"Deleted Drive folder {expected_folder_name}")
+                return 'folder'
+            else:
+                # Fallback to just deleting the individual file if folder name mismatches
+                service.files().delete(fileId=file_id).execute()
+                return 'file'
+        else:
+            service.files().delete(fileId=file_id).execute()
+            return 'file'
+    except Exception as e:
+        print(f"Error deleting session folder from Drive: {e}")
         return False

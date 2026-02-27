@@ -22,7 +22,10 @@ def dbscan(request, validated_params=None, user_id=None, session_version=None):
         try:
             from services.dataset_service import get_dataset_df
             dataset = get_dataset_df(user_id, data['filename'])
-            X = dataset.iloc[:, [2, 3]].values
+            numeric_dataset = dataset.select_dtypes(include=[np.number]).dropna()
+            if numeric_dataset.empty or numeric_dataset.shape[1] < 2:
+                return {"error": "Dataset must contain at least 2 numeric columns and valid rows for clustering."}
+            X = numeric_dataset.values
         except FileNotFoundError:
             return {"error": "File not found"}
         except Exception as e:
@@ -57,11 +60,15 @@ def dbscan(request, validated_params=None, user_id=None, session_version=None):
     plt.savefig(cluster_path)
     plt.close()
 
+    from utils.saveTrainedModel import saveTrainedModel
+    model_path = saveTrainedModel(clustering, "dbscan", "scikit-learn", user_id=user_id, version=session_version)
+
     return {
         "cluster_labels": labels.tolist(),
         "n_clusters": n_clusters,
         "n_noise_points": n_noise,
         "outputImageUrls": [cluster_path],
+        "trained_model_path": model_path,
         "results": {"n_clusters": n_clusters, "n_noise_points": n_noise},
         "hyperparams_used": params,
     }

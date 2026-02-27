@@ -16,18 +16,54 @@ def download_model_session(current_user, session_id):
         if session['user_id'] != current_user['_id']:
             return jsonify({"error": "Unauthorized"}), 403
         
+        # Try Drive download first
+        drive_id = session.get('trained_model_drive_id')
+        if drive_id:
+            try:
+                from services.google_drive_service import stream_file_from_drive
+                fh, mime_type = stream_file_from_drive(drive_id)
+                download_name = session.get('trained_model_filename', f"{session.get('session_label', 'model')}.zip")
+                return send_file(fh, as_attachment=True, download_name=download_name, mimetype=mime_type)
+            except Exception as e:
+                print(f"Drive download failed, falling back to local: {e}")
+        
+        # Fallback to local path
         model_path = session.get('trained_model_path')
         if not model_path:
             return jsonify({"error": "Model not available"}), 404
+        
+        import os
+        download_name = session.get('trained_model_filename', os.path.basename(model_path))
+        return send_file(model_path, as_attachment=True, download_name=download_name)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 404
+
+@utils_routes.route('/download-results-zip/<session_id>', methods=['GET'])
+@token_required
+def download_results_zip_session(current_user, session_id):
+    try:
+        session = get_session(session_id)
+        if session['user_id'] != current_user['_id']:
+            return jsonify({"error": "Unauthorized"}), 403
+        
+        drive_id = session.get('results_zip_drive_id')
+        if not drive_id:
+            return jsonify({"error": "Results zip not available in Google Drive."}), 404
             
-        return send_file(model_path, as_attachment=True)
+        from services.google_drive_service import stream_file_from_drive
+        fh, mime_type = stream_file_from_drive(drive_id)
+        download_name = f"{session.get('session_label', 'session')}_results.zip"
+        return send_file(fh, as_attachment=True, download_name=download_name, mimetype=mime_type)
+        
     except Exception as e:
         return jsonify({"error": str(e)}), 404
 
 @utils_routes.route('/download-trained-model', methods=['GET'])
 def download_model():
     model_path = get_model_path(request)
-    return send_file(model_path, as_attachment=True)
+    import os
+    download_name = os.path.basename(model_path)
+    return send_file(model_path, as_attachment=True, download_name=download_name)
 
 @utils_routes.route('/download-model-predictions', methods=['GET'])
 def download_model_predictions():

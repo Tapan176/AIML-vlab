@@ -25,7 +25,10 @@ def kMeans(request, validated_params=None, user_id=None, session_version=None):
         try:
             from services.dataset_service import get_dataset_df
             dataset = get_dataset_df(user_id, data['filename'])
-            X = dataset.iloc[:, [2, 3]].values
+            numeric_dataset = dataset.select_dtypes(include=[np.number]).dropna()
+            if numeric_dataset.empty or numeric_dataset.shape[1] < 2:
+                return {"error": "Dataset must contain at least 2 numeric columns and valid rows for clustering."}
+            X = numeric_dataset.values
         except FileNotFoundError:
             return {"error": "File not found"}
         except Exception as e:

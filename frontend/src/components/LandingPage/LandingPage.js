@@ -7,7 +7,7 @@ const FEATURES = [
     {
         icon: '🧠',
         title: 'Train ML Models',
-        desc: 'Experiment with 19 different ML models from regression to deep learning — all in your browser.'
+        desc: 'Experiment with 20 different ML models from regression to deep learning — all in your browser.'
     },
     {
         icon: '⚙️',
@@ -38,7 +38,7 @@ const FEATURES = [
 
 const MODELS = [
     { name: 'Linear Regression', category: 'Regression', color: '#6c63ff' },
-    { name: 'Multivariable LR', category: 'Regression', color: '#6c63ff' },
+    { name: 'Multivariable Linear Regression', category: 'Regression', color: '#6c63ff' },
     { name: 'Logistic Regression', category: 'Classification', color: '#34c759' },
     { name: 'KNN', category: 'Classification', color: '#34c759' },
     { name: 'Decision Tree', category: 'Classification', color: '#34c759' },
@@ -49,9 +49,14 @@ const MODELS = [
     { name: 'DBSCAN', category: 'Clustering', color: '#ff9500' },
     { name: 'ANN', category: 'Neural Networks', color: '#ff3b30' },
     { name: 'CNN', category: 'Neural Networks', color: '#ff3b30' },
-    { name: 'ResNet50', category: 'Deep Learning', color: '#ff3b30' },
-    { name: 'LSTM', category: 'Deep Learning', color: '#ff3b30' },
-    { name: 'YOLOv8', category: 'Deep Learning', color: '#ff3b30' },
+    { name: 'ResNet50', category: 'Deep Learning', color: '#f8b600ff' },
+    { name: 'LSTM', category: 'Deep Learning', color: '#f8b600ff' },
+    { name: 'YOLOv8', category: 'Deep Learning', color: '#f8b600ff' },
+    { name: 'XGBoost', category: 'Ensemble', color: '#c5fc00ff' },
+    { name: 'Gradient Boosting', category: 'Ensemble', color: '#c5fc00ff' },
+    { name: 'Sentiment Analysis', category: 'Natural Language Processing', color: '#00a8f7ff' },
+    { name: 'Text Classification', category: 'Natural Language Processing', color: '#00a8f7ff' },
+    { name: 'StyleGAN', category: 'Generative Adversarial Network', color: '#7000f0ff' },
 ];
 
 const STEPS = [
@@ -75,7 +80,7 @@ const LandingPage = () => {
                     </h1>
                     <p className="hero-desc">
                         An interactive platform to learn and experiment with machine learning algorithms.
-                        Train 19 different models, tune hyperparameters, and visualize results — all in your browser.
+                        Train 20 different models, tune hyperparameters, and visualize results — all in your browser.
                     </p>
                     <div className="hero-actions">
                         <Link to="/lab" className="btn-primary">Open Lab →</Link>
@@ -84,7 +89,7 @@ const LandingPage = () => {
                         )}
                     </div>
                     <div className="hero-stats">
-                        <div className="stat"><span className="stat-value">19</span><span className="stat-label">ML Models</span></div>
+                        <div className="stat"><span className="stat-value">20</span><span className="stat-label">ML Models</span></div>
                         <div className="stat"><span className="stat-value">100%</span><span className="stat-label">Browser-Based</span></div>
                     </div>
                 </div>
@@ -108,7 +113,6 @@ const LandingPage = () => {
             {/* Models Showcase */}
             <section className="models-section">
                 <h2 className="section-title">Supported Models</h2>
-                <p className="section-subtitle">From regression to deep learning</p>
                 <div className="models-grid">
                     {MODELS.map((m, i) => (
                         <div className="model-chip" key={i} style={{ '--chip-color': m.color }}>

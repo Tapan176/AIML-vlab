@@ -1,19 +1,27 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import constants from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
 import CnnHiddenLayer from '../HiddenLayers/CnnHiddenLayer';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
+import DownloadResultsZip from '../DownloadResultsZip/DownloadResultsZip';
 import HyperparamPanel from '../shared/HyperparamPanel';
 import ModelInfoPanel from '../shared/ModelInfoPanel';
 import '../ModelCss/ModelPage.css';
 
 const MODEL_CODE = 'cnn';
 
-const DEFAULT_LAYER = { type: 'conv', numberOfNeurons: 64, kernel: [3, 3], activationFunction: 'relu' };
+const DEFAULT_LAYERS = [
+    { type: 'conv', numberOfNeurons: 32, kernel: [3, 3], activationFunction: 'relu' },
+    { type: 'pool', poolType: 'max', poolingSize: [2, 2] },
+    { type: 'conv', numberOfNeurons: 64, kernel: [3, 3], activationFunction: 'relu' },
+    { type: 'pool', poolType: 'max', poolingSize: [2, 2] },
+    { type: 'flatten' },
+    { type: 'dense', numberOfNeurons: 128, activationFunction: 'relu', dropout: 0.3 },
+];
 
 export default function CNN() {
     const [datasetData, setDatasetData] = useState('');
-    const [layers, setLayers] = useState([{ ...DEFAULT_LAYER }]);
+    const [layers, setLayers] = useState(DEFAULT_LAYERS.map(l => ({ ...l })));
     const [classMode, setClassMode] = useState('categorical');
     const [hyperparams, setHyperparams] = useState({});
     const [results, setResults] = useState(null);
@@ -44,7 +52,7 @@ export default function CNN() {
         setLayers(newLayers);
     };
 
-    const addLayer = () => setLayers([...layers, { ...DEFAULT_LAYER }]);
+    const addLayer = () => setLayers([...layers, { ...DEFAULT_LAYERS[0] }]);
     const removeLayer = (index) => setLayers(layers.filter((_, i) => i !== index));
 
     const handleSubmit = async (e) => {
@@ -158,7 +166,7 @@ export default function CNN() {
                 />
 
                 <button type="submit" className="btn-run" disabled={loading} style={{ marginTop: 16 }}>
-                    {loading ? '⏳ Training...' : '▶ Train CNN'}
+                    {loading ? 'â³ Training...' : '▶ Train CNN'}
                 </button>
             </form>
 
@@ -190,6 +198,7 @@ export default function CNN() {
             {results && (
                 <div className="download-section" style={{ marginTop: '20px' }}>
                     <DownloadTrainedModel selectedModel="cnn" extension=".h5" sessionId={results.session_id} />
+                    <DownloadResultsZip sessionId={results.session_id} />
                 </div>
             )}
 
@@ -197,3 +206,5 @@ export default function CNN() {
         </div>
     );
 }
+
+

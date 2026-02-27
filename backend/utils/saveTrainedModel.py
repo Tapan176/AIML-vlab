@@ -14,6 +14,9 @@ def saveTrainedModel(model, filename, model_type, user_id=None, version=None):
         model_type: The type of model (e.g., 'scikit-learn', 'Keras', 'PyTorch').
         user_id: Optional user ID for user-scoped storage.
         version: Optional version number for versioned storage.
+    
+    Returns:
+        str: the local file path where the model was saved.
     """
     # Build directory path
     if user_id:
@@ -43,6 +46,11 @@ def saveTrainedModel(model, filename, model_type, user_id=None, version=None):
         extension = ".pt"
         save_path = os.path.join(save_dir, save_filename + extension)
         torch.save(model.state_dict(), save_path)
+    elif model_type == "dummy":
+        extension = ".pt"
+        save_path = os.path.join(save_dir, save_filename + extension)
+        with open(save_path, "w") as f:
+            f.write(model)
     else:
         raise NotImplementedError(f"Saving logic not implemented for {model_type} models yet.")
 

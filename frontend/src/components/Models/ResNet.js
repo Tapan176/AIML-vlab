@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import constants from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
+import DownloadResultsZip from '../DownloadResultsZip/DownloadResultsZip';
 import HyperparamPanel from '../shared/HyperparamPanel';
 import ResNetHiddenLayer from '../HiddenLayers/ResNetHiddenLayer';
 import ModelInfoPanel from '../shared/ModelInfoPanel';
@@ -11,7 +12,10 @@ const MODEL_CODE = 'resnet';
 
 export default function ResNet() {
     const [datasetData, setDatasetData] = useState('');
-    const [layers, setLayers] = useState([{ units: 128, activation: 'relu', dropout: 0.3 }]);
+    const [layers, setLayers] = useState([
+        { units: 256, activation: 'relu', dropout: 0.5 },
+        { units: 128, activation: 'relu', dropout: 0.3 },
+    ]);
     const [isFrozen, setIsFrozen] = useState(true);
     const [classMode, setClassMode] = useState('categorical');
     const [hyperparams, setHyperparams] = useState({});
@@ -145,7 +149,7 @@ export default function ResNet() {
                 />
 
                 <button type="submit" className="btn-run" disabled={loading} style={{ marginTop: 16 }}>
-                    {loading ? '⏳ Training...' : '▶ Train ResNet'}
+                    {loading ? 'â³ Training...' : '▶ Train ResNet'}
                 </button>
             </form>
 
@@ -177,6 +181,7 @@ export default function ResNet() {
             {results && (
                 <div className="download-section" style={{ marginTop: '20px' }}>
                     <DownloadTrainedModel selectedModel={MODEL_CODE} extension=".h5" sessionId={results.session_id} />
+                    <DownloadResultsZip sessionId={results.session_id} />
                 </div>
             )}
 
@@ -184,3 +189,5 @@ export default function ResNet() {
         </div>
     );
 }
+
+

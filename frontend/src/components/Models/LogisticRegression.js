@@ -1,10 +1,11 @@
-/* eslint-disable jsx-a11y/img-redundant-alt */
+﻿/* eslint-disable jsx-a11y/img-redundant-alt */
 import React, { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft, faArrowRight } from '@fortawesome/free-solid-svg-icons';
 import constants from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
+import DownloadResultsZip from '../DownloadResultsZip/DownloadResultsZip';
 import HyperparamPanel from '../shared/HyperparamPanel';
 import ModelInfoPanel from '../shared/ModelInfoPanel';
 import '../ModelCss/ModelPage.css';
@@ -36,7 +37,7 @@ export default function LogisticRegression() {
             localStorage.removeItem(`logistic_regression_dataset`);
         }
     };
-    const images = results?.outputImageUrls?.map(url => `${constants.API_BASE_URL}/${url}?timestamp=${Date.now()}`) || [];
+    const images = results?.outputImageBase64?.length > 0 ? results.outputImageBase64 : (results?.outputImageUrls?.map(url => `${constants.API_BASE_URL}/${url}?timestamp=${Date.now()}`) || []);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -45,7 +46,7 @@ export default function LogisticRegression() {
         try {
             const response = await fetch(`${constants.API_BASE_URL}/logistic-regression`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(localStorage.getItem('aiml_token') ? { 'Authorization': `Bearer ${localStorage.getItem('aiml_token')}` } : {}) },
                 body: JSON.stringify({ filename: datasetData?.filename, hyperparams }),
             });
             if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Failed'); }
@@ -92,10 +93,15 @@ export default function LogisticRegression() {
                     </div>
                 </div>
             )}
-            <div className="download-section">
-                <DownloadTrainedModel selectedModel="logistic_regression" extension=".pkl" />
-            </div>
+            {results && (
+                <div className="download-section">
+                    <DownloadTrainedModel selectedModel="logistic_regression" extension=".pkl" />
+                    <DownloadResultsZip sessionId={results.session_id} />
+                </div>
+            )}
             <ModelInfoPanel modelCode={MODEL_CODE} isOpen={infoOpen} onClose={() => setInfoOpen(false)} />
         </div>
     );
 }
+
+

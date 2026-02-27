@@ -1,18 +1,23 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import constants from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
+import DownloadResultsZip from '../DownloadResultsZip/DownloadResultsZip';
 import HyperparamPanel from '../shared/HyperparamPanel';
 import ModelInfoPanel from '../shared/ModelInfoPanel';
 import '../ModelCss/ModelPage.css';
 
 const MODEL_CODE = 'ann';
 
-const DEFAULT_LAYER = { units: 64, activation: 'relu', dropout: 0 };
+const DEFAULT_LAYERS = [
+    { units: 128, activation: 'relu', dropout: 0.2 },
+    { units: 64, activation: 'relu', dropout: 0.2 },
+    { units: 32, activation: 'relu', dropout: 0 },
+];
 
 export default function ANN() {
     const [datasetData, setDatasetData] = useState('');
-    const [layers, setLayers] = useState([{ ...DEFAULT_LAYER }, { units: 32, activation: 'relu', dropout: 0 }]);
+    const [layers, setLayers] = useState(DEFAULT_LAYERS.map(l => ({ ...l })));
     const [hyperparams, setHyperparams] = useState({});
     const [results, setResults] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -42,7 +47,7 @@ export default function ANN() {
         setLayers(updated);
     };
 
-    const addLayer = () => setLayers([...layers, { ...DEFAULT_LAYER }]);
+    const addLayer = () => setLayers([...layers, { ...DEFAULT_LAYERS[0] }]);
     const removeLayer = (index) => setLayers(layers.filter((_, i) => i !== index));
 
     const handleSubmit = async (e) => {
@@ -62,8 +67,7 @@ export default function ANN() {
                 hyperparams,
             };
 
-            const API_BASE = constants.API_BASE_URL || (process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api');
-            const response = await fetch(`${API_BASE}/ann`, {
+            const response = await fetch(`${constants.API_URL}/ann`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -134,14 +138,14 @@ export default function ANN() {
                 {/* ANN Layer Builder */}
                 <div className="hidden-layers-section">
                     <div className="hidden-layers-header">
-                        <h3>🧠 Dense Layers ({layers.length})</h3>
+                        <h3>ðŸ§  Dense Layers ({layers.length})</h3>
                     </div>
                     <div className="hidden-layers-list">
                         {layers.map((layer, index) => (
                             <div className="hidden-layer-card" key={index}>
                                 <div className="layer-card-header">
                                     <h4>Layer {index + 1}</h4>
-                                    <button type="button" className="btn-remove-layer" onClick={() => removeLayer(index)}>✕ Remove</button>
+                                    <button type="button" className="btn-remove-layer" onClick={() => removeLayer(index)}>✖ Remove</button>
                                 </div>
                                 <div className="layer-params">
                                     <div>
@@ -167,13 +171,13 @@ export default function ANN() {
                             </div>
                         ))}
                         <button type="button" className="btn-add-layer" onClick={addLayer}>
-                            ＋ Add Dense Layer
+                            ï¼‹ Add Dense Layer
                         </button>
                     </div>
                 </div>
 
                 <button type="submit" className="btn-run" disabled={loading} style={{ marginTop: 16 }}>
-                    {loading ? '⏳ Training...' : '▶ Train ANN'}
+                    {loading ? 'â³ Training...' : '▶ Train ANN'}
                 </button>
             </form>
 
@@ -205,11 +209,16 @@ export default function ANN() {
                 </div>
             )}
 
-            <div className="download-section">
-                <DownloadTrainedModel selectedModel="ann" extension=".h5" />
-            </div>
+            {results && (
+                <div className="download-section">
+                    <DownloadTrainedModel selectedModel="ann" extension=".h5" />
+                    <DownloadResultsZip sessionId={results.session_id} />
+                </div>
+            )}
 
             <ModelInfoPanel modelCode={MODEL_CODE} isOpen={infoOpen} onClose={() => setInfoOpen(false)} />
         </div>
     );
 }
+
+

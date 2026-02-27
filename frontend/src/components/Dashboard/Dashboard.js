@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
+import DownloadResultsZip from '../DownloadResultsZip/DownloadResultsZip';
 import './Dashboard.css';
 
 const Dashboard = () => {
@@ -29,6 +30,19 @@ const Dashboard = () => {
         };
         fetchData();
     }, []);
+
+    const handleDeleteSession = async (sessionId, modelCode) => {
+        if (!window.confirm(`Delete ${modelCode} session? This will remove the session, trained model, and all associated data.`)) {
+            return;
+        }
+        try {
+            await api.delete(`/training-sessions/${sessionId}`);
+            setSessions(prev => prev.filter(s => s._id !== sessionId));
+        } catch (err) {
+            console.error('Failed to delete session:', err);
+            alert('Failed to delete session. Please try again.');
+        }
+    };
 
     const handleFeedbackSubmit = async (e) => {
         e.preventDefault();
@@ -122,6 +136,7 @@ const Dashboard = () => {
                                     <th>Version</th>
                                     <th>Status</th>
                                     <th>Date</th>
+                                    <th>Dataset</th>
                                     <th>Key Metric</th>
                                     <th>Action</th>
                                 </tr>
@@ -139,6 +154,12 @@ const Dashboard = () => {
                                             </span>
                                         </td>
                                         <td>{new Date(s.created_at).toLocaleDateString()}</td>
+                                        <td className="dataset-cell">
+                                            {s.dataset_info?.filename
+                                                ? <span className="dataset-tag">{s.dataset_info.filename}</span>
+                                                : '—'
+                                            }
+                                        </td>
                                         <td>
                                             {s.results?.accuracy
                                                 ? `${(s.results.accuracy * 100).toFixed(1)}%`
@@ -147,14 +168,24 @@ const Dashboard = () => {
                                                 : '—'
                                             }
                                         </td>
-                                        <td>
+                                        <td className="action-cell">
                                             {s.status === 'completed' && (
-                                                <DownloadTrainedModel 
-                                                    selectedModel={s.model_code} 
-                                                    extension={['cnn', 'ann'].includes(s.model_code) ? '.h5' : '.pkl'} 
-                                                    sessionId={s._id} 
-                                                />
+                                                <>
+                                                    <DownloadTrainedModel 
+                                                        selectedModel={s.model_code} 
+                                                        extension={['cnn', 'ann', 'lstm', 'resnet'].includes(s.model_code) ? '.h5' : s.model_code === 'object_detection' ? '.pt' : '.pkl'} 
+                                                        sessionId={s._id} 
+                                                    />
+                                                    <DownloadResultsZip sessionId={s._id} />
+                                                </>
                                             )}
+                                            <button 
+                                                className="btn-delete-session"
+                                                onClick={() => handleDeleteSession(s._id, s.model_code)}
+                                                title="Delete this session"
+                                            >
+                                                🗑️
+                                            </button>
                                         </td>
                                     </tr>
                                 ))}

@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import constants from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
+import DownloadResultsZip from '../DownloadResultsZip/DownloadResultsZip';
 import HyperparamPanel from '../shared/HyperparamPanel';
 import ModelInfoPanel from '../shared/ModelInfoPanel';
 import '../ModelCss/ModelPage.css';
@@ -39,7 +40,7 @@ export default function TextClassification() {
         try {
             const response = await fetch(`${constants.API_BASE_URL}/text-classification`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(localStorage.getItem('aiml_token') ? { 'Authorization': `Bearer ${localStorage.getItem('aiml_token')}` } : {}) },
                 body: JSON.stringify({
                     filename: datasetData?.filename,
                     text_column: textColumn || undefined,
@@ -87,7 +88,7 @@ export default function TextClassification() {
                     hyperparams={hyperparams}
                     onChange={(name, value) => setHyperparams(prev => ({ ...prev, [name]: value }))}
                 />
-                <button type="submit" className="btn-run" disabled={loading}>{loading ? '⏳ Classifying...' : '▶ Classify Text'}</button>
+                <button type="submit" className="btn-run" disabled={loading}>{loading ? 'â³ Classifying...' : '▶ Classify Text'}</button>
             </form>
             {error && <div className="model-error">❌ {error}</div>}
             {results && (
@@ -101,8 +102,15 @@ export default function TextClassification() {
                     </div>
                 </div>
             )}
-            <div className="download-section"><DownloadTrainedModel selectedModel="text_classification" extension=".pkl" /></div>
+            {results && (
+                <div className="download-section">
+                    <DownloadTrainedModel selectedModel="text_classification" extension=".pkl" />
+                    <DownloadResultsZip sessionId={results.session_id} />
+                </div>
+            )}
             <ModelInfoPanel modelCode="text_classification" isOpen={infoOpen} onClose={() => setInfoOpen(false)} />
         </div>
     );
 }
+
+

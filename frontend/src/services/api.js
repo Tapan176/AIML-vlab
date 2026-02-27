@@ -78,6 +78,14 @@ export const api = {
             body: JSON.stringify(body)
         });
         return handleResponse(res);
+    },
+
+    delete: async (endpoint) => {
+        const res = await fetch(`${API_BASE}${endpoint}`, {
+            method: 'DELETE',
+            headers: getHeaders()
+        });
+        return handleResponse(res);
     }
 };
 

@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import constants from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
+import DownloadResultsZip from '../DownloadResultsZip/DownloadResultsZip';
 import HyperparamPanel from '../shared/HyperparamPanel';
 import LstmHiddenLayer from '../HiddenLayers/LstmHiddenLayer';
 import ModelInfoPanel from '../shared/ModelInfoPanel';
@@ -11,7 +12,11 @@ const MODEL_CODE = 'lstm';
 
 export default function LSTM() {
     const [datasetData, setDatasetData] = useState('');
-    const [layers, setLayers] = useState([{ type: 'lstm', units: 64, return_sequences: true, dropout: 0.2 }, { type: 'dense', units: 32, activation: 'relu', dropout: 0 }]);
+    const [layers, setLayers] = useState([
+        { type: 'lstm', units: 128, return_sequences: true, dropout: 0.2 },
+        { type: 'lstm', units: 64, return_sequences: false, dropout: 0.2 },
+        { type: 'dense', units: 32, activation: 'relu', dropout: 0 },
+    ]);
     const [classMode, setClassMode] = useState('categorical');
     const [hyperparams, setHyperparams] = useState({});
     const [results, setResults] = useState(null);
@@ -142,7 +147,7 @@ export default function LSTM() {
                 />
 
                 <button type="submit" className="btn-run" disabled={loading} style={{ marginTop: 16 }}>
-                    {loading ? '⏳ Training...' : '▶ Train LSTM'}
+                    {loading ? 'â³ Training...' : '▶ Train LSTM'}
                 </button>
             </form>
 
@@ -175,6 +180,7 @@ export default function LSTM() {
             {results && (
                 <div className="download-section" style={{ marginTop: '20px' }}>
                     <DownloadTrainedModel selectedModel={MODEL_CODE} extension=".h5" sessionId={results.session_id} />
+                    <DownloadResultsZip sessionId={results.session_id} />
                 </div>
             )}
 
@@ -182,3 +188,5 @@ export default function LSTM() {
         </div>
     );
 }
+
+

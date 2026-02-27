@@ -15,11 +15,19 @@ export default function DownloadTrainedModel({ selectedModel, extension, session
             
             if (!response.ok) throw new Error('Download failed');
             
+            // Try to get filename from Content-Disposition header
+            let filename = `${selectedModel}${extension}`;
+            const disposition = response.headers.get('Content-Disposition');
+            if (disposition) {
+                const match = disposition.match(/filename[^;=\n]*=(?:(['"])?(.*?)\1|([^;\n]*))/);
+                if (match) filename = match[2] || match[3] || filename;
+            }
+            
             const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.setAttribute('download', `${selectedModel}${extension}`);
+            link.setAttribute('download', filename);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);

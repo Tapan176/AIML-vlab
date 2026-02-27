@@ -5,7 +5,7 @@ Supports hyperparameter tuning, user-scoped storage, and training sessions.
 from flask import Blueprint, request, jsonify
 from auth.auth_middleware import token_required
 from services.hyperparam_validator import validate_hyperparams, get_model_schema
-from services.training_session_service import create_session, update_session_results, update_session_error, get_user_sessions, get_session
+from services.training_session_service import create_session, update_session_results, update_session_error, get_user_sessions, get_session, delete_session
 from services.dataset_service import get_user_datasets
 
 from models.linearRegression.linearRegression import simpleLinearRegression
@@ -101,12 +101,30 @@ def _train_model(model_code, request_obj, current_user=None):
         train_fn = MODEL_FUNCTIONS[model_code]
         results = train_fn(request_obj, validated_params=validated_params, user_id=user_id, session_version=session.get('version') if user_id else None)
 
+        output_image_urls = results.get('outputImageUrls', [])
+        
+        # Base64 encode images for frontend display before they get deleted
+        import base64
+        import os
+        output_image_base64 = []
+        for img_path in output_image_urls:
+            if os.path.exists(img_path):
+                with open(img_path, "rb") as image_file:
+                    b64 = base64.b64encode(image_file.read()).decode('utf-8')
+                    ext = os.path.splitext(img_path)[1].lower()
+                    mime_type = "image/png"
+                    if ext in ['.jpg', '.jpeg']:
+                        mime_type = "image/jpeg"
+                    output_image_base64.append(f"data:{mime_type};base64,{b64}")
+                    
+        results['outputImageBase64'] = output_image_base64
+
         # Update session with results
         if session_id:
             update_session_results(
                 session_id,
                 results.get('evaluation_metrics') or results.get('results') or results,
-                results.get('outputImageUrls', []),
+                output_image_urls,
                 results.get('trained_model_path', ''),
                 results.get('predictions_output_file', '')
             )
@@ -123,53 +141,63 @@ def _train_model(model_code, request_obj, current_user=None):
 # --- Model Training Endpoints ---
 
 @model_routes.route('/linear-regression', methods=['POST'])
-def linear_regression():
-    return _train_model('simple_linear_regression', request)
+@token_required(optional=True)
+def linear_regression(current_user):
+    return _train_model('simple_linear_regression', request, current_user)
 
 
 @model_routes.route('/multivariable-linear-regression', methods=['POST'])
-def multivariate_linear_regression():
-    return _train_model('multivariable_linear_regression', request)
+@token_required(optional=True)
+def multivariate_linear_regression(current_user):
+    return _train_model('multivariable_linear_regression', request, current_user)
 
 
 @model_routes.route('/logistic-regression', methods=['POST'])
-def logistic_regression_route():
-    return _train_model('logistic_regression', request)
+@token_required(optional=True)
+def logistic_regression_route(current_user):
+    return _train_model('logistic_regression', request, current_user)
 
 
 @model_routes.route('/decision-tree', methods=['POST'])
-def decision_tree():
-    return _train_model('decision_tree', request)
+@token_required(optional=True)
+def decision_tree(current_user):
+    return _train_model('decision_tree', request, current_user)
 
 
 @model_routes.route('/random-forest', methods=['POST'])
-def random_forest():
-    return _train_model('random_forest', request)
+@token_required(optional=True)
+def random_forest(current_user):
+    return _train_model('random_forest', request, current_user)
 
 
 @model_routes.route('/knn', methods=['POST'])
-def k_nearest_neighbors():
-    return _train_model('knn', request)
+@token_required(optional=True)
+def k_nearest_neighbors(current_user):
+    return _train_model('knn', request, current_user)
 
 
 @model_routes.route('/k-means', methods=['POST'])
-def k_means():
-    return _train_model('k_means', request)
+@token_required(optional=True)
+def k_means(current_user):
+    return _train_model('k_means', request, current_user)
 
 
 @model_routes.route('/support-vector-machine', methods=['POST'])
-def support_vector_machine():
-    return _train_model('svm', request)
+@token_required(optional=True)
+def support_vector_machine(current_user):
+    return _train_model('svm', request, current_user)
 
 
 @model_routes.route('/naive-bayes', methods=['POST'])
-def naive_bayes():
-    return _train_model('naive_bayes', request)
+@token_required(optional=True)
+def naive_bayes(current_user):
+    return _train_model('naive_bayes', request, current_user)
 
 
 @model_routes.route('/dbscan', methods=['POST'])
-def db_scan():
-    return _train_model('dbscan', request)
+@token_required(optional=True)
+def db_scan(current_user):
+    return _train_model('dbscan', request, current_user)
 
 
 @model_routes.route('/cnn', methods=['POST'])
@@ -293,7 +321,10 @@ def resnet(current_user):
         try:
             for chunk in _train_resnet(request, validated_params=validated_params, hidden_layer_array=hidden_layer_array, class_mode=class_mode, is_base_frozen=is_base_frozen, user_id=user_id, session_version=session['version']):
                 yield chunk
-            update_session_results(session_id, {"status": "completed", "message": "Simulated training complete."}, [], '', '')
+            from utils.saveTrainedModel import saveTrainedModel
+            model_str = "Simulated RESNET model trained weights.\nThis is a mock file generated for the VLab environment."
+            model_path = saveTrainedModel(model_str, "resnet_model", "dummy", user_id=user_id, version=session['version'])
+            update_session_results(session_id, {"status": "completed", "message": "Simulated training complete."}, [], model_path, '')
         except Exception as e:
             update_session_error(session_id, str(e))
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
@@ -335,7 +366,10 @@ def lstm(current_user):
         try:
             for chunk in _train_lstm(request, validated_params=validated_params, hidden_layer_array=hidden_layer_array, class_mode=class_mode, user_id=user_id, session_version=session['version']):
                 yield chunk
-            update_session_results(session_id, {"status": "completed", "message": "Simulated training complete."}, [], '', '')
+            from utils.saveTrainedModel import saveTrainedModel
+            model_str = "Simulated LSTM model trained weights.\nThis is a mock file generated for the VLab environment."
+            model_path = saveTrainedModel(model_str, "lstm_model", "dummy", user_id=user_id, version=session['version'])
+            update_session_results(session_id, {"status": "completed", "message": "Simulated training complete."}, [], model_path, '')
         except Exception as e:
             update_session_error(session_id, str(e))
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
@@ -375,7 +409,10 @@ def yolo(current_user):
         try:
             for chunk in _train_yolo(request, validated_params=validated_params, user_id=user_id, session_version=session['version']):
                 yield chunk
-            update_session_results(session_id, {"status": "completed", "message": "Simulated training complete."}, [], '', '')
+            from utils.saveTrainedModel import saveTrainedModel
+            model_str = "Simulated YOLO model trained weights.\nThis is a mock file generated for the VLab environment."
+            model_path = saveTrainedModel(model_str, "yolo_model", "dummy", user_id=user_id, version=session['version'])
+            update_session_results(session_id, {"status": "completed", "message": "Simulated training complete."}, [], model_path, '')
         except Exception as e:
             update_session_error(session_id, str(e))
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
@@ -415,7 +452,10 @@ def stylegan(current_user):
         try:
             for chunk in _train_stylegan(data, validated_params=validated_params, user_id=user_id, session_version=session['version']):
                 yield chunk
-            update_session_results(session_id, {"status": "completed", "message": "Simulated training complete."}, [], '', '')
+            from utils.saveTrainedModel import saveTrainedModel
+            model_str = "Simulated STYLEGAN model trained weights.\nThis is a mock file generated for the VLab environment."
+            model_path = saveTrainedModel(model_str, "stylegan_model", "dummy", user_id=user_id, version=session['version'])
+            update_session_results(session_id, {"status": "completed", "message": "Simulated training complete."}, [], model_path, '')
         except Exception as e:
             update_session_error(session_id, str(e))
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
@@ -449,6 +489,22 @@ def get_session_detail(current_user, session_id):
         return jsonify({"session": session}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 404
+
+
+@model_routes.route('/training-sessions/<session_id>', methods=['DELETE'])
+@token_required
+def delete_session_route(current_user, session_id):
+    """Delete a training session and its associated files."""
+    try:
+        delete_session(session_id, current_user['_id'])
+        return jsonify({"message": "Session deleted successfully"}), 200
+    except Exception as e:
+        error_msg = str(e)
+        if error_msg == 'unauthorized':
+            return jsonify({"error": "Unauthorized"}), 403
+        if error_msg == 'session_not_found':
+            return jsonify({"error": "Session not found"}), 404
+        return jsonify({"error": error_msg}), 500
 
 
 @model_routes.route('/model-schema/<model_code>', methods=['GET'])

@@ -4,6 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTrash, faDatabase, faMagic, faTags } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../../context/AuthContext';
 import ShowDataset from '../Dataset/ShowDataset';
+import ImageAnnotation from './ImageAnnotation';
 import Sidebar from '../Sidebar/Sidebar';
 import './DataStudio.css';
 
@@ -20,7 +21,7 @@ export default function DataStudio() {
 
     const fetchDatasets = async () => {
         setLoading(true);
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('aiml_token');
         try {
             const res = await fetch(`${constants.API_BASE_URL}/user-datasets`, {
                 headers: { 'Authorization': `Bearer ${token}` }
@@ -51,7 +52,7 @@ export default function DataStudio() {
     const handleDelete = async (id, filename) => {
         if (!window.confirm(`Are you sure you want to permanently delete "${filename}" from your cloud library?`)) return;
         
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('aiml_token');
         try {
             const res = await fetch(`${constants.API_BASE_URL}/datasets/${id}`, {
                 method: 'DELETE',
@@ -76,7 +77,7 @@ export default function DataStudio() {
         }
         
         setIsProcessing(true);
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('aiml_token');
         try {
             const res = await fetch(`${constants.API_BASE_URL}/datasets/preprocess`, {
                 method: 'POST',
@@ -261,10 +262,8 @@ export default function DataStudio() {
                     )}
 
                     {activeTab === 'annotation' && (
-                        <div className="placeholder-tab">
-                            <h2>Image Annotation Studio</h2>
-                            <p>Draw bounding boxes around objects within your image datasets to export YOLOv8-compatible training architectures.</p>
-                            <div className="coming-soon">Construction in Progress Phase 10</div>
+                        <div className="annotation-tab">
+                            <ImageAnnotation />
                         </div>
                     )}
                     </>

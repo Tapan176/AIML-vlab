@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { API_URL } from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
 import ModelInfoPanel from '../shared/ModelInfoPanel';
@@ -132,7 +132,7 @@ export default function StyleGAN() {
 
             <form className="model-form" onSubmit={handleSubmit}>
                 <div className="hidden-layers-section" style={{ padding: '20px', background: 'var(--bg-card)', borderRadius: '12px' }}>
-                    <h3 style={{ marginBottom: '15px' }}>⚙️ Training Configuration</h3>
+                    <h3 style={{ marginBottom: '15px' }}>⚙️ Training Configuration</h3>
                     <div className="form-grid">
                         <div className="form-group">
                             <label>Epochs</label>
@@ -168,7 +168,7 @@ export default function StyleGAN() {
                 </div>
 
                 <button type="submit" className="btn-run" disabled={loading} style={{ marginTop: 16 }}>
-                    {loading ? '⏳ Generating StyleGAN Model...' : '▶ Train Generative Model'}
+                    {loading ? 'â³ Generating StyleGAN Model...' : '▶ Train Generative Model'}
                 </button>
             </form>
 
@@ -182,7 +182,7 @@ export default function StyleGAN() {
                     boxShadow: 'inset 0 0 10px rgba(0,0,0,0.5)'
                 }}>
                     <h3 style={{ color: '#fff', borderBottom: '1px solid #333', paddingBottom: '10px', marginBottom: '10px' }}>
-                        🖥️ Live Training Console
+                        ðŸ–¥ï¸ Live Training Console
                     </h3>
                     <div className="log-scroll">
                         {logs.map((log, idx) => (
@@ -207,3 +207,4 @@ export default function StyleGAN() {
         </div>
     );
 }
+
