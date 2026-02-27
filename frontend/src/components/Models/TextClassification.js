@@ -88,7 +88,7 @@ export default function TextClassification() {
                     hyperparams={hyperparams}
                     onChange={(name, value) => setHyperparams(prev => ({ ...prev, [name]: value }))}
                 />
-                <button type="submit" className="btn-run" disabled={loading}>{loading ? 'â³ Classifying...' : '▶ Classify Text'}</button>
+                <button type="submit" className="btn-run" disabled={loading}>{loading ? '⏳ Classifying...' : '▶ Classify Text'}</button>
             </form>
             {error && <div className="model-error">❌ {error}</div>}
             {results && (
@@ -104,8 +104,12 @@ export default function TextClassification() {
             )}
             {results && (
                 <div className="download-section">
-                    <DownloadTrainedModel selectedModel="text_classification" extension=".pkl" />
-                    <DownloadResultsZip sessionId={results.session_id} />
+                    {(results.trained_model_drive_id || !results.session_id) && (
+                        <DownloadTrainedModel selectedModel="text_classification" extension=".pkl" sessionId={results.session_id} label="Download" />
+                    )}
+                    {results.results_zip_drive_id && (
+                        <DownloadResultsZip sessionId={results.session_id} />
+                    )}
                 </div>
             )}
             <ModelInfoPanel modelCode="text_classification" isOpen={infoOpen} onClose={() => setInfoOpen(false)} />

@@ -121,13 +121,15 @@ def _train_model(model_code, request_obj, current_user=None):
 
         # Update session with results
         if session_id:
-            update_session_results(
+            db_results = update_session_results(
                 session_id,
                 results.get('evaluation_metrics') or results.get('results') or results,
                 output_image_urls,
                 results.get('trained_model_path', ''),
                 results.get('predictions_output_file', '')
             )
+            # Merge DB results (with Drive IDs) back into the response results
+            results.update(db_results)
             results['session_id'] = session_id
 
         return jsonify(results), 200
@@ -225,11 +227,26 @@ def cnn(current_user):
     def generate():
         import json
         try:
+            results_data = {}
             for chunk in _train_cnn(request, validated_params=validated_params, user_id=user_id, session_version=session['version']):
+                if 'status' in chunk and 'training_complete' in chunk:
+                    try:
+                        data_part = chunk.replace('data: ', '').strip()
+                        results_data = json.loads(data_part)
+                    except: pass
                 yield chunk
-            # The final chunk from _train_cnn should contain the trained_model_path, so we could technically capture it.
-            # But the simulation/generator itself handles the final status yield.
-            update_session_results(session_id, {"status": "completed", "message": "CNN training complete."}, [], '', '')
+            
+            # Final update with all metadata captured from the inner function
+            db_results = update_session_results(
+                session_id, 
+                results_data, 
+                [], 
+                results_data.get('trained_model_path', ''), 
+                ''
+            )
+            db_results['status'] = 'completed'
+            db_results['session_id'] = session_id
+            yield f"data: {json.dumps(db_results)}\n\n"
         except Exception as e:
             update_session_error(session_id, str(e))
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
@@ -243,7 +260,8 @@ def cnn(current_user):
 
 
 @model_routes.route('/ann', methods=['POST'])
-def ann():
+@token_required
+def ann(current_user):
     """ANN training — lazy-loads TensorFlow to avoid startup protobuf conflicts."""
     try:
         from models.ann.ann import train_ann as _train_ann
@@ -255,15 +273,37 @@ def ann():
         validated_params = validate_hyperparams('ann', user_hyperparams)
     except Exception as e:
         return jsonify({"error": str(e)}), 400
-    user_id = None
     
-    # We won't use create_session for ANN here unless strictly required, but to support SSE we need a generator Response
+    user_id = current_user['_id']
+    dataset_id = data.get('dataset_id')
+    session = create_session(user_id, 'ann', validated_params, dataset_id)
+    session_id = session['_id']
+    
     def generate():
         import json
         try:
-            for chunk in _train_ann(request, validated_params=validated_params, user_id=user_id):
+            results_data = {}
+            for chunk in _train_ann(request, validated_params=validated_params, user_id=user_id, session_version=session['version']):
+                if 'status' in chunk and 'training_complete' in chunk:
+                    try:
+                        data_part = chunk.replace('data: ', '').strip()
+                        results_data = json.loads(data_part)
+                    except: pass
                 yield chunk
+            
+            # Update session with results
+            db_results = update_session_results(
+                session_id, 
+                results_data, 
+                [], 
+                results_data.get('trained_model_path', ''), 
+                ''
+            )
+            db_results['status'] = 'completed'
+            db_results['session_id'] = session_id
+            yield f"data: {json.dumps(db_results)}\n\n"
         except Exception as e:
+            update_session_error(session_id, str(e))
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
     from flask import Response, stream_with_context
@@ -319,12 +359,30 @@ def resnet(current_user):
     def generate():
         import json
         try:
+            results_data = {}
             for chunk in _train_resnet(request, validated_params=validated_params, hidden_layer_array=hidden_layer_array, class_mode=class_mode, is_base_frozen=is_base_frozen, user_id=user_id, session_version=session['version']):
+                if 'status' in chunk and 'training_complete' in chunk:
+                    try:
+                        data_part = chunk.replace('data: ', '').strip()
+                        results_data = json.loads(data_part)
+                    except: pass
                 yield chunk
+            
             from utils.saveTrainedModel import saveTrainedModel
             model_str = "Simulated RESNET model trained weights.\nThis is a mock file generated for the VLab environment."
             model_path = saveTrainedModel(model_str, "resnet_model", "dummy", user_id=user_id, version=session['version'])
-            update_session_results(session_id, {"status": "completed", "message": "Simulated training complete."}, [], model_path, '')
+            
+            # Final update
+            db_results = update_session_results(
+                session_id, 
+                results_data or {"message": "Simulated training complete."}, 
+                [], 
+                model_path, 
+                ''
+            )
+            db_results['status'] = 'completed'
+            db_results['session_id'] = session_id
+            yield f"data: {json.dumps(db_results)}\n\n"
         except Exception as e:
             update_session_error(session_id, str(e))
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
@@ -364,12 +422,30 @@ def lstm(current_user):
     def generate():
         import json
         try:
+            results_data = {}
             for chunk in _train_lstm(request, validated_params=validated_params, hidden_layer_array=hidden_layer_array, class_mode=class_mode, user_id=user_id, session_version=session['version']):
+                if 'status' in chunk and 'training_complete' in chunk:
+                    try:
+                        data_part = chunk.replace('data: ', '').strip()
+                        results_data = json.loads(data_part)
+                    except: pass
                 yield chunk
+            
             from utils.saveTrainedModel import saveTrainedModel
             model_str = "Simulated LSTM model trained weights.\nThis is a mock file generated for the VLab environment."
             model_path = saveTrainedModel(model_str, "lstm_model", "dummy", user_id=user_id, version=session['version'])
-            update_session_results(session_id, {"status": "completed", "message": "Simulated training complete."}, [], model_path, '')
+            
+            # Final update
+            db_results = update_session_results(
+                session_id, 
+                results_data or {"message": "Simulated training complete."}, 
+                [], 
+                model_path, 
+                ''
+            )
+            db_results['status'] = 'completed'
+            db_results['session_id'] = session_id
+            yield f"data: {json.dumps(db_results)}\n\n"
         except Exception as e:
             update_session_error(session_id, str(e))
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
@@ -407,12 +483,30 @@ def yolo(current_user):
     def generate():
         import json
         try:
+            results_data = {}
             for chunk in _train_yolo(request, validated_params=validated_params, user_id=user_id, session_version=session['version']):
+                if 'status' in chunk and 'training_complete' in chunk:
+                    try:
+                        data_part = chunk.replace('data: ', '').strip()
+                        results_data = json.loads(data_part)
+                    except: pass
                 yield chunk
+            
             from utils.saveTrainedModel import saveTrainedModel
             model_str = "Simulated YOLO model trained weights.\nThis is a mock file generated for the VLab environment."
             model_path = saveTrainedModel(model_str, "yolo_model", "dummy", user_id=user_id, version=session['version'])
-            update_session_results(session_id, {"status": "completed", "message": "Simulated training complete."}, [], model_path, '')
+            
+            # Final update
+            db_results = update_session_results(
+                session_id, 
+                results_data or {"message": "Simulated training complete."}, 
+                [], 
+                model_path, 
+                ''
+            )
+            db_results['status'] = 'completed'
+            db_results['session_id'] = session_id
+            yield f"data: {json.dumps(db_results)}\n\n"
         except Exception as e:
             update_session_error(session_id, str(e))
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
@@ -450,12 +544,30 @@ def stylegan(current_user):
     def generate():
         import json
         try:
+            results_data = {}
             for chunk in _train_stylegan(data, validated_params=validated_params, user_id=user_id, session_version=session['version']):
+                if 'status' in chunk and 'training_complete' in chunk:
+                    try:
+                        data_part = chunk.replace('data: ', '').strip()
+                        results_data = json.loads(data_part)
+                    except: pass
                 yield chunk
+            
             from utils.saveTrainedModel import saveTrainedModel
             model_str = "Simulated STYLEGAN model trained weights.\nThis is a mock file generated for the VLab environment."
             model_path = saveTrainedModel(model_str, "stylegan_model", "dummy", user_id=user_id, version=session['version'])
-            update_session_results(session_id, {"status": "completed", "message": "Simulated training complete."}, [], model_path, '')
+            
+            # Final update
+            db_results = update_session_results(
+                session_id, 
+                results_data or {"message": "Simulated training complete."}, 
+                [], 
+                model_path, 
+                ''
+            )
+            db_results['status'] = 'completed'
+            db_results['session_id'] = session_id
+            yield f"data: {json.dumps(db_results)}\n\n"
         except Exception as e:
             update_session_error(session_id, str(e))
             yield f"data: {json.dumps({'error': str(e)})}\n\n"

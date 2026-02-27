@@ -371,28 +371,7 @@
     flex-wrap: wrap;
 }
 
-.download-section .btn-download,
-.btn-download {
-    background: var(--bg-input);
-    color: var(--accent);
-    border: 1px solid var(--accent);
-    padding: 8px 20px;
-    border-radius: 8px;
-    font-weight: 500;
-    font-size: 0.9rem;
-    cursor: pointer;
-    transition: all 0.2s;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.download-section .btn-download:hover,
-.btn-download:hover {
-    background: var(--accent);
-    color: #fff;
-    transform: translateY(-1px);
-}
+/* Button styles moved to global index.css */
 
 /* --- Hyperparameter Panel --- */
 .hyperparam-panel {

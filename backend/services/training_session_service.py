@@ -218,6 +218,10 @@ def update_session_results(session_id, results, output_images, model_path, predi
         except Exception:
             pass
 
+    # Add to results so frontend knows they are available
+    results['trained_model_drive_id'] = trained_model_drive_id
+    results['results_zip_drive_id'] = results_zip_drive_id
+
     db.training_sessions.update_one(
         {'_id': ObjectId(session_id)},
         {'$set': {
@@ -235,6 +239,7 @@ def update_session_results(session_id, results, output_images, model_path, predi
             'completed_at': datetime.utcnow(),
         }}
     )
+    return results
 
 
 def update_session_error(session_id, error_message):

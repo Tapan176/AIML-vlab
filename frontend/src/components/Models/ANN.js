@@ -177,7 +177,7 @@ export default function ANN() {
                 </div>
 
                 <button type="submit" className="btn-run" disabled={loading} style={{ marginTop: 16 }}>
-                    {loading ? 'â³ Training...' : '▶ Train ANN'}
+                    {loading ? '⏳ Training...' : '▶ Train ANN'}
                 </button>
             </form>
 
@@ -186,7 +186,7 @@ export default function ANN() {
             {logs.length > 0 && (
                 <div className="terminal-container" style={{ marginTop: '20px', background: '#1e1e1e', color: '#00ff00', padding: '15px', borderRadius: '8px', fontFamily: 'monospace', height: '300px', overflowY: 'auto' }}>
                     <div style={{ borderBottom: '1px solid #333', paddingBottom: '10px', marginBottom: '10px', color: '#888' }}>
-                        Live Training Console
+                        🖥️ Live Training Console
                     </div>
                     {logs.map((log, index) => (
                         <div key={index}>{log}</div>
@@ -211,8 +211,12 @@ export default function ANN() {
 
             {results && (
                 <div className="download-section">
-                    <DownloadTrainedModel selectedModel="ann" extension=".h5" />
-                    <DownloadResultsZip sessionId={results.session_id} />
+                    {(results.trained_model_drive_id || !results.session_id) && (
+                        <DownloadTrainedModel selectedModel="ann" extension=".h5" sessionId={results.session_id} label="Download" />
+                    )}
+                    {results.results_zip_drive_id && (
+                        <DownloadResultsZip sessionId={results.session_id} />
+                    )}
                 </div>
             )}
 

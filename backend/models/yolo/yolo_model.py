@@ -27,4 +27,4 @@ def train_yolo(request, validated_params, user_id=None, session_version=None):
     yield f"data: {json.dumps({'log': f'Training Complete. Saving ultralytics pt state...'})}\n\n"
     time.sleep(1)
 
-    yield f"data: {json.dumps({'status': 'completed'})}\n\n"
+    yield f"data: {json.dumps({'status': 'training_complete'})}\n\n"

@@ -93,8 +93,12 @@ export default function KMeans() {
             )}
             {results && (
                 <div className="download-section">
-                    <DownloadTrainedModel selectedModel="k_means" extension=".pkl" />
-                    <DownloadResultsZip sessionId={results.session_id} />
+                    {(results.trained_model_drive_id || !results.session_id) && (
+                        <DownloadTrainedModel selectedModel="k_means" extension=".pkl" sessionId={results.session_id} label="Download" />
+                    )}
+                    {results.results_zip_drive_id && (
+                        <DownloadResultsZip sessionId={results.session_id} />
+                    )}
                 </div>
             )}
             <ModelInfoPanel modelCode={MODEL_CODE} isOpen={infoOpen} onClose={() => setInfoOpen(false)} />

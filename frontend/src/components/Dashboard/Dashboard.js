@@ -136,9 +136,10 @@ const Dashboard = () => {
                                     <th>Version</th>
                                     <th>Status</th>
                                     <th>Date</th>
-                                    <th>Dataset</th>
                                     <th>Key Metric</th>
-                                    <th>Action</th>
+                                    <th>Trained Model</th>
+                                    <th>Training Results</th>
+                                    <th style={{ width: '50px' }}>Action</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -154,12 +155,6 @@ const Dashboard = () => {
                                             </span>
                                         </td>
                                         <td>{new Date(s.created_at).toLocaleDateString()}</td>
-                                        <td className="dataset-cell">
-                                            {s.dataset_info?.filename
-                                                ? <span className="dataset-tag">{s.dataset_info.filename}</span>
-                                                : '—'
-                                            }
-                                        </td>
                                         <td>
                                             {s.results?.accuracy
                                                 ? `${(s.results.accuracy * 100).toFixed(1)}%`
@@ -168,17 +163,22 @@ const Dashboard = () => {
                                                 : '—'
                                             }
                                         </td>
-                                        <td className="action-cell">
+                                        <td>
                                             {s.status === 'completed' && (
-                                                <>
-                                                    <DownloadTrainedModel 
-                                                        selectedModel={s.model_code} 
-                                                        extension={['cnn', 'ann', 'lstm', 'resnet'].includes(s.model_code) ? '.h5' : s.model_code === 'object_detection' ? '.pt' : '.pkl'} 
-                                                        sessionId={s._id} 
-                                                    />
-                                                    <DownloadResultsZip sessionId={s._id} />
-                                                </>
+                                                <DownloadTrainedModel 
+                                                    selectedModel={s.model_code} 
+                                                    extension={['cnn', 'ann', 'lstm', 'resnet', 'stylegan'].includes(s.model_code) ? '.h5' : s.model_code === 'object_detection' ? '.pt' : '.pkl'} 
+                                                    sessionId={s._id} 
+                                                    label="Download"
+                                                />
                                             )}
+                                        </td>
+                                        <td>
+                                            {s.status === 'completed' && s.results_zip_drive_id && (
+                                                <DownloadResultsZip sessionId={s._id} label="Download" />
+                                            )}
+                                        </td>
+                                        <td className="action-cell">
                                             <button 
                                                 className="btn-delete-session"
                                                 onClick={() => handleDeleteSession(s._id, s.model_code)}

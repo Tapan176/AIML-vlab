@@ -1,7 +1,7 @@
 import React from 'react';
 import constants from '../../constants';
 
-export default function DownloadResultsZip({ sessionId }) {
+export default function DownloadResultsZip({ sessionId, label }) {
     const downloadResultsZip = async () => {
         try {
             const token = localStorage.getItem('aiml_token');
@@ -35,8 +35,8 @@ export default function DownloadResultsZip({ sessionId }) {
     };
 
     return (
-        <button className="btn-download" onClick={downloadResultsZip} style={{ backgroundColor: '#17a2b8' }}>
-            📊 Download Results (Zip)
+        <button className="btn-download-secondary" onClick={downloadResultsZip}>
+            {label || "📊 Download Results (Zip)"}
         </button>
     );
 }

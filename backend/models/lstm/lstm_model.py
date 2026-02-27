@@ -27,4 +27,4 @@ def train_lstm(request, validated_params, hidden_layer_array=None, class_mode='c
     yield f"data: {json.dumps({'log': f'Training Complete. Saving model parameters...'})}\n\n"
     time.sleep(1)
 
-    yield f"data: {json.dumps({'status': 'completed'})}\n\n"
+    yield f"data: {json.dumps({'status': 'training_complete', 'trained_model_path': f'trainedModels/{user_id}/lstm_v{session_version}.h5' if user_id else 'trainedModels/lstm.h5'})}\n\n"

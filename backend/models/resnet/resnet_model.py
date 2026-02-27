@@ -27,4 +27,4 @@ def train_resnet(request, validated_params, hidden_layer_array=None, class_mode=
     yield f"data: {json.dumps({'log': f'Training Complete. Saving model state dictate...'})}\n\n"
     time.sleep(1)
 
-    yield f"data: {json.dumps({'status': 'completed'})}\n\n"
+    yield f"data: {json.dumps({'status': 'training_complete'})}\n\n"

@@ -62,6 +62,9 @@ def download_results_zip_session(current_user, session_id):
 def download_model():
     model_path = get_model_path(request)
     import os
+    if not os.path.exists(model_path):
+        return jsonify({"error": "Trained model file not found on server. Please train a new model."}), 404
+        
     download_name = os.path.basename(model_path)
     return send_file(model_path, as_attachment=True, download_name=download_name)
 

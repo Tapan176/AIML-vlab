@@ -172,4 +172,4 @@ def train_ann(request, validated_params=None, user_id=None, session_version=None
     
     yield f"data: {json.dumps({'log': f'Training Complete! Test Accuracy: {test_accuracy:.4f}'})}\n\n"
 
-    yield f"data: {json.dumps({'status': 'completed', 'accuracy': float(test_accuracy), 'loss': float(test_loss), 'val_accuracy': float(last_val_accuracy), 'val_loss': float(last_val_loss), 'epochs_trained': stopped_epoch, 'trained_model_path': model_path})}\n\n"
+    yield f"data: {json.dumps({'status': 'training_complete', 'accuracy': float(test_accuracy), 'loss': float(test_loss), 'val_accuracy': float(last_val_accuracy), 'val_loss': float(last_val_loss), 'epochs_trained': stopped_epoch, 'trained_model_path': model_path})}\n\n"

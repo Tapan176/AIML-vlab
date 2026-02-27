@@ -74,7 +74,7 @@ export default function GradientBoosting() {
                     hyperparams={hyperparams}
                     onChange={(name, value) => setHyperparams(prev => ({ ...prev, [name]: value }))}
                 />
-                <button type="submit" className="btn-run" disabled={loading}>{loading ? 'â³ Training...' : '▶ Train Model'}</button>
+                <button type="submit" className="btn-run" disabled={loading}>{loading ? '⏳ Training...' : '▶ Train Model'}</button>
             </form>
             {error && <div className="model-error">❌ {error}</div>}
             {results && (
@@ -90,8 +90,12 @@ export default function GradientBoosting() {
             )}
             {results && (
                 <div className="download-section">
-                    <DownloadTrainedModel selectedModel="gradient_boosting" extension=".pkl" />
-                    <DownloadResultsZip sessionId={results.session_id} />
+                    {(results.trained_model_drive_id || !results.session_id) && (
+                        <DownloadTrainedModel selectedModel="gradient_boosting" extension=".pkl" sessionId={results.session_id} label="Download" />
+                    )}
+                    {results.results_zip_drive_id && (
+                        <DownloadResultsZip sessionId={results.session_id} />
+                    )}
                 </div>
             )}
             <ModelInfoPanel modelCode="gradient_boosting" isOpen={infoOpen} onClose={() => setInfoOpen(false)} />

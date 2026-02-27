@@ -1,7 +1,7 @@
 import React from 'react';
 import constants from '../../constants';
 
-export default function DownloadTrainedModel({ selectedModel, extension, sessionId }) {
+export default function DownloadTrainedModel({ selectedModel, extension, sessionId, label }) {
     const downloadTrainedModel = async () => {
         try {
             const token = localStorage.getItem('aiml_token');
@@ -38,8 +38,8 @@ export default function DownloadTrainedModel({ selectedModel, extension, session
     };
 
     return (
-        <button className="btn-download" onClick={downloadTrainedModel}>
-            📦 Download Trained Model ({extension})
+        <button className="btn-download-primary" onClick={downloadTrainedModel}>
+            {label || `📦 Download Trained Model (${extension})`}
         </button>
     );
 }

@@ -134,8 +134,12 @@ export default function MultivariableLinearRegression() {
             {results && (
                 <div className="download-section">
                     <DownloadModelPredictions selectedModel="multivariable_linear_regression" extension=".csv" />
-                    <DownloadTrainedModel selectedModel="multivariable_linear_regression" extension=".pkl" />
-                    <DownloadResultsZip sessionId={results.session_id} />
+                    {(results.trained_model_drive_id || !results.session_id) && (
+                        <DownloadTrainedModel selectedModel="multivariable_linear_regression" extension=".pkl" sessionId={results.session_id} label="Download" />
+                    )}
+                    {results.results_zip_drive_id && (
+                        <DownloadResultsZip sessionId={results.session_id} />
+                    )}
                 </div>
             )}
 

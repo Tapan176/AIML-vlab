@@ -47,7 +47,7 @@ def saveTrainedModel(model, filename, model_type, user_id=None, version=None):
         save_path = os.path.join(save_dir, save_filename + extension)
         torch.save(model.state_dict(), save_path)
     elif model_type == "dummy":
-        extension = ".pt"
+        extension = ".h5"
         save_path = os.path.join(save_dir, save_filename + extension)
         with open(save_path, "w") as f:
             f.write(model)

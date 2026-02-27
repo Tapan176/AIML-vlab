@@ -213,4 +213,4 @@ def train_cnn(request, validated_params=None, user_id=None, session_version=None
     # Save the model
     save_path = saveTrainedModel(model, "cnn", "Keras", user_id=user_id, version=session_version)
 
-    yield f"data: {json.dumps({'status': 'completed', 'accuracy': float(last_val_accuracy), 'loss': float(last_val_loss), 'epochs_trained': stopped_epoch, 'trained_model_path': save_path})}\n\n"
+    yield f"data: {json.dumps({'status': 'training_complete', 'accuracy': float(last_val_accuracy), 'loss': float(last_val_loss), 'epochs_trained': stopped_epoch, 'trained_model_path': save_path})}\n\n"

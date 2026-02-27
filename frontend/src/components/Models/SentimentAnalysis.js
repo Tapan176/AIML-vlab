@@ -88,7 +88,7 @@ export default function SentimentAnalysis() {
                     hyperparams={hyperparams}
                     onChange={(name, value) => setHyperparams(prev => ({ ...prev, [name]: value }))}
                 />
-                <button type="submit" className="btn-run" disabled={loading}>{loading ? 'â³ Analyzing...' : '▶ Analyze Sentiment'}</button>
+                <button type="submit" className="btn-run" disabled={loading}>{loading ? '⏳ Analyzing...' : '▶ Analyze Sentiment'}</button>
             </form>
             {error && <div className="model-error">❌ {error}</div>}
             {results && (
@@ -104,8 +104,12 @@ export default function SentimentAnalysis() {
             )}
             {results && (
                 <div className="download-section">
-                    <DownloadTrainedModel selectedModel="sentiment_analysis" extension=".pkl" />
-                    <DownloadResultsZip sessionId={results.session_id} />
+                    {(results.trained_model_drive_id || !results.session_id) && (
+                        <DownloadTrainedModel selectedModel="sentiment_analysis" extension=".pkl" sessionId={results.session_id} label="Download" />
+                    )}
+                    {results.results_zip_drive_id && (
+                        <DownloadResultsZip sessionId={results.session_id} />
+                    )}
                 </div>
             )}
             <ModelInfoPanel modelCode="sentiment_analysis" isOpen={infoOpen} onClose={() => setInfoOpen(false)} />

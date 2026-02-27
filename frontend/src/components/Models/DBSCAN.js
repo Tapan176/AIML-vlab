@@ -67,7 +67,7 @@ export default function DBSCAN() {
                 )}</div>
             <form className="model-form" onSubmit={handleSubmit}>
                 <HyperparamPanel modelCode={MODEL_CODE} hyperparams={hyperparams} onChange={(n, v) => setHyperparams(p => ({ ...p, [n]: v }))} />
-                <button type="submit" className="btn-run" disabled={loading}>{loading ? 'â³ Training...' : '▶ Run Model'}</button>
+                <button type="submit" className="btn-run" disabled={loading}>{loading ? '⏳ Training...' : '▶ Run Model'}</button>
             </form>
             {error && <div className="model-error">❌ {error}</div>}
             {results && (

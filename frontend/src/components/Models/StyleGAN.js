@@ -1,6 +1,8 @@
 ﻿import React, { useState, useEffect, useRef } from 'react';
 import { API_URL } from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
+import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
+import DownloadResultsZip from '../DownloadResultsZip/DownloadResultsZip';
 import ModelInfoPanel from '../shared/ModelInfoPanel';
 import '../ModelCss/ModelPage.css';
 
@@ -95,7 +97,7 @@ export default function StyleGAN() {
                                         setError(parsed.error);
                                     }
                                     if (parsed.status === 'completed') {
-                                        setResults({ message: "Generative model completed and saved!" });
+                                        setResults(parsed);
                                     }
                                 } catch (e) {
                                     // Ignore parse chunks issue that might arise from stream split
@@ -168,7 +170,7 @@ export default function StyleGAN() {
                 </div>
 
                 <button type="submit" className="btn-run" disabled={loading} style={{ marginTop: 16 }}>
-                    {loading ? 'â³ Generating StyleGAN Model...' : '▶ Train Generative Model'}
+                    {loading ? '⏳ Generating StyleGAN Model...' : '▶ Train Generative Model'}
                 </button>
             </form>
 
@@ -182,7 +184,7 @@ export default function StyleGAN() {
                     boxShadow: 'inset 0 0 10px rgba(0,0,0,0.5)'
                 }}>
                     <h3 style={{ color: '#fff', borderBottom: '1px solid #333', paddingBottom: '10px', marginBottom: '10px' }}>
-                        ðŸ–¥ï¸ Live Training Console
+                        🖥️ Live Training Console
                     </h3>
                     <div className="log-scroll">
                         {logs.map((log, idx) => (
@@ -199,6 +201,20 @@ export default function StyleGAN() {
                 <div className="results-card" style={{ marginTop: '20px' }}>
                     <h2>Training Complete</h2>
                     {results.message && <p>{results.message}</p>}
+                    
+                    <div className="download-section" style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
+                        {(results.trained_model_drive_id || !results.session_id) && (
+                            <DownloadTrainedModel 
+                                selectedModel={MODEL_CODE} 
+                                extension=".h5" 
+                                sessionId={results.session_id} label="Download" 
+                            />
+                        )}
+                        {results.results_zip_drive_id && (
+                            <DownloadResultsZip sessionId={results.session_id} />
+                        )}
+                    </div>
+
                     <p style={{ color: '#aaa', marginTop: '10px' }}>* Models are stored in your personal cloud namespace.</p>
                 </div>
             )}

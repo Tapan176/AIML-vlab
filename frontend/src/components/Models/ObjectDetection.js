@@ -79,7 +79,7 @@ export default function ObjectDetection() {
                                 if (parsed.log) {
                                     setLogs(prev => [...prev, parsed.log]);
                                 } else if (parsed.status === 'completed') {
-                                    setResults({ message: 'Training Complete', map50: 0.88, loss: 1.2, session_id: 'simulated' });
+                                    setResults(parsed);
                                 } else if (parsed.error) {
                                     setError(parsed.error);
                                 }
@@ -126,7 +126,7 @@ export default function ObjectDetection() {
                 />
 
                 <button type="submit" className="btn-run" disabled={loading} style={{ marginTop: 16 }}>
-                    {loading ? 'â³ Compiling Architecture...' : '▶ Train YOLO'}
+                    {loading ? '⏳ Compiling Architecture...' : '▶ Train YOLO'}
                 </button>
             </form>
 
@@ -135,7 +135,7 @@ export default function ObjectDetection() {
             {logs.length > 0 && (
                 <div className="terminal-container" style={{ marginTop: '20px', background: '#1e1e1e', color: '#00ff00', padding: '15px', borderRadius: '8px', fontFamily: 'monospace', height: '300px', overflowY: 'auto' }}>
                     <div style={{ borderBottom: '1px solid #333', paddingBottom: '10px', marginBottom: '10px', color: '#888' }}>
-                        Live Training Console
+                        🖥️ Live Training Console
                     </div>
                     {logs.map((log, index) => (
                         <div key={index}>{log}</div>
@@ -157,8 +157,12 @@ export default function ObjectDetection() {
 
             {results && (
                 <div className="download-section" style={{ marginTop: '20px' }}>
-                    <DownloadTrainedModel selectedModel={MODEL_CODE} extension=".pt" sessionId={results.session_id} />
-                    <DownloadResultsZip sessionId={results.session_id} />
+                    {(results.trained_model_drive_id || !results.session_id) && (
+                        <DownloadTrainedModel selectedModel={MODEL_CODE} extension=".pt" sessionId={results.session_id} label="Download" />
+                    )}
+                    {results.results_zip_drive_id && (
+                        <DownloadResultsZip sessionId={results.session_id} />
+                    )}
                 </div>
             )}
 
