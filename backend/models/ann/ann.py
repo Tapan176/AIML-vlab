@@ -12,6 +12,7 @@ from keras.optimizers import Adam, SGD, RMSprop, Adagrad
 from keras.callbacks import EarlyStopping
 from utils.saveTrainedModel import saveTrainedModel
 import os
+import tempfile
 
 
 def train_ann(request, validated_params=None, user_id=None, session_version=None):
@@ -143,16 +144,23 @@ def train_ann(request, validated_params=None, user_id=None, session_version=None
 
         yield f"data: {json.dumps({'log': f'Epoch [{epoch}/{total_epochs}] loss: {train_loss:.4f} - accuracy: {train_acc:.4f} - val_loss: {val_loss:.4f} - val_accuracy: {val_acc:.4f}'})}\n\n"
 
+        # Use cross-platform temp directory for weights
+        temp_weights_path = os.path.join(tempfile.gettempdir(), f'best_ann_weights_{user_id or "guest"}.h5')
+        
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             patience_counter = 0
-            model.save_weights('/tmp/best_ann_weights.h5')
+            try:
+                model.save_weights(temp_weights_path)
+            except Exception:
+                pass
         else:
             patience_counter += 1
             if patience_counter >= patience:
                 yield f"data: {json.dumps({'log': f'Early stopping triggered at epoch {epoch}. Restoring best weights...'})}\n\n"
                 try:
-                    model.load_weights('/tmp/best_ann_weights.h5')
+                    if os.path.exists(temp_weights_path):
+                        model.load_weights(temp_weights_path)
                 except:
                     pass
                 stopped_epoch = epoch

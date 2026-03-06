@@ -20,8 +20,8 @@ creds_path = os.environ.get('GOOGLE_CREDENTIALS_PATH', os.path.join(BASE_DIR, 'c
 token_path = os.environ.get('GOOGLE_TOKEN_PATH', os.path.join(BASE_DIR, 'token.json'))
 
 def get_drive_service():
-    """Shows basic usage of the Drive v3 API.
-    Prints the names and ids of the first 10 files the user has access to.
+    """Authenticate and return Google Drive v3 API service.
+    Handles expired and revoked tokens gracefully.
     """
     creds = None
     # The file token.json stores the user's access and refresh tokens, and is
@@ -33,14 +33,25 @@ def get_drive_service():
     # If there are no (valid) credentials available, let the user log in.
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
+            try:
+                creds.refresh(Request())
+            except Exception as e:
+                print(f"WARNING: Token refresh failed ({e}). Deleting stale token and re-authenticating...")
+                # Delete the stale token so we can re-authenticate
+                try:
+                    os.remove(token_path)
+                except Exception:
+                    pass
+                creds = None
+        
+        if not creds:
             if not os.path.exists(creds_path):
                 print(f"WARNING: Google Drive credentials not found at {creds_path}. Drive integration will fail.")
                 return None
             flow = InstalledAppFlow.from_client_secrets_file(
                 creds_path, SCOPES)
             creds = flow.run_local_server(port=0)
+        
         # Save the credentials for the next run
         with open(token_path, 'w') as token:
             token.write(creds.to_json())

@@ -125,12 +125,20 @@ VALIDATION_SCHEMAS = {
         'loss': {'type': str, 'options': ['mse', 'mae', 'huber_loss', 'binary_crossentropy', 'categorical_crossentropy']},
         'validation_split': {'type': float, 'min': 0.05, 'max': 0.5},
         'sequence_length': {'type': int, 'min': 1, 'max': 100},
+        'learning_rate': {'type': float, 'min': 0.00001, 'max': 1.0},
     },
     'yolo': {
         'epochs': {'type': int, 'min': 1, 'max': 500},
         'batch_size': {'type': int, 'min': 1, 'max': 128},
         'imgsz': {'type': int, 'min': 32, 'max': 1280},
         'optimizer': {'type': str, 'options': ['auto', 'SGD', 'Adam', 'AdamW', 'RMSProp']},
+        'lr0': {'type': float, 'min': 0.00001, 'max': 1.0},
+        'lrf': {'type': float, 'min': 0.001, 'max': 1.0},
+        'momentum': {'type': float, 'min': 0.5, 'max': 0.999},
+        'weight_decay': {'type': float, 'min': 0.0, 'max': 0.01},
+        'warmup_epochs': {'type': int, 'min': 0, 'max': 20},
+        'augment': {'type': bool},
+        'mosaic': {'type': float, 'min': 0.0, 'max': 1.0},
     },
     'stylegan': {
         'epochs': {'type': int, 'min': 1, 'max': 1000},
@@ -139,6 +147,9 @@ VALIDATION_SCHEMAS = {
         'w_dim': {'type': int, 'min': 64, 'max': 1024},
         'log_resolution': {'type': int, 'min': 6, 'max': 10},
         'learning_rate': {'type': float, 'min': 0.000001, 'max': 0.1},
+        'optimizer': {'type': str, 'options': ['adam', 'rmsprop']},
+        'disc_lr': {'type': float, 'min': 0.000001, 'max': 0.1},
+        'r1_penalty': {'type': float, 'min': 0.0, 'max': 100.0},
     },
 }
 
@@ -188,6 +199,11 @@ def validate_hyperparams(model_code, user_params):
                 value = int(value)
             elif expected_type == str:
                 value = str(value)
+            elif expected_type == bool:
+                if isinstance(value, str):
+                    value = value.lower() in ('true', '1', 'yes')
+                else:
+                    value = bool(value)
         except (ValueError, TypeError):
             errors.append(f"'{param_name}' must be {expected_type.__name__}, got '{value}'")
             continue

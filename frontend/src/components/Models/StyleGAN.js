@@ -1,8 +1,9 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
-import { API_URL } from '../../constants';
+import React, { useState, useEffect, useRef } from 'react';
+import constants from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
 import DownloadResultsZip from '../DownloadResultsZip/DownloadResultsZip';
+import HyperparamPanel from '../shared/HyperparamPanel';
 import ModelInfoPanel from '../shared/ModelInfoPanel';
 import '../ModelCss/ModelPage.css';
 
@@ -10,14 +11,7 @@ const MODEL_CODE = 'stylegan';
 
 export default function StyleGAN() {
     const [datasetData, setDatasetData] = useState('');
-    const [hyperparams, setHyperparams] = useState({
-        epochs: 300,
-        batch_size: 32,
-        z_dim: 256,
-        w_dim: 256,
-        log_resolution: 10,  // 1024x1024
-        learning_rate: 0.00002
-    });
+    const [hyperparams, setHyperparams] = useState({});
     const [results, setResults] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -57,10 +51,12 @@ export default function StyleGAN() {
         try {
             const bodyPayload = {
                 filePath: datasetData?.extracted_file_path || datasetData?.filepath || datasetData?.path || datasetData?.filename,
+                filename: datasetData?.filename,
+                dataset_id: datasetData?.dataset_id || null,
                 hyperparams
             };
             const token = localStorage.getItem('aiml_token');
-            const response = await fetch(`${API_URL}/stylegan`, {
+            const response = await fetch(`${constants.API_URL}/stylegan`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -96,11 +92,10 @@ export default function StyleGAN() {
                                     if (parsed.error) {
                                         setError(parsed.error);
                                     }
-                                    if (parsed.status === 'completed') {
+                                    if (parsed.status === 'completed' || parsed.status === 'training_complete') {
                                         setResults(parsed);
                                     }
                                 } catch (e) {
-                                    // Ignore parse chunks issue that might arise from stream split
                                     console.error("Parse stream err:", e);
                                 }
                             }
@@ -110,10 +105,6 @@ export default function StyleGAN() {
             }
         } catch (err) { setError(err.message); }
         finally { setLoading(false); }
-    };
-
-    const handleParamChange = (key, value) => {
-        setHyperparams(prev => ({ ...prev, [key]: Number(value) }));
     };
 
     return (
@@ -133,41 +124,11 @@ export default function StyleGAN() {
             </div>
 
             <form className="model-form" onSubmit={handleSubmit}>
-                <div className="hidden-layers-section" style={{ padding: '20px', background: 'var(--bg-card)', borderRadius: '12px' }}>
-                    <h3 style={{ marginBottom: '15px' }}>⚙️ Training Configuration</h3>
-                    <div className="form-grid">
-                        <div className="form-group">
-                            <label>Epochs</label>
-                            <input type="number" value={hyperparams.epochs} onChange={(e) => handleParamChange('epochs', e.target.value)} min="1" max="1000" />
-                        </div>
-                        <div className="form-group">
-                            <label>Batch Size (VRAM Dependent)</label>
-                            <input type="number" value={hyperparams.batch_size} onChange={(e) => handleParamChange('batch_size', e.target.value)} min="1" max="128" />
-                        </div>
-                        <div className="form-group">
-                            <label>Latent Dimension Z</label>
-                            <input type="number" value={hyperparams.z_dim} onChange={(e) => handleParamChange('z_dim', e.target.value)} min="64" max="1024" />
-                        </div>
-                        <div className="form-group">
-                            <label>Intermediate Latent Dimension W</label>
-                            <input type="number" value={hyperparams.w_dim} onChange={(e) => handleParamChange('w_dim', e.target.value)} min="64" max="1024" />
-                        </div>
-                        <div className="form-group">
-                            <label>Log Resolution</label>
-                            <select value={hyperparams.log_resolution} onChange={(e) => handleParamChange('log_resolution', e.target.value)}>
-                                <option value={6}>64x64 (Log2 6)</option>
-                                <option value={7}>128x128 (Log2 7)</option>
-                                <option value={8}>256x256 (Log2 8)</option>
-                                <option value={9}>512x512 (Log2 9)</option>
-                                <option value={10}>1024x1024 (Log2 10)</option>
-                            </select>
-                        </div>
-                        <div className="form-group">
-                            <label>Learning Rate</label>
-                            <input type="number" step="0.00001" value={hyperparams.learning_rate} onChange={(e) => handleParamChange('learning_rate', e.target.value)} />
-                        </div>
-                    </div>
-                </div>
+                <HyperparamPanel
+                    modelCode={MODEL_CODE}
+                    hyperparams={hyperparams}
+                    onChange={(name, value) => setHyperparams(prev => ({ ...prev, [name]: value }))}
+                />
 
                 <button type="submit" className="btn-run" disabled={loading} style={{ marginTop: 16 }}>
                     {loading ? '⏳ Generating StyleGAN Model...' : '▶ Train Generative Model'}
@@ -201,12 +162,17 @@ export default function StyleGAN() {
                 <div className="results-card" style={{ marginTop: '20px' }}>
                     <h2>Training Complete</h2>
                     {results.message && <p>{results.message}</p>}
+                    <div className="metrics-grid">
+                        {results.loss_d != null && <div className="metric-item"><div className="metric-label">Discriminator Loss</div><div className="metric-value">{results.loss_d.toFixed(4)}</div></div>}
+                        {results.loss_g != null && <div className="metric-item"><div className="metric-label">Generator Loss</div><div className="metric-value">{results.loss_g.toFixed(4)}</div></div>}
+                        {results.epochs_trained != null && <div className="metric-item"><div className="metric-label">Epochs Trained</div><div className="metric-value">{results.epochs_trained}</div></div>}
+                    </div>
                     
                     <div className="download-section" style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
                         {(results.trained_model_drive_id || !results.session_id) && (
                             <DownloadTrainedModel 
                                 selectedModel={MODEL_CODE} 
-                                extension=".h5" 
+                                extension=".pt" 
                                 sessionId={results.session_id} label="Download" 
                             />
                         )}
@@ -223,4 +189,3 @@ export default function StyleGAN() {
         </div>
     );
 }
-

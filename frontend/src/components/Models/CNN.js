@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import constants from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
 import CnnHiddenLayer from '../HiddenLayers/CnnHiddenLayer';
@@ -12,11 +12,11 @@ const MODEL_CODE = 'cnn';
 
 const DEFAULT_LAYERS = [
     { type: 'conv', numberOfNeurons: 32, kernel: [3, 3], activationFunction: 'relu' },
-    { type: 'pool', poolType: 'max', poolingSize: [2, 2] },
+    { type: 'pooling', poolingType: 'maxPool', poolingSize: [2, 2] },
     { type: 'conv', numberOfNeurons: 64, kernel: [3, 3], activationFunction: 'relu' },
-    { type: 'pool', poolType: 'max', poolingSize: [2, 2] },
+    { type: 'pooling', poolingType: 'maxPool', poolingSize: [2, 2] },
     { type: 'flatten' },
-    { type: 'dense', numberOfNeurons: 128, activationFunction: 'relu', dropout: 0.3 },
+    { type: 'dense', units: 128, activationFunction: 'relu', dropoutRate: 0.3 },
 ];
 
 export default function CNN() {
@@ -63,7 +63,9 @@ export default function CNN() {
         setResults(null);
         try {
             const bodyPayload = {
+                filename: datasetData?.filename || '',
                 filePath: datasetData?.extracted_file_path || datasetData?.filepath || datasetData?.path || datasetData?.filename, 
+                dataset_id: datasetData?.dataset_id || null,
                 numberOfNeuronsInInputLayer: layers.length > 0 ? (layers[0].numberOfNeurons || 64) : 64,
                 inputKernelSize: layers.length > 0 ? (layers[0].kernel || [3, 3]) : [3, 3],
                 inputLayerActivationFunction: layers.length > 0 ? (layers[0].activationFunction || 'relu') : 'relu',
@@ -108,7 +110,7 @@ export default function CNN() {
                                 const parsed = JSON.parse(event.replace('data: ', ''));
                                 if (parsed.log) {
                                     setLogs(prev => [...prev, parsed.log]);
-                                } else if (parsed.status === 'completed') {
+                                } else if (parsed.status === 'completed' || parsed.status === 'training_complete') {
                                     setResults(parsed);
                                 } else if (parsed.error) {
                                     setError(parsed.error);

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import constants from '../../constants';
 
 /**
  * Image Annotation Studio
@@ -7,6 +8,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
  * - Assign class labels to each box
  * - Navigate between images
  * - Export all annotations as a YOLOv8-compatible ZIP
+ * - Save annotated datasets to Google Drive
  */
 export default function ImageAnnotation() {
     const [images, setImages] = useState([]);          // [{file, url, name}]
@@ -177,10 +179,10 @@ export default function ImageAnnotation() {
     };
 
     // --- YOLO export ---
-    const exportYolo = () => {
-        if (images.length === 0) { alert('No images to export.'); return; }
+    const [isSaving, setIsSaving] = useState(false);
 
-        // Build YOLO txt files
+    // Build YOLO annotation data
+    const buildYoloData = () => {
         const yoloFiles = [];
         const classMap = {};
         classes.forEach((c, i) => { classMap[c] = i; });
@@ -197,14 +199,18 @@ export default function ImageAnnotation() {
             yoloFiles.push({ name: img.name.replace(/\.[^.]+$/, '.txt'), content: lines.join('\n') });
         });
 
-        // classes.txt
         const classesTxt = classes.join('\n');
-
-        // data.yaml
         const yaml = `train: ./images/train\nval: ./images/val\nnc: ${classes.length}\nnames: [${classes.map(c => `'${c}'`).join(', ')}]`;
 
+        return { yoloFiles, classesTxt, yaml };
+    };
+
+    const exportYolo = () => {
+        if (images.length === 0) { alert('No images to export.'); return; }
+
+        const { yoloFiles, classesTxt, yaml } = buildYoloData();
+
         // Download as combined text (for now, since ZIP requires a library)
-        // We'll create individual file downloads
         const blob = new Blob([
             `=== data.yaml ===\n${yaml}\n\n`,
             `=== classes.txt ===\n${classesTxt}\n\n`,
@@ -217,6 +223,59 @@ export default function ImageAnnotation() {
         a.download = 'yolo_annotations.txt';
         a.click();
         URL.revokeObjectURL(url);
+    };
+
+    const saveToCloud = async () => {
+        if (images.length === 0) { alert('No images to save.'); return; }
+        
+        const token = localStorage.getItem('aiml_token');
+        if (!token) {
+            alert('Please sign in to save annotations to cloud.');
+            return;
+        }
+
+        setIsSaving(true);
+        try {
+            const { yoloFiles, classesTxt, yaml } = buildYoloData();
+
+            // Create a FormData with all annotation files
+            const formData = new FormData();
+            
+            // Create a combined annotations JSON file
+            const annotationsJson = JSON.stringify({
+                classes,
+                annotations,
+                yoloFiles,
+                classesTxt,
+                yaml,
+                imageCount: images.length,
+                totalBoxes: Object.values(annotations).reduce((sum, arr) => sum + arr.length, 0)
+            }, null, 2);
+            
+            const blob = new Blob([annotationsJson], { type: 'application/json' });
+            const filename = `annotations_${Date.now()}.json`;
+            formData.append('file', blob, filename);
+            formData.append('label_classes', JSON.stringify(classes));
+            formData.append('image_count', images.length.toString());
+
+            const res = await fetch(`${constants.API_BASE_URL}/datasets/save-annotations`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` },
+                body: formData
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+                alert(`✅ Annotations saved to cloud! Version: ${data.version}`);
+            } else {
+                alert(`Error: ${data.error}`);
+            }
+        } catch (err) {
+            console.error(err);
+            alert('Failed to save annotations to cloud.');
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const totalBoxes = Object.values(annotations).reduce((sum, arr) => sum + arr.length, 0);
@@ -342,13 +401,22 @@ export default function ImageAnnotation() {
                             <span>📸 Images: <strong>{images.length}</strong></span>
                             <span>🔲 Total Boxes: <strong>{totalBoxes}</strong></span>
                         </div>
-                        <button
-                            onClick={exportYolo}
-                            disabled={totalBoxes === 0}
-                            style={{ ...s.btn, ...s.btnSuccess, width: '100%', opacity: totalBoxes === 0 ? 0.5 : 1 }}
-                        >
-                            📦 Export YOLOv8 Annotations
-                        </button>
+                        <div style={{ display: 'flex', gap: '8px', flexDirection: 'column' }}>
+                            <button
+                                onClick={exportYolo}
+                                disabled={totalBoxes === 0}
+                                style={{ ...s.btn, ...s.btnSuccess, width: '100%', opacity: totalBoxes === 0 ? 0.5 : 1 }}
+                            >
+                                📦 Export YOLOv8 Annotations
+                            </button>
+                            <button
+                                onClick={saveToCloud}
+                                disabled={totalBoxes === 0 || isSaving}
+                                style={{ ...s.btn, ...s.btnPrimary, width: '100%', opacity: (totalBoxes === 0 || isSaving) ? 0.5 : 1 }}
+                            >
+                                {isSaving ? '⏳ Saving...' : '☁️ Save to Cloud'}
+                            </button>
+                        </div>
                     </div>
                 </div>
 

@@ -150,6 +150,7 @@ def update_session_results(session_id, results, output_images, model_path, predi
     trained_model_drive_id = None
     results_zip_drive_url = None
     results_zip_drive_id = None
+    upload_filename = None
 
     import shutil
 
@@ -178,6 +179,7 @@ def update_session_results(session_id, results, output_images, model_path, predi
                     os.remove(model_path)
         except Exception as e:
             print(f"Warning: Failed to upload trained model to Drive: {e}")
+
 
     # 2. Handle Results Zip Upload
     if output_images:
@@ -218,26 +220,38 @@ def update_session_results(session_id, results, output_images, model_path, predi
         except Exception:
             pass
 
+    # Ensure results is a dict
+    if not isinstance(results, dict):
+        results = {'raw_results': results}
+    elif results is None:
+        results = {}
+    
     # Add to results so frontend knows they are available
     results['trained_model_drive_id'] = trained_model_drive_id
     results['results_zip_drive_id'] = results_zip_drive_id
 
+    # Build update dict, only include upload_filename if it was set
+    update_dict = {
+        'results': results,
+        'output_images': output_images,
+        'trained_model_path': model_path,
+        'trained_model_drive_url': trained_model_drive_url,
+        'trained_model_drive_id': trained_model_drive_id,
+        'results_zip_drive_url': results_zip_drive_url,
+        'results_zip_drive_id': results_zip_drive_id,
+        'dataset_drive_id': dataset_drive_id,
+        'predictions_path': predictions_path,
+        'status': 'completed',
+        'completed_at': datetime.utcnow(),
+    }
+    
+    # Only set trained_model_filename if we have one
+    if upload_filename:
+        update_dict['trained_model_filename'] = upload_filename
+
     db.training_sessions.update_one(
         {'_id': ObjectId(session_id)},
-        {'$set': {
-            'results': results,
-            'output_images': output_images,
-            'trained_model_path': model_path,
-            'trained_model_drive_url': trained_model_drive_url,
-            'trained_model_drive_id': trained_model_drive_id,
-            'trained_model_filename': upload_filename,
-            'results_zip_drive_url': results_zip_drive_url,
-            'results_zip_drive_id': results_zip_drive_id,
-            'dataset_drive_id': dataset_drive_id,
-            'predictions_path': predictions_path,
-            'status': 'completed',
-            'completed_at': datetime.utcnow(),
-        }}
+        {'$set': update_dict}
     )
     return results
 

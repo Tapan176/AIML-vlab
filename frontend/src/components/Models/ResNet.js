@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import constants from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
@@ -50,6 +50,9 @@ export default function ResNet() {
         try {
             const bodyPayload = {
                 filePath: datasetData?.extracted_file_path || datasetData?.filepath || datasetData?.path || datasetData?.filename, 
+                filename: datasetData?.filename,
+                dataset_id: datasetData?.dataset_id || null,
+                inputShape: [224, 224, 3],
                 hyperparams,
                 hiddenLayerArray: layers,
                 isBaseFrozen: isFrozen,
@@ -86,7 +89,7 @@ export default function ResNet() {
                                 const parsed = JSON.parse(event.replace('data: ', ''));
                                 if (parsed.log) {
                                     setLogs(prev => [...prev, parsed.log]);
-                                } else if (parsed.status === 'completed') {
+                                } else if (parsed.status === 'completed' || parsed.status === 'training_complete') {
                                     // Simulated results object since it's a stub
                                     setResults(parsed);
                                 } else if (parsed.error) {

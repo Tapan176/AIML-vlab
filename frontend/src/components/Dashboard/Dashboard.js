@@ -13,48 +13,93 @@ const Dashboard = () => {
     const [showFeedback, setShowFeedback] = useState(false);
     const [feedbackMsg, setFeedbackMsg] = useState('');
     const [feedbackType, setFeedbackType] = useState('general');
+    const [toast, setToast] = useState(null); // { type: 'success' | 'error', message: string }
+    const [confirmDelete, setConfirmDelete] = useState(null); // { sessionId, modelCode } or null
 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [sessionsRes, datasetsRes] = await Promise.all([
-                    api.get('/training-sessions'),
-                    api.get('/user-datasets')
-                ]);
-                setSessions(sessionsRes.sessions || []);
-                setDatasets(datasetsRes.datasets || []);
+                const sessionsRes = await api.get('/training-sessions');
+                const datasetsRes = await api.get('/user-datasets');
+
+                console.log('Sessions raw response:', sessionsRes);
+
+                // Be defensive about response shape:
+                // - { sessions: [...] }
+                // - { data: { sessions: [...] } }
+                // - direct array [...]
+                let sessionsData = [];
+                if (Array.isArray(sessionsRes)) {
+                    sessionsData = sessionsRes;
+                } else if (Array.isArray(sessionsRes.sessions)) {
+                    sessionsData = sessionsRes.sessions;
+                } else if (sessionsRes.data && Array.isArray(sessionsRes.data.sessions)) {
+                    sessionsData = sessionsRes.data.sessions;
+                }
+
+                let datasetsData = [];
+                if (Array.isArray(datasetsRes)) {
+                    datasetsData = datasetsRes;
+                } else if (Array.isArray(datasetsRes.datasets)) {
+                    datasetsData = datasetsRes.datasets;
+                } else if (datasetsRes.data && Array.isArray(datasetsRes.data.datasets)) {
+                    datasetsData = datasetsRes.data.datasets;
+                }
+
+                console.log('Parsed sessions count:', sessionsData.length);
+                console.log('Parsed datasets count:', datasetsData.length);
+
+                setSessions(sessionsData);
+                setDatasets(datasetsData);
             } catch (err) {
                 console.error('Failed to fetch dashboard data:', err);
+                setSessions([]);
+                setDatasets([]);
+            } finally {
+                setLoading(false);
             }
-            setLoading(false);
         };
         fetchData();
     }, []);
 
     const handleDeleteSession = async (sessionId, modelCode) => {
-        if (!window.confirm(`Delete ${modelCode} session? This will remove the session, trained model, and all associated data.`)) {
-            return;
-        }
         try {
             await api.delete(`/training-sessions/${sessionId}`);
             setSessions(prev => prev.filter(s => s._id !== sessionId));
+            setToast({ type: 'success', message: `${modelCode} session deleted.` });
         } catch (err) {
             console.error('Failed to delete session:', err);
-            alert('Failed to delete session. Please try again.');
+            setToast({ type: 'error', message: 'Failed to delete session. Please try again.' });
         }
     };
 
     const handleFeedbackSubmit = async (e) => {
         e.preventDefault();
+        const trimmedMsg = feedbackMsg.trim();
+        
+        if (!trimmedMsg) {
+            setToast({ type: 'error', message: 'Please provide feedback message.' });
+            return;
+        }
+
         try {
-            const res = await api.post('/feedback', { message: feedbackMsg, type: feedbackType });
-            if (res.message || res) {
-                alert('Thank you for your feedback!');
+                const res = await api.post('/feedback', { 
+                    message: trimmedMsg, 
+                    type: feedbackType,
+                    source: 'dashboard',
+                    path: window.location?.pathname || '/dashboard',
+                    timestamp: new Date().toISOString()
+                });
+            
+            if (res.message || res.success || res.feedback_id) {
+                setToast({ type: 'success', message: 'Thank you for your feedback! We appreciate your input.' });
                 setShowFeedback(false);
                 setFeedbackMsg('');
+                setFeedbackType('general');
             }
         } catch (err) {
-            alert('Failed to submit feedback');
+            console.error('Failed to submit feedback:', err);
+            setToast({ type: 'error', message: 'Failed to submit feedback. Please try again.' });
         }
     };
 
@@ -75,6 +120,16 @@ const Dashboard = () => {
 
     return (
         <div className="dashboard">
+            {/* Toast notification */}
+            {toast && (
+                <div
+                    className={`dashboard-toast dashboard-toast-${toast.type}`}
+                    onAnimationEnd={() => setToast(null)}
+                >
+                    {toast.message}
+                </div>
+            )}
+
             <div className="dashboard-header">
                 <div>
                     <h1>Dashboard</h1>
@@ -181,7 +236,7 @@ const Dashboard = () => {
                                         <td className="action-cell">
                                             <button 
                                                 className="btn-delete-session"
-                                                onClick={() => handleDeleteSession(s._id, s.model_code)}
+                                                onClick={() => setConfirmDelete({ sessionId: s._id, modelCode: s.model_code })}
                                                 title="Delete this session"
                                             >
                                                 🗑️
@@ -250,6 +305,40 @@ const Dashboard = () => {
                                 <button type="submit" className="btn-primary">Submit Feedback</button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete confirmation modal */}
+            {confirmDelete && (
+                <div className="modal-overlay" onClick={() => setConfirmDelete(null)}>
+                    <div className="feedback-modal" onClick={e => e.stopPropagation()}>
+                        <h2>Delete Training Session</h2>
+                        <p style={{ marginTop: '0.5rem', marginBottom: '1.5rem', color: 'var(--text-secondary)' }}>
+                            This will remove the <strong>{confirmDelete.modelCode}</strong> session,
+                            its trained model and associated files. This action cannot be undone.
+                        </p>
+                        <div className="modal-actions">
+                            <button
+                                type="button"
+                                className="btn-secondary"
+                                onClick={() => setConfirmDelete(null)}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                className="btn-primary"
+                                onClick={async () => {
+                                    const { sessionId, modelCode } = confirmDelete;
+                                    setConfirmDelete(null);
+                                    await handleDeleteSession(sessionId, modelCode);
+                                }}
+                                style={{ background: 'linear-gradient(135deg, #ff5f6d 0%, #ffc371 100%)' }}
+                            >
+                                Yes, delete
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

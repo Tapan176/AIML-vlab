@@ -36,9 +36,13 @@ const Navbar = () => {
 
                 <div className="nav-links">
                     <Link to="/" className={`nav-link ${isActive('/') ? 'active' : ''}`}>Home</Link>
-                    <Link to="/lab" className={`nav-link ${isActive('/lab') ? 'active' : ''}`}>Lab</Link>
-                    <Link to="/datasets" className={`nav-link ${isActive('/datasets') ? 'active' : ''}`}>Datasets</Link>
-                    <Link to="/studio" className={`nav-link ${isActive('/studio') ? 'active' : ''}`}>Data Studio</Link>
+                    {isAuthenticated && (
+                        <>
+                            <Link to="/lab" className={`nav-link ${isActive('/lab') ? 'active' : ''}`}>Lab</Link>
+                            <Link to="/datasets" className={`nav-link ${isActive('/datasets') ? 'active' : ''}`}>Datasets</Link>
+                            <Link to="/studio" className={`nav-link ${isActive('/studio') ? 'active' : ''}`}>Data Studio</Link>
+                        </>
+                    )}
                     <Link to="/about" className={`nav-link ${isActive('/about') ? 'active' : ''}`}>About</Link>
                     {isAuthenticated && (
                         <Link to="/dashboard" className={`nav-link ${isActive('/dashboard') ? 'active' : ''}`}>Dashboard</Link>

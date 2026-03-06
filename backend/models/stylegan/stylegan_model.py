@@ -3,12 +3,42 @@ import torch
 from torch import nn, optim
 from torchvision import datasets, transforms
 import torch.nn.functional as F
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 from math import log2, sqrt
 import numpy as np
+from PIL import Image
 
-# Use an FP16 Scaler for mixed precision training
-scaler = torch.cuda.amp.GradScaler()
+
+# -----------------
+# Flat Image Dataset (no class subfolders needed)
+# -----------------
+class _FlatImageDataset(Dataset):
+    """Loads images from a flat directory without requiring class subfolders.
+    Used for generative models like StyleGAN that don't need class labels."""
+    IMAGE_EXTS = {'.jpg', '.jpeg', '.png', '.bmp', '.gif', '.webp', '.tiff'}
+    
+    def __init__(self, root_dir, transform=None):
+        self.root_dir = root_dir
+        self.transform = transform
+        self.image_paths = []
+        
+        # Walk all directories recursively to find images
+        for dirpath, _, filenames in os.walk(root_dir):
+            for fname in filenames:
+                if os.path.splitext(fname)[1].lower() in self.IMAGE_EXTS and not fname.startswith('.'):
+                    self.image_paths.append(os.path.join(dirpath, fname))
+        
+        self.image_paths.sort()
+    
+    def __len__(self):
+        return len(self.image_paths)
+    
+    def __getitem__(self, idx):
+        img = Image.open(self.image_paths[idx]).convert('RGB')
+        if self.transform:
+            img = self.transform(img)
+        return img, 0  # Return 0 as dummy label
+
 
 # -----------------
 # Network Architectures
@@ -195,45 +225,148 @@ def get_noise(batch_size, log_resolution, device):
 
 def train_stylegan(body, validated_params, user_id=None, session_version=None):
     """
-    Kicks off a Mocked StyleGAN generation protocol, streaming logs via SSE.
+    Performs real StyleGAN training on the user's image dataset.
+    All hyperparameters are sourced from validated_params.
     """
     import time
     import json
+    from torch.utils.data import DataLoader
+    from torchvision import datasets, transforms
+    from services.dataset_resolver import resolve_image_dataset_path
 
     file_path = body.get('filePath')
-    epochs = validated_params.get('epochs', 300)
-    batch_size = validated_params.get('batch_size', 16)
-    z_dim = validated_params.get('z_dim', 256)
-    w_dim = validated_params.get('w_dim', 256)
-    log_resolution = validated_params.get('log_resolution', 8)
-    lr = validated_params.get('learning_rate', 2e-5)
+    filename = body.get('filename')
+    
+    # All hyperparams from validated_params (set by user via HyperparamPanel)
+    epochs = int(validated_params.get('epochs', 300))
+    batch_size = int(validated_params.get('batch_size', 8))
+    z_dim = int(validated_params.get('z_dim', 256))
+    w_dim = int(validated_params.get('w_dim', 256))
+    log_resolution = int(validated_params.get('log_resolution', 7))
+    lr = float(validated_params.get('learning_rate', 0.0001))
     
     device = "cuda" if torch.cuda.is_available() else "cpu"
+    resolution = 2 ** log_resolution
     
-    yield f"data: {json.dumps({'log': f'StyleGAN Process initialized on {device}.'})}\n\n"
-    time.sleep(0.5)
+    yield f"data: {json.dumps({'log': f'StyleGAN Process initialized on {device}. Resolution: {resolution}x{resolution}'})}\n\n"
+    yield f"data: {json.dumps({'log': f'Config: epochs={epochs}, batch={batch_size}, z_dim={z_dim}, w_dim={w_dim}, lr={lr}'})}\n\n"
+    
+    # --- Resolve dataset path ---
+    try:
+        dataset_path = resolve_image_dataset_path(user_id, filename=filename, file_path=file_path)
+    except FileNotFoundError as e:
+        yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        return
 
-    yield f"data: {json.dumps({'log': f'Loading Dataset Images...'})}\n\n"
-    time.sleep(1)
+    yield f"data: {json.dumps({'log': f'Dataset path resolved: {dataset_path}'})}\n\n"
 
-    yield f"data: {json.dumps({'log': f'Initializing Generator (res 2^{log_resolution}) and Discriminator...'})}\n\n"
-    time.sleep(1)
+    try:
+        # Data preparation
+        transform = transforms.Compose([
+            transforms.Resize((resolution, resolution)),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+        ])
+        
+        # For StyleGAN, always use flat image loader since we don't need class labels
+        # This handles both flat directories and directories with subfolders
+        dataset = _FlatImageDataset(dataset_path, transform)
+        
+        # If no images found with flat loader, try ImageFolder as fallback
+        if len(dataset) == 0:
+            # Check if directory has class subfolders
+            has_subdirs = any(
+                os.path.isdir(os.path.join(dataset_path, d))
+                for d in os.listdir(dataset_path)
+                if not d.startswith('.') and d != '__MACOSX'
+            )
+            
+            if has_subdirs:
+                try:
+                    dataset = datasets.ImageFolder(root=dataset_path, transform=transform)
+                except Exception as e:
+                    yield f"data: {json.dumps({'error': f'Failed to load dataset: {str(e)}'})}\n\n"
+                    return
+        
+        if len(dataset) == 0:
+            yield f"data: {json.dumps({'error': f'No images found in {dataset_path}. Check dataset structure.'})}\n\n"
+            return
+        
+        loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0)
 
-    yield f"data: {json.dumps({'log': f'Starting Training Loop for {epochs} epochs... (Simulating)'})}\n\n"
-    time.sleep(0.5)
+        
+        yield f"data: {json.dumps({'log': f'Loaded {len(dataset)} images from dataset.'})}\n\n"
+        
+        # Initialize Models
+        gen = Generator(log_resolution, w_dim).to(device)
+        disc = Discriminator(log_resolution).to(device)
+        map_net = MappingNetwork(z_dim, w_dim).to(device)
+        
+        opt_gen = optim.Adam(list(gen.parameters()) + list(map_net.parameters()), lr=lr, betas=(0.0, 0.99))
+        opt_disc = optim.Adam(disc.parameters(), lr=lr, betas=(0.0, 0.99))
+        
+        yield f"data: {json.dumps({'log': f'Starting Real Training for {epochs} epochs...'})}\n\n"
+        
+        final_loss_g = 0
+        final_loss_d = 0
+        
+        for epoch in range(1, epochs + 1):
+            total_loss_g = 0
+            total_loss_d = 0
+            num_batches = 0
+            
+            for i, (real, _) in enumerate(loader):
+                real = real.to(device)
+                cur_batch_size = real.shape[0]
+                
+                # Train Discriminator
+                noise = torch.randn(cur_batch_size, z_dim).to(device)
+                w = map_net(noise).unsqueeze(0).repeat(log_resolution - 1, 1, 1)
+                
+                input_noise = get_noise(cur_batch_size, log_resolution, device)
+                fake = gen(w, input_noise)
+                
+                disc_real = disc(real)
+                disc_fake = disc(fake.detach())
+                
+                loss_d = -(torch.mean(disc_real) - torch.mean(disc_fake))
+                
+                opt_disc.zero_grad()
+                loss_d.backward()
+                opt_disc.step()
+                
+                # Train Generator
+                gen_fake = disc(fake)
+                loss_g = -torch.mean(gen_fake)
+                
+                opt_gen.zero_grad()
+                loss_g.backward()
+                opt_gen.step()
+                
+                total_loss_g += loss_g.item()
+                total_loss_d += loss_d.item()
+                num_batches += 1
 
-    simulated_epochs = min(epochs, 15)
-    for epoch in range(1, simulated_epochs + 1):
-        loss_d = 0.5 + (0.1 / epoch)
-        loss_g = 1.0 + (0.2 / epoch)
-        yield f"data: {json.dumps({'log': f'Epoch [{epoch}/{epochs}] Loss D: {loss_d:.4f}, loss G: {loss_g:.4f}'})}\n\n"
-        time.sleep(0.6)
+            if num_batches > 0:
+                avg_loss_g = total_loss_g / num_batches
+                avg_loss_d = total_loss_d / num_batches
+            else:
+                avg_loss_g = 0
+                avg_loss_d = 0
+            
+            final_loss_g = avg_loss_g
+            final_loss_d = avg_loss_d
+            
+            yield f"data: {json.dumps({'log': f'Epoch [{epoch}/{epochs}] Loss D: {avg_loss_d:.4f}, Loss G: {avg_loss_g:.4f}'})}\n\n"
+            
+            time.sleep(0.05)
 
-    if epochs > 15:
-        yield f"data: {json.dumps({'log': f'... fast-forwarding remaining epochs ...'})}\n\n"
-        time.sleep(1.5)
+        # Save model
+        from utils.saveTrainedModel import saveTrainedModel
+        save_path = saveTrainedModel(gen, "stylegan", "PyTorch", user_id=user_id, version=session_version)
+        
+        yield f"data: {json.dumps({'log': f'Training Complete! Model saved.'})}\n\n"
+        yield f"data: {json.dumps({'status': 'training_complete', 'trained_model_path': save_path, 'epochs_trained': epochs, 'loss_d': float(final_loss_d), 'loss_g': float(final_loss_g)})}\n\n"
 
-    yield f"data: {json.dumps({'log': f'Training Complete. Saving model state dictate...'})}\n\n"
-    time.sleep(1)
-
-    yield f"data: {json.dumps({'status': 'training_complete'})}\n\n"
+    except Exception as e:
+        yield f"data: {json.dumps({'error': f'Training failed: {str(e)}'})}\n\n"

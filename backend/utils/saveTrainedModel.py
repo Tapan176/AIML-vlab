@@ -46,6 +46,20 @@ def saveTrainedModel(model, filename, model_type, user_id=None, version=None):
         extension = ".pt"
         save_path = os.path.join(save_dir, save_filename + extension)
         torch.save(model.state_dict(), save_path)
+    elif model_type == "Ultralytics":
+        import shutil
+        extension = ".pt"
+        save_path = os.path.join(save_dir, save_filename + extension)
+        # YOLO model: copy best.pt from trainer results
+        try:
+            best_pt = os.path.join(model.trainer.save_dir, 'weights', 'best.pt')
+            if os.path.exists(best_pt):
+                shutil.copy2(best_pt, save_path)
+            else:
+                # Fallback: save current model
+                model.save(save_path)
+        except Exception:
+            model.save(save_path)
     elif model_type == "dummy":
         extension = ".h5"
         save_path = os.path.join(save_dir, save_filename + extension)

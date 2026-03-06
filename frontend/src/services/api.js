@@ -22,7 +22,19 @@ function getHeaders(includeAuth = true, isJson = true) {
 }
 
 async function handleResponse(res) {
-    const data = await res.json();
+    // Read as text first so we can gracefully handle invalid JSON (e.g., NaN from backend)
+    const text = await res.text();
+    let data;
+    try {
+        data = text ? JSON.parse(text) : {};
+    } catch (e) {
+        // Fallback: sanitize common non‑JSON tokens like NaN/Infinity and retry
+        const sanitized = text
+            .replace(/\bNaN\b/g, 'null')
+            .replace(/\bInfinity\b/g, 'null')
+            .replace(/\b-Infinity\b/g, 'null');
+        data = sanitized ? JSON.parse(sanitized) : {};
+    }
     if (res.status === 401) {
         // Token expired — clear and redirect
         localStorage.removeItem('aiml_token');

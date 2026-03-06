@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import constants from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
@@ -44,6 +44,8 @@ export default function ObjectDetection() {
         try {
             const bodyPayload = {
                 filePath: datasetData?.extracted_file_path || datasetData?.filepath || datasetData?.path || datasetData?.filename, 
+                filename: datasetData?.filename,
+                dataset_id: datasetData?.dataset_id || null,
                 hyperparams,
                 classMode: classMode,
             };
@@ -78,7 +80,7 @@ export default function ObjectDetection() {
                                 const parsed = JSON.parse(event.replace('data: ', ''));
                                 if (parsed.log) {
                                     setLogs(prev => [...prev, parsed.log]);
-                                } else if (parsed.status === 'completed') {
+                                } else if (parsed.status === 'completed' || parsed.status === 'training_complete') {
                                     setResults(parsed);
                                 } else if (parsed.error) {
                                     setError(parsed.error);

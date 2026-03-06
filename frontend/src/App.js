@@ -28,9 +28,17 @@ function App() {
                     <div className="app-content">
                         <Routes>
                             <Route path="/" element={<LandingPage />} />
-                            <Route path="/lab" element={<Home />} />
+                            <Route path="/lab" element={
+                                <ProtectedRoute>
+                                    <Home />
+                                </ProtectedRoute>
+                            } />
                             <Route path="/about" element={<AboutUs />} />
-                            <Route path="/datasets" element={<DatasetLibrary />} />
+                            <Route path="/datasets" element={
+                                <ProtectedRoute>
+                                    <DatasetLibrary />
+                                </ProtectedRoute>
+                            } />
                             <Route path="/login" element={<Login />} />
                             <Route path="/signup" element={<Signup />} />
                             <Route path="/forgot-password" element={<ForgotPassword />} />

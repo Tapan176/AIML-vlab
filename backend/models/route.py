@@ -3,6 +3,7 @@ Model routes — endpoints for training all 11 ML models.
 Supports hyperparameter tuning, user-scoped storage, and training sessions.
 """
 from flask import Blueprint, request, jsonify
+import math
 from auth.auth_middleware import token_required
 from services.hyperparam_validator import validate_hyperparams, get_model_schema
 from services.training_session_service import create_session, update_session_results, update_session_error, get_user_sessions, get_session, delete_session
@@ -24,6 +25,19 @@ from models.sentimentAnalysis.sentimentAnalysis import train_sentiment_analysis
 from models.textClassification.textClassification import train_text_classification
 
 model_routes = Blueprint('model_routes', __name__)
+
+
+def _sanitize_for_json(value):
+    """Recursively replace NaN/Infinity with None so JSON is valid."""
+    if isinstance(value, float):
+        if math.isnan(value) or math.isinf(value):
+            return None
+        return value
+    if isinstance(value, dict):
+        return {k: _sanitize_for_json(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_sanitize_for_json(v) for v in value]
+    return value
 
 # Map model codes to training functions
 MODEL_FUNCTIONS = {
@@ -315,7 +329,8 @@ def ann(current_user):
 
 
 @model_routes.route('/xgboost', methods=['POST'])
-def xgboost():
+@token_required(optional=True)
+def xgboost(current_user):
     """XGBoost training — lazy-imports xgboost."""
     try:
         from models.xgboost.xgboost_model import train_xgboost as _train_xgboost
@@ -327,7 +342,7 @@ def xgboost():
         validated_params = validate_hyperparams('xgboost', user_hyperparams)
     except Exception as e:
         return jsonify({"error": str(e)}), 400
-    user_id = None
+    user_id = current_user['_id'] if current_user else None
     return jsonify(_train_xgboost(request, validated_params=validated_params, user_id=user_id)), 200
 
 @model_routes.route('/resnet', methods=['POST'])
@@ -368,16 +383,14 @@ def resnet(current_user):
                     except: pass
                 yield chunk
             
-            from utils.saveTrainedModel import saveTrainedModel
-            model_str = "Simulated RESNET model trained weights.\nThis is a mock file generated for the VLab environment."
-            model_path = saveTrainedModel(model_str, "resnet_model", "dummy", user_id=user_id, version=session['version'])
+            yield f"data: {json.dumps({'log': 'Finalizing session results...'})}\n\n"
             
-            # Final update
+            # Final update with captures from inner function
             db_results = update_session_results(
                 session_id, 
-                results_data or {"message": "Simulated training complete."}, 
+                results_data or {"message": "Training complete."}, 
                 [], 
-                model_path, 
+                results_data.get('trained_model_path', ''), 
                 ''
             )
             db_results['status'] = 'completed'
@@ -431,16 +444,14 @@ def lstm(current_user):
                     except: pass
                 yield chunk
             
-            from utils.saveTrainedModel import saveTrainedModel
-            model_str = "Simulated LSTM model trained weights.\nThis is a mock file generated for the VLab environment."
-            model_path = saveTrainedModel(model_str, "lstm_model", "dummy", user_id=user_id, version=session['version'])
+            yield f"data: {json.dumps({'log': 'Finalizing LSTM session results...'})}\n\n"
             
-            # Final update
+            # Final update with captures from inner function
             db_results = update_session_results(
                 session_id, 
-                results_data or {"message": "Simulated training complete."}, 
+                results_data or {"message": "Training complete."}, 
                 [], 
-                model_path, 
+                results_data.get('trained_model_path', ''), 
                 ''
             )
             db_results['status'] = 'completed'
@@ -492,16 +503,12 @@ def yolo(current_user):
                     except: pass
                 yield chunk
             
-            from utils.saveTrainedModel import saveTrainedModel
-            model_str = "Simulated YOLO model trained weights.\nThis is a mock file generated for the VLab environment."
-            model_path = saveTrainedModel(model_str, "yolo_model", "dummy", user_id=user_id, version=session['version'])
-            
-            # Final update
+            # Final update with captures from inner function
             db_results = update_session_results(
                 session_id, 
-                results_data or {"message": "Simulated training complete."}, 
+                results_data or {"message": "Training complete."}, 
                 [], 
-                model_path, 
+                results_data.get('trained_model_path', ''), 
                 ''
             )
             db_results['status'] = 'completed'
@@ -553,16 +560,14 @@ def stylegan(current_user):
                     except: pass
                 yield chunk
             
-            from utils.saveTrainedModel import saveTrainedModel
-            model_str = "Simulated STYLEGAN model trained weights.\nThis is a mock file generated for the VLab environment."
-            model_path = saveTrainedModel(model_str, "stylegan_model", "dummy", user_id=user_id, version=session['version'])
+            yield f"data: {json.dumps({'log': 'Finalizing StyleGAN session results...'})}\n\n"
             
-            # Final update
+            # Final update with captures from inner function
             db_results = update_session_results(
                 session_id, 
-                results_data or {"message": "Simulated training complete."}, 
+                results_data or {"message": "Training complete."}, 
                 [], 
-                model_path, 
+                results_data.get('trained_model_path', ''), 
                 ''
             )
             db_results['status'] = 'completed'
@@ -587,7 +592,9 @@ def get_sessions(current_user):
     """Get all training sessions for the current user."""
     model_code = request.args.get('model_code')
     sessions = get_user_sessions(current_user['_id'], model_code)
-    return jsonify({"sessions": sessions}), 200
+    # Ensure there are no NaN/Infinity values that would break JSON parsing on the frontend
+    safe_sessions = _sanitize_for_json(sessions)
+    return jsonify({"sessions": safe_sessions}), 200
 
 
 @model_routes.route('/training-sessions/<session_id>', methods=['GET'])
@@ -598,7 +605,9 @@ def get_session_detail(current_user, session_id):
         session = get_session(session_id)
         if session['user_id'] != current_user['_id']:
             return jsonify({"error": "Unauthorized"}), 403
-        return jsonify({"session": session}), 200
+        # Sanitize for JSON safety
+        safe_session = _sanitize_for_json(session)
+        return jsonify({"session": safe_session}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 404
 

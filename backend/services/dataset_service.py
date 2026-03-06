@@ -1,6 +1,7 @@
 """
 Dataset service — manages per-user dataset uploads and persistence.
 Datasets persist across page refreshes (stored server-side, linked to user).
+Supports versioning: uploading the same filename increments the version number.
 """
 import os
 from datetime import datetime
@@ -9,9 +10,23 @@ from bson import ObjectId
 from config import get_user_upload_dir, ensure_dir
 
 
-def save_dataset(user_id, filename, filepath, file_type, csv_data=None, image_links=None, extracted_path=None, drive_id=None):
-    """Record a dataset upload in the database."""
+def _get_next_version(user_id, filename):
+    """Get the next version number for a given user+filename combination."""
     db = get_db()
+    latest = db.datasets.find_one(
+        {'user_id': str(user_id), 'filename': filename},
+        sort=[('version', -1)]
+    )
+    if latest and 'version' in latest:
+        return latest['version'] + 1
+    return 1
+
+
+def save_dataset(user_id, filename, filepath, file_type, csv_data=None, image_links=None, extracted_path=None, drive_id=None):
+    """Record a dataset upload in the database with auto-incrementing version."""
+    db = get_db()
+
+    version = _get_next_version(user_id, filename)
 
     dataset = {
         'user_id': str(user_id),
@@ -22,7 +37,8 @@ def save_dataset(user_id, filename, filepath, file_type, csv_data=None, image_li
         'image_links': image_links,
         'extracted_path': extracted_path,
         'uploaded_at': datetime.utcnow(),
-        'drive_id': drive_id
+        'drive_id': drive_id,
+        'version': version
     }
 
     result = db.datasets.insert_one(dataset)
@@ -31,17 +47,19 @@ def save_dataset(user_id, filename, filepath, file_type, csv_data=None, image_li
 
 
 def get_user_datasets(user_id):
-    """Get all datasets uploaded by a user."""
+    """Get all datasets uploaded by a user (all versions)."""
     db = get_db()
     datasets = list(db.datasets.find(
         {'user_id': str(user_id)},
         {'csv_data': 0}  # Exclude large csv_data from listing
-    ).sort('uploaded_at', -1))
+    ).sort([('filename', 1), ('version', -1)]))
 
     for d in datasets:
         d['_id'] = str(d['_id'])
         if 'uploaded_at' in d and hasattr(d['uploaded_at'], 'isoformat'):
             d['uploaded_at'] = d['uploaded_at'].isoformat()
+        if 'version' not in d:
+            d['version'] = 1
 
     return datasets
 
@@ -59,17 +77,35 @@ def get_dataset(dataset_id):
 
 
 def get_dataset_by_filename(user_id, filename):
-    """Get a dataset by user ID and filename."""
+    """Get the latest version of a dataset by user ID and filename."""
     db = get_db()
-    dataset = db.datasets.find_one({
-        'user_id': str(user_id),
-        'filename': filename
-    })
+    dataset = db.datasets.find_one(
+        {'user_id': str(user_id), 'filename': filename},
+        sort=[('version', -1)]
+    )
 
     if dataset:
         dataset['_id'] = str(dataset['_id'])
 
     return dataset
+
+
+def get_dataset_versions(user_id, filename):
+    """Get all versions of a dataset for a given user and filename."""
+    db = get_db()
+    datasets = list(db.datasets.find(
+        {'user_id': str(user_id), 'filename': filename},
+        {'csv_data': 0}
+    ).sort('version', -1))
+
+    for d in datasets:
+        d['_id'] = str(d['_id'])
+        if 'uploaded_at' in d and hasattr(d['uploaded_at'], 'isoformat'):
+            d['uploaded_at'] = d['uploaded_at'].isoformat()
+        if 'version' not in d:
+            d['version'] = 1
+
+    return datasets
 
 
 def get_dataset_df(user_id, filename):
@@ -84,20 +120,21 @@ def get_dataset_df(user_id, filename):
     
     db = get_db()
     
-    # 1. Search User DB
-    dataset = db.datasets.find_one({'user_id': str(user_id), 'filename': filename})
+    # 1. Search User DB (latest version)
+    dataset = db.datasets.find_one(
+        {'user_id': str(user_id), 'filename': filename},
+        sort=[('version', -1)]
+    )
     
     # 2. Search Default Admin DB
     if not dataset:
         dataset = db.datasets.find_one({'is_default': True, 'filename': filename})
-        # Note: Depending on past seed scripts, is_default might be absent, so we also check if user_id is admin/None if needed but this works.
         
     # 3. Direct drive retrieval
     if dataset and dataset.get('drive_id'):
         try:
             from services.google_drive_service import stream_file_from_drive
             fh, _ = stream_file_from_drive(dataset['drive_id'])
-            # Since fh is a BytesIO stream, Pandas can read it natively
             return pd.read_csv(fh)
         except Exception as e:
             print(f"Warning: Failed to load dataset {filename} directly from Google Drive ({e}). Attempting local fallback.")
@@ -117,3 +154,4 @@ def get_dataset_df(user_id, filename):
             return pd.read_csv(p)
             
     raise FileNotFoundError(f"Dataset {filename} could not be retrieved from Google Drive or local Disk Storage.")
+
