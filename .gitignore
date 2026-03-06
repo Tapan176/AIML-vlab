@@ -16,9 +16,11 @@ build/
 # Google Drive Secrets
 backend/credentials.json
 backend/token.json
+backend/.env
 
 sample_datasets
 backend/static/uploads
 backend/trainedModels
+backend/predictions
 scripts/
 backend/static/images
