@@ -6,7 +6,7 @@ import Navbar from './components/Navbar/Navbar';
 import LandingPage from './components/LandingPage/LandingPage';
 import Home from './components/Home/Home';
 import Login from './components/Auth/Login';
-import Signup from './components/Auth/Signup';
+import SignUp from './components/Auth/SignUp';
 import ForgotPassword from './components/Auth/ForgotPassword';
 import EditProfile from './components/Profile/EditProfile';
 import ProfilePage from './components/Profile/ProfilePage';
@@ -40,7 +40,7 @@ function App() {
                                 </ProtectedRoute>
                             } />
                             <Route path="/login" element={<Login />} />
-                            <Route path="/signup" element={<Signup />} />
+                            <Route path="/signup" element={<SignUp />} />
                             <Route path="/forgot-password" element={<ForgotPassword />} />
                             <Route path="/studio" element={
                                 <ProtectedRoute>
