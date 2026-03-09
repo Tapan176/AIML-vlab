@@ -26,7 +26,7 @@ const COUNTRY_CODES = [
     { code: '+234', name: 'Nigeria (NG)' }
 ];
 
-const Signup = () => {
+const SignUp = () => {
     const [formData, setFormData] = useState({
         firstName: '', lastName: '', email: '', password: '',
         confirmPassword: '', phone: '', countryCode: '+91', termsAccepted: false
@@ -141,4 +141,4 @@ const Signup = () => {
     );
 };
 
-export default Signup;
+export default SignUp;
