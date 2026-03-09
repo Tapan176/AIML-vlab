@@ -31,7 +31,7 @@ const Navbar = () => {
             <div className="nav-container">
                 <Link to="/" className="nav-brand">
                     <span className="brand-icon">🧠</span>
-                    <span className="brand-text">AIML <span className="brand-highlight">Lab</span></span>
+                    <span className="brand-text">ML <span className="brand-highlight">Lab</span></span>
                 </Link>
 
                 <div className="nav-links">

@@ -74,7 +74,7 @@ const LandingPage = () => {
             <section className="hero">
                 <div className="hero-bg-grid"></div>
                 <div className="hero-content">
-                    <span className="hero-badge">🧠 AIML Lab</span>
+                    <span className="hero-badge">🧠 ML Lab</span>
                     <h1>
                         Train. Tune. <span className="gradient-text">Understand.</span>
                     </h1>

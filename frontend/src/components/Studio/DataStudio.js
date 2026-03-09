@@ -148,7 +148,7 @@ export default function DataStudio() {
                         <div className="auth-required-message" style={{ textAlign: 'center', padding: '60px', color: 'var(--text-secondary)' }}>
                             <FontAwesomeIcon icon={faTags} size="3x" style={{ marginBottom: '20px' }} />
                             <h2>Authentication Required</h2>
-                            <p>Please log in to your AIML Lab account to securely manage your datasets, generate preprocessing pipelines, and establish deep learning annotations.</p>
+                            <p>Please log in to your ML Lab account to securely manage your datasets, generate preprocessing pipelines, and establish deep learning annotations.</p>
                         </div>
                     ) : (
                     <>

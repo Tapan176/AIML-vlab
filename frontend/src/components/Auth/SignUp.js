@@ -69,7 +69,7 @@ const Signup = () => {
             <div className="auth-card">
                 <div className="auth-header">
                     <h2>Create Account</h2>
-                    <p>Join AIML Lab</p>
+                    <p>Join ML Lab</p>
                 </div>
 
                 {error && <div className="auth-error">{error}</div>}

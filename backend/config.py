@@ -1,5 +1,5 @@
 """
-Centralized configuration loader for AIML-vlab backend.
+Centralized configuration loader for ML-vlab backend.
 All constants and settings are loaded from .env — no hardcoded values.
 """
 import os

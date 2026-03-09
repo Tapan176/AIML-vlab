@@ -1,5 +1,5 @@
 """
-Database migration runner for AIML-vlab.
+Database migration runner for ML-vlab.
 Tracks applied migrations in a `_migrations` collection.
 Run: python -m migrations.migration_runner
 """

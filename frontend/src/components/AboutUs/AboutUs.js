@@ -5,7 +5,7 @@ const AboutUs = () => {
     return (
         <div className="about-page">
             <div className="about-hero">
-                <h1>About <span className="accent">AIML Lab</span></h1>
+                <h1>About <span className="accent">ML Lab</span></h1>
                 <p className="hero-subtitle">An interactive virtual laboratory for machine learning experimentation</p>
             </div>
 
@@ -13,7 +13,7 @@ const AboutUs = () => {
                 <section className="about-section">
                     <h2>🎯 Our Mission</h2>
                     <p>
-                        AIML Lab is an open-source virtual laboratory designed to make machine learning
+                        ML Lab is an open-source virtual laboratory designed to make machine learning
                         accessible to everyone. Whether you're a student learning the fundamentals or a
                         researcher experimenting with architectures, our platform provides an intuitive
                         interface to train, evaluate, and compare ML models — all from your browser.
@@ -89,7 +89,7 @@ const AboutUs = () => {
                 <section className="about-section">
                     <h2>👥 Team</h2>
                     <p>
-                        AIML Lab is built and maintained by passionate developers and ML enthusiasts.
+                        ML Lab is built and maintained by passionate developers and ML enthusiasts.
                         We believe in open-source education and making AI tools accessible to all learners.
                     </p>
                 </section>
