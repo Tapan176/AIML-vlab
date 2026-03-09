@@ -1,0 +1,104 @@
+/**
+ * Centralized API service with JWT authentication.
+ * All API calls should use these helpers.
+ */
+
+import { API_URL } from '../constants';
+
+const API_BASE = API_URL;
+
+function getToken() {
+    return localStorage.getItem('aiml_token');
+}
+
+function getHeaders(includeAuth = true, isJson = true) {
+    const headers = {};
+    if (isJson) headers['Content-Type'] = 'application/json';
+    if (includeAuth) {
+        const token = getToken();
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
+}
+
+async function handleResponse(res) {
+    // Read as text first so we can gracefully handle invalid JSON (e.g., NaN from backend)
+    const text = await res.text();
+    let data;
+    try {
+        data = text ? JSON.parse(text) : {};
+    } catch (e) {
+        // Fallback: sanitize common non‑JSON tokens like NaN/Infinity and retry
+        const sanitized = text
+            .replace(/\bNaN\b/g, 'null')
+            .replace(/\bInfinity\b/g, 'null')
+            .replace(/\b-Infinity\b/g, 'null');
+        data = sanitized ? JSON.parse(sanitized) : {};
+    }
+    if (res.status === 401) {
+        // Token expired — clear and redirect
+        localStorage.removeItem('aiml_token');
+        window.location.href = '/login';
+        throw new Error('Session expired');
+    }
+    if (!res.ok) {
+        throw new Error(data.error || `Request failed (${res.status})`);
+    }
+    return data;
+}
+
+export const api = {
+    get: async (endpoint) => {
+        const res = await fetch(`${API_BASE}${endpoint}`, {
+            headers: getHeaders()
+        });
+        return handleResponse(res);
+    },
+
+    post: async (endpoint, body) => {
+        const res = await fetch(`${API_BASE}${endpoint}`, {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify(body)
+        });
+        return handleResponse(res);
+    },
+
+    put: async (endpoint, body) => {
+        const res = await fetch(`${API_BASE}${endpoint}`, {
+            method: 'PUT',
+            headers: getHeaders(),
+            body: JSON.stringify(body)
+        });
+        return handleResponse(res);
+    },
+
+    upload: async (endpoint, formData) => {
+        const res = await fetch(`${API_BASE}${endpoint}`, {
+            method: 'POST',
+            headers: getHeaders(true, false),
+            body: formData
+        });
+        return handleResponse(res);
+    },
+
+    // Unprotected post (for login/signup)
+    publicPost: async (endpoint, body) => {
+        const res = await fetch(`${API_BASE}${endpoint}`, {
+            method: 'POST',
+            headers: getHeaders(false),
+            body: JSON.stringify(body)
+        });
+        return handleResponse(res);
+    },
+
+    delete: async (endpoint) => {
+        const res = await fetch(`${API_BASE}${endpoint}`, {
+            method: 'DELETE',
+            headers: getHeaders()
+        });
+        return handleResponse(res);
+    }
+};
+
+export default api;

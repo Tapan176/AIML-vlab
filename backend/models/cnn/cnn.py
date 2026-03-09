@@ -7,6 +7,7 @@ from keras.callbacks import EarlyStopping
 from keras.preprocessing.image import ImageDataGenerator
 from utils.saveTrainedModel import saveTrainedModel
 import os
+import tempfile
 
 # Define a Min Pooling Layer with customizable parameters
 def min_pooling(pool_size=(2, 2), strides=None):
@@ -29,26 +30,49 @@ def build_cnn_model(
         optimizerObject,
         lossFunction,
         evaluationMetrics,
+        num_classes=None,
     ):
     classifier = Sequential()
     classifier.add(Conv2D(numberOfNeuronsInInputLayer, kernel_size=inputKernelSize, activation=inputLayerActivationFunction, input_shape=inputShape))
 
+    has_flatten = False
     for hiddenLayer in hiddenLayerArray:
-        if hiddenLayer['type'] == 'conv':
-            classifier.add(Conv2D(hiddenLayer['numberOfNeurons'], tuple(hiddenLayer['kernel']), activation=hiddenLayer['activationFunction']))
-        elif hiddenLayer['type'] == 'pooling':
-            if hiddenLayer['poolingType'] == 'maxPool':
-                classifier.add(MaxPooling2D(pool_size=tuple(hiddenLayer['poolingSize'])))
-            elif hiddenLayer['poolingType'] == 'minPool':
-                classifier.add(min_pooling(pool_size=tuple(hiddenLayer['poolingSize']), strides=tuple(hiddenLayer['minPoolStride'])))
-            elif hiddenLayer['poolingType'] == 'averagePool':
-                classifier.add(AvgPool2D(pool_size=tuple(hiddenLayer['poolingSize']), strides=tuple(hiddenLayer['avgPoolStride'])))
-        elif hiddenLayer['type'] == 'flatten':
+        layer_type = hiddenLayer['type']
+        if layer_type == 'conv':
+            classifier.add(Conv2D(hiddenLayer.get('numberOfNeurons', 64), tuple(hiddenLayer.get('kernel', [3, 3])), activation=hiddenLayer.get('activationFunction', 'relu')))
+        elif layer_type in ('pooling', 'pool'):
+            pool_size = tuple(hiddenLayer.get('poolingSize', (2, 2)))
+            pooling_type = hiddenLayer.get('poolingType', 'maxPool').replace('Pool', '')
+            if pooling_type in ('maxPool', 'max'):
+                classifier.add(MaxPooling2D(pool_size=pool_size))
+            elif pooling_type in ('minPool', 'min'):
+                strides = tuple(hiddenLayer.get('minPoolStride', pool_size))
+                classifier.add(min_pooling(pool_size=pool_size, strides=strides))
+            elif pooling_type in ('averagePool', 'avgPool', 'avg', 'average'):
+                strides = tuple(hiddenLayer.get('avgPoolStride', pool_size))
+                classifier.add(AvgPool2D(pool_size=pool_size, strides=strides))
+        elif layer_type == 'flatten':
             classifier.add(Flatten())
-        elif hiddenLayer['type'] == 'dense':
-            classifier.add(Dense(units=hiddenLayer['units'], activation=hiddenLayer['activationFunction']))
-        elif hiddenLayer['type'] == 'dropout':
-            classifier.add(Dropout(hiddenLayer['dropoutRate']))
+            has_flatten = True
+        elif layer_type == 'dense':
+            # Ensure flatten before dense if not already done
+            if not has_flatten:
+                classifier.add(Flatten())
+                has_flatten = True
+            units = hiddenLayer.get('units') or hiddenLayer.get('numberOfNeurons', 128)
+            classifier.add(Dense(units=int(units), activation=hiddenLayer.get('activationFunction', 'relu')))
+        elif layer_type == 'dropout':
+            classifier.add(Dropout(hiddenLayer.get('dropoutRate', 0.5)))
+
+    # Ensure flatten before output layer if not already done
+    if not has_flatten:
+        classifier.add(Flatten())
+
+    # Output layer for classification: must match dataset num_classes
+    if num_classes is not None and lossFunction['type'] in ('categorical_crossentropy', 'sparse_categorical_crossentropy'):
+        classifier.add(Dense(units=int(num_classes), activation='softmax'))
+    elif num_classes is not None and lossFunction['type'] == 'binary_crossentropy':
+        classifier.add(Dense(units=1, activation='sigmoid'))
 
     # Determine the optimizer based on the 'type' parameter in optimizerObject
     if optimizerObject['type'] == 'adam':
@@ -99,7 +123,7 @@ def build_cnn_model(
 
     return classifier
 
-def train_cnn(request):
+def train_cnn(request, validated_params=None, user_id=None, session_version=None):
     data = request.json
     # input_shape = tuple(data['inputShape'])
     numberOfNeuronsInInputLayer = data['numberOfNeuronsInInputLayer']
@@ -110,13 +134,52 @@ def train_cnn(request):
     optimizerObject = data['optimizerObject']
     lossFunction = data['lossFunction']
     evaluationMetrics = data['evaluationMetrics']
-    numberOfEpochs = data['numberOfEpochs']
-    batchSize = data['batchSize']
+    # Use validated hyperparameters for epochs and batch_size (from frontend hyperparams.epochs/batch_size)
+    numberOfEpochs = int(validated_params.get('epochs', data.get('numberOfEpochs', 50))) if validated_params else int(data.get('numberOfEpochs', 50))
+    batchSize = int(validated_params.get('batch_size', data.get('batchSize', 32))) if validated_params else int(data.get('batchSize', 32))
     classMode = data['classMode']
-    datasetPath = data['filePath']
+    
+    filename = data.get('filename')
+    file_path = data.get('filePath')
+
+    # Resolve dataset path from Drive/DB/local
+    from services.dataset_resolver import resolve_image_dataset_path
+    
+    import json
+    import time
+    
+    yield f"data: {json.dumps({'log': 'Resolving dataset and loading image directories...'})}\n\n"
+    
+    try:
+        datasetPath = resolve_image_dataset_path(user_id, filename=filename, file_path=file_path)
+    except FileNotFoundError as e:
+        yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        return
 
     train_dataset_path = os.path.join(datasetPath, 'train')
     test_dataset_path = os.path.join(datasetPath, 'test')
+
+    train_datagen = ImageDataGenerator(rescale=1./255, shear_range=0.2, zoom_range=0.2, horizontal_flip=True)
+    test_datagen = ImageDataGenerator(rescale=1./255)
+
+    try:
+        training_set = train_datagen.flow_from_directory(train_dataset_path,
+                                                        target_size=inputShape[:2],
+                                                        batch_size=batchSize,
+                                                        class_mode=classMode)
+
+        test_set = test_datagen.flow_from_directory(test_dataset_path,
+                                                    target_size=inputShape[:2],
+                                                    batch_size=batchSize,
+                                                    class_mode=classMode)
+    except Exception as e:
+        yield f"data: {json.dumps({'error': f'Failed to load image directory: {str(e)}'})}\n\n"
+        return
+
+    num_classes = training_set.num_classes
+    yield f"data: {json.dumps({'log': f'Found {training_set.samples} training images and {test_set.samples} validation images. Classes: {num_classes}'})}\n\n"
+
+    yield f"data: {json.dumps({'log': 'Compiling Convolutional Neural Network Architecture...'})}\n\n"
 
     model = build_cnn_model(
         numberOfNeuronsInInputLayer,
@@ -127,34 +190,78 @@ def train_cnn(request):
         optimizerObject,
         lossFunction,
         evaluationMetrics,
+        num_classes=num_classes,
     )
 
-    # Fitting the CNN
-    # Note: You should replace these paths with your actual dataset paths
-    train_datagen = ImageDataGenerator(rescale=1./255, shear_range=0.2, zoom_range=0.2, horizontal_flip=True)
-    test_datagen = ImageDataGenerator(rescale=1./255)
+    best_val_loss = float('inf')
+    patience = 3
+    patience_counter = 0
+    total_epochs = int(numberOfEpochs)
+    
+    # Use a cross-platform temp directory for weights
+    temp_weights_path = os.path.join(tempfile.gettempdir(), f'best_cnn_weights_{user_id or "guest"}.h5')
 
-    training_set = train_datagen.flow_from_directory(train_dataset_path,
-                                                     target_size=inputShape[:2],
-                                                     batch_size=batchSize,
-                                                     class_mode=classMode)
+    yield f"data: {json.dumps({'log': f'Starting CNN Training for {total_epochs} epochs...'})}\n\n"
 
-    test_set = test_datagen.flow_from_directory(test_dataset_path,
-                                                target_size=inputShape[:2],
-                                                batch_size=batchSize,
-                                                class_mode=classMode)
+    last_val_accuracy = 0
+    last_val_loss = 0
+    stopped_epoch = total_epochs
 
-    early_stopping = EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True)
+    for epoch in range(1, total_epochs + 1):
+        try:
+            history = model.fit(
+                training_set,
+                steps_per_epoch=len(training_set),
+                epochs=1,
+                validation_data=test_set,
+                validation_steps=len(test_set),
+                verbose=0
+            )
 
-    model.fit_generator(training_set,
-                        steps_per_epoch=len(training_set),
-                        epochs=numberOfEpochs,
-                        validation_data=test_set,
-                        validation_steps=len(test_set),
-                        callbacks=[early_stopping])
+            train_loss = history.history['loss'][0]
+            train_acc = history.history.get('accuracy', history.history.get('acc', [0]))[0]
+            val_loss = history.history.get('val_loss', [0])[0]
+            val_acc = history.history.get('val_accuracy', history.history.get('val_acc', [0]))[0]
+            
+            last_val_accuracy = val_acc
+            last_val_loss = val_loss
 
+            yield f"data: {json.dumps({'log': f'Epoch [{epoch}/{total_epochs}] loss: {train_loss:.4f} - accuracy: {train_acc:.4f} - val_loss: {val_loss:.4f} - val_accuracy: {val_acc:.4f}'})}\n\n"
+
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                patience_counter = 0
+                try:
+                    model.save_weights(temp_weights_path)
+                except Exception as save_err:
+                    yield f"data: {json.dumps({'log': f'Warning: Could not save checkpoint weights: {save_err}'})}\n\n"
+            else:
+                patience_counter += 1
+                if patience_counter >= patience:
+                    yield f"data: {json.dumps({'log': f'Early stopping triggered at epoch {epoch}. Restoring best weights...'})}\n\n"
+                    try:
+                        if os.path.exists(temp_weights_path):
+                            model.load_weights(temp_weights_path)
+                    except:
+                        pass
+                    stopped_epoch = epoch
+                    break
+                    
+            time.sleep(0.05)
+        except Exception as e:
+            yield f"data: {json.dumps({'error': f'Training aborted during epoch {epoch}: {str(e)}'})}\n\n"
+            return
+    
+    # Clean up temp weights file
+    try:
+        if os.path.exists(temp_weights_path):
+            os.remove(temp_weights_path)
+    except:
+        pass
+            
+    yield f"data: {json.dumps({'log': 'Training Complete. Saving model artifacts...'})}\n\n"
+    
     # Save the model
-    saveTrainedModel(model, "cnn", "Keras")
-    # model.save("cnn.h5")
+    save_path = saveTrainedModel(model, "cnn", "Keras", user_id=user_id, version=session_version)
 
-    return ({'message': 'Model trained successfully.'})
+    yield f"data: {json.dumps({'status': 'training_complete', 'accuracy': float(last_val_accuracy), 'loss': float(last_val_loss), 'epochs_trained': stopped_epoch, 'trained_model_path': save_path})}\n\n"

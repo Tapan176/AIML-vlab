@@ -1,183 +1,144 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import constants from '../../constants';
+import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import './Auth.css';
 
-import './signup.css';
+const COUNTRY_CODES = [
+    { code: '+91', name: 'India (IN)' },
+    { code: '+1', name: 'USA/Canada' },
+    { code: '+44', name: 'UK (GB)' },
+    { code: '+61', name: 'Australia (AU)' },
+    { code: '+49', name: 'Germany (DE)' },
+    { code: '+33', name: 'France (FR)' },
+    { code: '+81', name: 'Japan (JP)' },
+    { code: '+86', name: 'China (CN)' },
+    { code: '+55', name: 'Brazil (BR)' },
+    { code: '+7', name: 'Russia (RU)' },
+    { code: '+27', name: 'South Africa (ZA)' },
+    { code: '+971', name: 'UAE (AE)' },
+    { code: '+65', name: 'Singapore (SG)' },
+    { code: '+60', name: 'Malaysia (MY)' },
+    { code: '+39', name: 'Italy (IT)' },
+    { code: '+34', name: 'Spain (ES)' },
+    { code: '+82', name: 'South Korea (KR)' },
+    { code: '+92', name: 'Pakistan (PK)' },
+    { code: '+880', name: 'Bangladesh (BD)' },
+    { code: '+234', name: 'Nigeria (NG)' }
+];
 
-export default function Signup() {
-  const navigate = useNavigate();
-  // const [isSignedUp, setIsSignedUp] = useState(false);
+const Signup = () => {
+    const [formData, setFormData] = useState({
+        firstName: '', lastName: '', email: '', password: '',
+        confirmPassword: '', phone: '', countryCode: '+91', termsAccepted: false
+    });
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
+    const navigate = useNavigate();
+    const { signup } = useAuth();
 
-  const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    countryCode: '+1',
-    password: '',
-    confirmPassword: '',
-    termsAccepted: false
-  });
+    const handleChange = (e) => {
+        const { name, value, type, checked } = e.target;
+        setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+    };
 
-  const [passwordsMatch, setPasswordsMatch] = useState(true); // State to track password match
-  // const history = useHistory();
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError('');
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
+        if (formData.password !== formData.confirmPassword) {
+            setError('Passwords do not match');
+            return;
+        }
+        if (!formData.termsAccepted) {
+            setError('Please accept the terms and conditions');
+            return;
+        }
 
-    // Validate form data
-    if (!formData.termsAccepted) {
-      alert('Please accept the terms and conditions.');
-      return;
-    }
+        setLoading(true);
+        try {
+            await signup(formData);
+            navigate('/lab');
+        } catch (err) {
+            setError(err.message || 'Signup failed');
+        }
+        setLoading(false);
+    };
 
-    if (formData.password !== formData.confirmPassword) {
-      alert('Passwords do not match.');
-      setPasswordsMatch(false);
-      return;
-    }
-
-    // Perform signup logic here (e.g., API call)
-    try {
-      const response = await fetch(`${constants.API_BASE_URL}/signup`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(formData)
-      });
-
-      if (response.ok) {
-        // Signup successful, redirect to login page
-        // setIsSignedUp(true);
-        navigate('/login');
-      } else {
-        const errorData = await response.json();
-        alert(errorData.message || 'Signup failed.');
-      }
-    } catch (error) {
-      console.error('Signup error:', error);
-      alert('Signup failed. Please try again.');
-    }
-  };
-
-  // useEffect(() => {
-  //   if (isSignedUp) {
-  //     // Redirect to login page after signup
-  //     window.location.href = '/login';
-  //   }
-  // }, [isSignedUp]);
-
-  const handleInputChange = (event) => {
-    const { id, value, type, checked } = event.target;
-    setFormData((prevData) => ({
-      ...prevData,
-      [id]: type === 'checkbox' ? checked : value
-    }));
-
-    // Reset passwords match state when any of the password fields change
-    if (id === 'password' || id === 'confirmPassword') {
-      setPasswordsMatch(true);
-    }
-  };
-
-  return (
-    <div className="signupDiv mt-5">
-            <h2>Signup</h2>
-            <form onSubmit={handleSubmit}>
-                <div className="mb-3">
-                    <label htmlFor="firstName" className="form-label">First Name</label>
-                    <input
-                        type="text"
-                        className="form-control"
-                        id="firstName"
-                        value={formData.firstName}
-                        onChange={handleInputChange}
-                        required
-                    />
+    return (
+        <div className="auth-container">
+            <div className="auth-card">
+                <div className="auth-header">
+                    <h2>Create Account</h2>
+                    <p>Join ML Lab</p>
                 </div>
-                <div className="mb-3">
-                    <label htmlFor="lastName" className="form-label">Last Name</label>
-                    <input
-                        type="text"
-                        className="form-control"
-                        id="lastName"
-                        value={formData.lastName}
-                        onChange={handleInputChange}
-                        required
-                    />
+
+                {error && <div className="auth-error">{error}</div>}
+
+                <form onSubmit={handleSubmit} className="auth-form">
+                    <div className="form-row">
+                        <div className="form-group">
+                            <label htmlFor="firstName">First Name</label>
+                            <input type="text" id="firstName" name="firstName" value={formData.firstName}
+                                onChange={handleChange} placeholder="John" required />
+                        </div>
+                        <div className="form-group">
+                            <label htmlFor="lastName">Last Name</label>
+                            <input type="text" id="lastName" name="lastName" value={formData.lastName}
+                                onChange={handleChange} placeholder="Doe" required />
+                        </div>
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="signup-email">Email</label>
+                        <input id="signup-email" name="email" type="email" value={formData.email}
+                            onChange={handleChange} placeholder="you@example.com" required />
+                    </div>
+                    <div className="form-row">
+                        <div className="form-group" style={{flex: '0 0 140px'}}>
+                            <label htmlFor="countryCode">Code</label>
+                            <select 
+                                id="countryCode" 
+                                name="countryCode" 
+                                value={formData.countryCode}
+                                onChange={handleChange} 
+                                className="country-code-select"
+                            >
+                                {COUNTRY_CODES.map((c, idx) => (
+                                    <option key={idx} value={c.code}>{c.code} {c.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="form-group">
+                            <label htmlFor="phone">Phone</label>
+                            <input type="tel" id="phone" name="phone" value={formData.phone}
+                                onChange={handleChange} placeholder="1234567890" />
+                        </div>
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="signup-password">Password</label>
+                        <input id="signup-password" name="password" type="password" value={formData.password}
+                            onChange={handleChange} placeholder="Min 6 characters" required minLength={6} />
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="confirmPassword">Confirm Password</label>
+                        <input id="confirmPassword" name="confirmPassword" type="password" value={formData.confirmPassword}
+                            onChange={handleChange} placeholder="Repeat password" required />
+                    </div>
+                    <div className="form-group checkbox-group">
+                        <input type="checkbox" id="terms" name="termsAccepted"
+                            checked={formData.termsAccepted} onChange={handleChange} />
+                        <label htmlFor="terms">I accept the Terms & Conditions</label>
+                    </div>
+                    <button type="submit" className="auth-btn" disabled={loading}>
+                        {loading ? <span className="spinner-sm"></span> : 'Create Account'}
+                    </button>
+                </form>
+
+                <div className="auth-footer">
+                    <p>Already have an account? <Link to="/login">Sign in</Link></p>
                 </div>
-                <div className="mb-3">
-                    <label htmlFor="email" className="form-label">Email address</label>
-                    <input
-                        type="email"
-                        className="form-control"
-                        id="email"
-                        value={formData.email}
-                        onChange={handleInputChange}
-                        required
-                    />
-                </div>
-                <div className="mb-3">
-                    <label htmlFor="phone" className="form-label">Phone Number</label>
-                    <input
-                        type="text"
-                        className="form-control"
-                        id="phone"
-                        value={formData.phone}
-                        onChange={handleInputChange}
-                        required
-                    />
-                </div>
-                <div className="mb-3">
-                    <label htmlFor="countryCode" className="form-label">Country Code</label>
-                    <select
-                        className="form-select"
-                        id="countryCode"
-                        value={formData.countryCode}
-                        onChange={handleInputChange}
-                    >
-                        <option value="+1">+1</option>
-                        <option value="+91">+91</option>
-                        {/* Add more options as needed */}
-                    </select>
-                </div>
-                <div className="mb-3">
-                    <label htmlFor="password" className="form-label">Password</label>
-                    <input
-                        type="password"
-                        className="form-control"
-                        id="password"
-                        value={formData.password}
-                        onChange={handleInputChange}
-                        required
-                    />
-                </div>
-                <div className="mb-3">
-                    <label htmlFor="confirmPassword" className="form-label">Confirm Password</label>
-                    <input
-                        type="password"
-                        className="form-control"
-                        id="confirmPassword"
-                        value={formData.confirmPassword}
-                        onChange={handleInputChange}
-                        required
-                    />
-                    {!passwordsMatch && <p className="text-danger">Passwords do not match.</p>}
-                </div>
-                <div className="mb-3 form-check">
-                    <input
-                        type="checkbox"
-                        className="form-check-input"
-                        id="termsAccepted"
-                        checked={formData.termsAccepted}
-                        onChange={handleInputChange}
-                        required
-                    />
-                    <label className="form-check-label" htmlFor="termsAccepted">I accept the terms and conditions</label>
-                </div>
-                <button type="submit" className="btn btn-primary">Signup</button>
-            </form>
+            </div>
         </div>
     );
-}
+};
+
+export default Signup;

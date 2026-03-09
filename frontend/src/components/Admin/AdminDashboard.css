@@ -1,0 +1,140 @@
+/* Admin Dashboard Styles */
+
+.admin-denied, .admin-loading, .admin-error {
+    text-align: center;
+    padding: 4rem;
+    color: var(--text-primary);
+}
+
+.admin-dashboard {
+    padding: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+    color: var(--text-primary);
+}
+
+.admin-header h1 {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+.admin-header p {
+    color: var(--text-secondary);
+    margin-bottom: 2rem;
+}
+
+.admin-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2.5rem;
+}
+
+.stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-align: center;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+}
+
+.stat-card h3 {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+}
+
+.stat-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--accent);
+}
+
+.admin-content {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 2rem;
+}
+
+@media (max-width: 768px) {
+    .admin-content {
+        grid-template-columns: 1fr;
+    }
+}
+
+.admin-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1.5rem;
+}
+
+.admin-section h2 {
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 0.5rem;
+}
+
+.section-desc {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+}
+
+.model-stats-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.model-stats-list li {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.model-stats-list li:last-child {
+    border-bottom: none;
+}
+
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.admin-table th, .admin-table td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.admin-table th {
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: var(--bg-secondary);
+}
+
+.btn-danger-small {
+    background: #e74c3c;
+    color: white;
+    border: none;
+    padding: 0.4rem 0.8rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: background 0.2s;
+}
+
+.btn-danger-small:hover {
+    background: #c0392b;
+}
+
+.no-data {
+    color: var(--text-secondary);
+    font-style: italic;
+    text-align: center;
+    padding: 2rem 0;
+}

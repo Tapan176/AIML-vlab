@@ -52,7 +52,10 @@ def remove_extension(filename):
     base_name, extension = os.path.splitext(filename)
     return base_name
 
-def handle_upload_file(request):
+from services.google_drive_service import upload_file_to_drive
+from services.dataset_service import save_dataset
+
+def handle_upload_file(request, user_id):
     if 'file' not in request.files:
         return ({'error': 'No file part'})
 
@@ -64,27 +67,61 @@ def handle_upload_file(request):
     filename = secure_filename(file.filename)
     filepath = os.path.join('static/uploads', filename)
     
-    # Remove the old files if it exists
+    # Ensure upload directory exists
+    os.makedirs('static/uploads', exist_ok=True)
+    
+    # Remove the old file if it exists
     if os.path.exists(filepath):
         os.remove(filepath)
 
     file.save(filepath)
 
+    # Helper: try uploading to Google Drive, but don't crash if it fails
+    def _try_drive_upload(fpath, fname):
+        try:
+            return upload_file_to_drive(fpath, fname, folder_type='datasets', user_id=user_id)
+        except Exception as e:
+            print(f"WARNING: Google Drive upload failed for {fname}: {e}")
+            return {}
+
     if filename.endswith('.csv'):
-        # Parse CSV file and send data to frontend
         csv_data = parse_csv(filepath)
-        return ({'csv_data': csv_data, 'filename': filename})
+        drive_res = _try_drive_upload(filepath, filename)
+        save_dataset(user_id, filename, filepath, file_type='csv', csv_data=csv_data, drive_id=drive_res.get('id'))
+        
+        try:
+            os.remove(filepath)
+        except Exception:
+            pass
+            
+        return ({'csv_data': csv_data, 'filename': filename, 'drive_id': drive_res.get('id')})
 
     elif filename.endswith('.zip'):
-        # Extract zip file
         extracted_path = os.path.join('static/uploads', 'extracted')
         extracted_file_path = os.path.join('static/uploads', 'extracted', remove_extension(filename))
+        os.makedirs(extracted_path, exist_ok=True)
         with zipfile.ZipFile(filepath, 'r') as zip_ref:
             zip_ref.extractall(extracted_path)
         
-        # Get image links from extracted directory
         image_links = get_image_links(os.path.join(extracted_path, remove_extension(filename), 'train'))
+        
+        drive_res = _try_drive_upload(filepath, filename)
+        save_dataset(user_id, filename, filepath, file_type='zip', image_links=image_links, extracted_path=extracted_file_path, drive_id=drive_res.get('id'))
 
-        return ({'image_links': image_links, 'filepath': extracted_path, 'filename': filename, 'extracted_file_path': extracted_file_path })
+        import shutil
+        try:
+            shutil.rmtree(extracted_path, ignore_errors=True)
+            os.remove(filepath)
+        except Exception:
+            pass
 
-    return ({'message': 'File uploaded successfully', 'filename': filename})
+        return ({'image_links': image_links, 'filepath': extracted_path, 'filename': filename, 'extracted_file_path': extracted_file_path, 'drive_id': drive_res.get('id') })
+
+    # Generic file
+    drive_res = _try_drive_upload(filepath, filename)
+    save_dataset(user_id, filename, filepath, file_type='other', drive_id=drive_res.get('id'))
+    try:
+        os.remove(filepath)
+    except Exception:
+        pass
+    return ({'message': 'File uploaded successfully', 'filename': filename, 'drive_id': drive_res.get('id')})

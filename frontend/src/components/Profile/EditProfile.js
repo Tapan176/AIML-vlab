@@ -1,97 +1,126 @@
 import React, { useState } from 'react';
-import { useNavigate  } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import { API_URL } from '../../constants';
+import './EditProfile.css';
 
-import './editProfile.css';
+const EditProfile = () => {
+    const { user, updateProfile, uploadProfilePhoto, deleteAccount } = useAuth();
+    const navigate = useNavigate();
 
-const EditProfile = ({ user }) => {
-  const navigate = useNavigate();
-  const [formData, setFormData] = useState({
-    firstName: user.first_name,
-    lastName: user.last_name,
-    phone: user.phone,
-    email: user.email,
-    countryCode: user.countryCode
-  });
+    const [formData, setFormData] = useState({
+        first_name: user?.first_name || '',
+        last_name: user?.last_name || '',
+        email: user?.email || '',
+        phone: user?.phone || '',
+    });
+    const [loading, setLoading] = useState(false);
+    const [message, setMessage] = useState('');
+    const [error, setError] = useState('');
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prevFormData) => ({
-      ...prevFormData,
-      [name]: value
-    }));
-  };
+    const handleChange = (e) => {
+        setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    navigate('/');
-    // Here you can implement logic to submit updated formData to server
-    // console.log('Updated User Data:', formData);
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError('');
+        setMessage('');
+        setLoading(true);
 
-    // Example: Call API to update user details with formData
-    // updateUserData(formData);
-  };
+        try {
+            await updateProfile(formData);
+            setMessage('Profile updated successfully!');
+        } catch (err) {
+            setError(err.message || 'Failed to update profile');
+        }
+        setLoading(false);
+    };
 
-  return (
-    <div className="editProfileDiv mt-5">
-            <h2>Edit Profile</h2>
-            <form onSubmit={handleSubmit}>
-                <div className="mb-3">
-                    <label htmlFor="firstName" className="form-label">First Name</label>
-                    <input
-                        type="text"
-                        className="form-control"
-                        id="firstName"
-                        name="firstName"
-                        value={formData.firstName}
-                        onChange={handleChange}
-                    />
+    const handlePhotoChange = async (e) => {
+        if (e.target.files && e.target.files[0]) {
+            try {
+                setLoading(true);
+                await uploadProfilePhoto(e.target.files[0]);
+                setMessage('Profile photo updated successfully!');
+            } catch (err) {
+                setError(err.message || 'Failed to update photo');
+            }
+            setLoading(false);
+        }
+    };
+
+    const handleDeleteAccount = async () => {
+        if (window.confirm("Are you sure you want to delete your account? This action cannot be undone.")) {
+            try {
+                setLoading(true);
+                await deleteAccount();
+                navigate('/');
+            } catch (err) {
+                setError(err.message || 'Failed to delete account');
+                setLoading(false);
+            }
+        }
+    };
+
+    if (!user) {
+        navigate('/login');
+        return null;
+    }
+
+    return (
+        <div className="edit-profile-container">
+            <div className="edit-profile-card">
+                <h2>Edit Profile</h2>
+
+                {error && <div className="auth-error">{error}</div>}
+                {message && <div className="auth-success">{message}</div>}
+
+                <div className="profile-photo-section">
+                    <div className="photo-preview-container">
+                        {user.profile_photo_id ? (
+                            <img src={`${API_URL}/profile-photo/${user.profile_photo_id}`} alt="Profile" className="profile-photo-preview photo-circular" style={{ objectFit: 'cover' }} />
+                        ) : user.profile_photo_url ? (
+                            <img src={user.profile_photo_url} alt="Profile" className="profile-photo-preview photo-circular" style={{ objectFit: 'cover' }} />
+                        ) : (
+                            <div className="profile-avatar-large photo-circular">
+                                {user.first_name?.charAt(0)?.toUpperCase() || 'U'}
+                            </div>
+                        )}
+                    </div>
+                    <label className="auth-btn btn-upload-photo" style={{ width: 'auto', display: 'inline-block', marginTop: '1rem', cursor: 'pointer' }}>
+                        Change Photo
+                        <input type="file" accept="image/*" onChange={handlePhotoChange} style={{ display: 'none' }} disabled={loading} />
+                    </label>
                 </div>
-                <div className="mb-3">
-                    <label htmlFor="lastName" className="form-label">Last Name</label>
-                    <input
-                        type="text"
-                        className="form-control"
-                        id="lastName"
-                        name="lastName"
-                        value={formData.lastName}
-                        onChange={handleChange}
-                    />
-                </div>
-                <div className="mb-3">
-                    <label htmlFor="phone" className="form-label">Phone</label>
-                    <input
-                        type="text"
-                        className="form-control"
-                        id="phone"
-                        name="phone"
-                        value={formData.phone}
-                        onChange={handleChange}
-                    />
-                </div>
-                <div className="mb-3">
-                    <label htmlFor="email" className="form-label">Email</label>
-                    <input
-                        type="email"
-                        className="form-control"
-                        id="email"
-                        name="email"
-                        value={formData.email}
-                        onChange={handleChange}
-                    />
-                </div>
-                <div className="mb-3">
-                    <label htmlFor="countryCode" className="form-label">Country Code</label>
-                    <input
-                        type="text"
-                        className="form-control"
-                        id="countryCode"
-                        name="countryCode"
-                        value={formData.countryCode}
-                        onChange={handleChange}
-                    />
-                </div>
-                <button type="submit" className="btn btn-primary">Update Profile</button>
-            </form>
+
+                <form onSubmit={handleSubmit}>
+                    <div className="form-row">
+                        <div className="form-group">
+                            <label>First Name</label>
+                            <input name="first_name" value={formData.first_name} onChange={handleChange} required />
+                        </div>
+                        <div className="form-group">
+                            <label>Last Name</label>
+                            <input name="last_name" value={formData.last_name} onChange={handleChange} required />
+                        </div>
+                    </div>
+                    <div className="form-group">
+                        <label>Email</label>
+                        <input name="email" type="email" value={formData.email} onChange={handleChange} required />
+                    </div>
+                    <div className="form-group">
+                        <label>Phone</label>
+                        <input name="phone" value={formData.phone} onChange={handleChange} />
+                    </div>
+                    <div className="form-actions">
+                        <button type="button" className="btn-cancel" onClick={() => navigate(-1)}>Cancel</button>
+                        <button type="submit" className="auth-btn" disabled={loading} style={{ width: 'auto', padding: '0.75rem 2rem' }}>
+                            {loading ? <span className="spinner-sm"></span> : 'Save Changes'}
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     );
 };

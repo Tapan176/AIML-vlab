@@ -1,0 +1,26 @@
+.env
+__pycache__/
+*.py[cod]
+*$py.class
+*.txt
+backend/check_*
+backend/err.txt
+backend/start_err.txt
+added_files_clean.txt
+clean_repo.py
+node_modules/
+dist/
+build/
+.DS_Store
+
+# Google Drive Secrets
+backend/credentials.json
+backend/token.json
+backend/.env
+
+sample_datasets
+backend/static/uploads
+backend/trainedModels
+backend/predictions
+scripts/
+backend/static/images

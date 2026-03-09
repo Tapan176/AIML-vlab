@@ -1,142 +1,111 @@
-/* eslint-disable jsx-a11y/img-redundant-alt */
-import React, { useState } from 'react';
+﻿/* eslint-disable jsx-a11y/img-redundant-alt */
+import React, { useState, useEffect } from 'react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faArrowLeft, faArrowRight } from '@fortawesome/free-solid-svg-icons';
 import constants from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
-import DownloadModelPredictions from '../DownloadModelPredictions/DownloadModelPredictions';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowLeft, faArrowRight } from '@fortawesome/free-solid-svg-icons'; // Import icons from Font Awesome
+import DownloadResultsZip from '../DownloadResultsZip/DownloadResultsZip';
+import HyperparamPanel from '../shared/HyperparamPanel';
+import ModelInfoPanel from '../shared/ModelInfoPanel';
+import '../ModelCss/ModelPage.css';
 
-import '../ModelCss/randomForest.css';
+const MODEL_CODE = 'random_forest';
 
 export default function RandomForest() {
-    const [inputData, setInputData] = useState({ X: [], y: [] });
-    const [results, setResults] = useState({
-        confusion_matrix: [],
-        predictions: [],
-        accuracy: 0,
-        precision: 0,
-        recall: 0,
-        f1_score: 0,
-        outputImageUrls: []
-    });
+    const [hyperparams, setHyperparams] = useState({});
+    const [results, setResults] = useState(null);
     const [datasetData, setDatasetData] = useState('');
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [infoOpen, setInfoOpen] = useState(false);
 
-    const images = results.outputImageUrls.map(url => `${constants.API_BASE_URL}/${url}?timestamp=${Date.now()}`);
 
-    const prevImage = () => {
-        setCurrentImageIndex((prevIndex) => (prevIndex === 0 ? images.length - 1 : prevIndex - 1));
-    };
+    useEffect(() => {
+        const cached = localStorage.getItem(`random_forest_dataset`);
+        if (cached) {
+            try { setDatasetData(JSON.parse(cached)); } catch(e) {}
+        }
+    }, []);
 
-    const nextImage = () => {
-        setCurrentImageIndex((prevIndex) => (prevIndex === images.length - 1 ? 0 : prevIndex + 1));
-    };
-
-    const handleDatasetUpload = (data) => {
+    const handleDatasetSelect = (data) => {
         setDatasetData(data);
+        if (data && data.filename) {
+            localStorage.setItem(`random_forest_dataset`, JSON.stringify(data));
+        } else {
+            localStorage.removeItem(`random_forest_dataset`);
+        }
     };
-
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setInputData({ ...inputData, [name]: value.split(',').map(parseFloat) });
-    };
+    const images = results?.outputImageBase64?.length > 0 ? results.outputImageBase64 : (results?.outputImageUrls?.map(url => `${constants.API_BASE_URL}/${url}?timestamp=${Date.now()}`) || []);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setLoading(true);
+        setError('');
         try {
-            let dataToSend;
-            if (datasetData && datasetData.csv_data) {
-                dataToSend = { filename: datasetData.filename };
-            } else {
-                dataToSend = { X: inputData.X, y: inputData.y };
-            }
-
             const response = await fetch(`${constants.API_BASE_URL}/random-forest`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(dataToSend),
+                headers: { 'Content-Type': 'application/json', ...(localStorage.getItem('aiml_token') ? { 'Authorization': `Bearer ${localStorage.getItem('aiml_token')}` } : {}) },
+                body: JSON.stringify({ filename: datasetData?.filename, hyperparams }),
             });
-            console.log(response);
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-
-            const data = await response.json();
-            setResults(data);
-        } catch (error) {
-            console.error('Error:', error);
-        }
+            if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Failed'); }
+            setResults(await response.json());
+        } catch (err) { setError(err.message); }
+        finally { setLoading(false); }
     };
 
     return (
-        <div className="container mt-5">
-            <h1>Random Forest</h1>
-            <ShowDataset onDatasetUpload={handleDatasetUpload} />
-
-            <form className="my-4" onSubmit={handleSubmit}>
-                <div className="mb-3">
-                    <label htmlFor="XInput" className="form-label">
-                        X (comma separated values):
-                    </label>
-                    <input
-                        type="text"
-                        className="form-control"
-                        id="XInput"
-                        name="X"
-                        onChange={handleChange}
-                    />
-                </div>
-                <div className="mb-3">
-                    <label htmlFor="yInput" className="form-label">
-                        y (comma separated values):
-                    </label>
-                    <input
-                        type="text"
-                        className="form-control"
-                        id="yInput"
-                        name="y"
-                        onChange={handleChange}
-                    />
-                </div>
-                <button type="submit" className="btn btn-primary">
-                    Run
-                </button>
+        <div className="model-page">
+            <div className="model-header">
+                <h1>Random Forest</h1>
+                <button className="btn-info-toggle" onClick={() => setInfoOpen(true)}>📖 Info</button>
+            </div>
+            <div className="dataset-section"><ShowDataset onDatasetUpload={handleDatasetSelect} allowedTypes={['csv']} />
+                {datasetData && datasetData.filename && (
+                    <div style={{ marginTop: '10px', color: '#34c759' }}>
+                        ✓ Cached dataset: <strong>{datasetData.filename}</strong>
+                    </div>
+                )}</div>
+            <form className="model-form" onSubmit={handleSubmit}>
+                <HyperparamPanel modelCode={MODEL_CODE} hyperparams={hyperparams} onChange={(n, v) => setHyperparams(p => ({ ...p, [n]: v }))} />
+                <button type="submit" className="btn-run" disabled={loading}>{loading ? '⏳ Training...' : '▶ Run Model'}</button>
             </form>
-
-            {results.confusion_matrix.length > 0 && (
-                <div className="result-section mt-3">
-                    <h2>Results:</h2>
-                    <p>Confusion Matrix: {results.confusion_matrix.join(', ')}</p>
-                    <p>Predictions: {results.predictions.join(', ')}</p>
-                    <p>Accuracy: {results.accuracy}</p>
-                    <p>Precision: {results.precision}</p>
-                    <p>Recall: {results.recall}</p>
-                    <p>F1 Score: {results.f1_score}</p>
-                </div>
-            )}
-
-            {results.outputImageUrls.length > 0 && (
-                <div className="graph-section mt-3">
-                    <h2>Output</h2>
-                    <div className="image-carousel d-flex align-items-center justify-content-between">
-                        <button className="btn btn-link" onClick={prevImage}>
-                            <FontAwesomeIcon icon={faArrowLeft} />
-                        </button>
-                        <img src={images[currentImageIndex]} alt={`Image ${currentImageIndex + 1}`} className="img-fluid" />
-                        <button className="btn btn-link" onClick={nextImage}>
-                            <FontAwesomeIcon icon={faArrowRight} />
-                        </button>
+            {error && <div className="model-error">❌ {error}</div>}
+            {results && (
+                <div className="results-card">
+                    <h2>Classification Results</h2>
+                    <div className="metrics-grid">
+                        {results.accuracy != null && <div className="metric-item"><div className="metric-label">Accuracy</div><div className="metric-value">{(results.accuracy * 100).toFixed(2)}%</div></div>}
+                        {results.precision != null && <div className="metric-item"><div className="metric-label">Precision</div><div className="metric-value">{(results.precision * 100).toFixed(2)}%</div></div>}
+                        {results.recall != null && <div className="metric-item"><div className="metric-label">Recall</div><div className="metric-value">{(results.recall * 100).toFixed(2)}%</div></div>}
+                        {results.f1_score != null && <div className="metric-item"><div className="metric-label">F1 Score</div><div className="metric-value">{(results.f1_score * 100).toFixed(2)}%</div></div>}
                     </div>
                 </div>
             )}
-
-            <div className="download-section mt-3">
-                <DownloadModelPredictions selectedModel={'simple_linear_regression'} extension={'.csv'} />
-                <DownloadTrainedModel selectedModel={'random_forest'} extension={'.pkl'} />
-            </div>
+            {images.length > 0 && (
+                <div className="output-section">
+                    <h2>Visualizations</h2>
+                    <div className="image-carousel">
+                        <button type="button" className="carousel-btn" onClick={() => setCurrentImageIndex(i => i === 0 ? images.length - 1 : i - 1)}><FontAwesomeIcon icon={faArrowLeft} /></button>
+                        <img src={images[currentImageIndex]} alt={`Output ${currentImageIndex + 1}`} />
+                        <button type="button" className="carousel-btn" onClick={() => setCurrentImageIndex(i => i === images.length - 1 ? 0 : i + 1)}><FontAwesomeIcon icon={faArrowRight} /></button>
+                    </div>
+                </div>
+            )}
+            {results && (
+                <div className="download-section">
+                    {(results.trained_model_drive_id || !results.session_id) && (
+                        <DownloadTrainedModel selectedModel="random_forest" extension=".pkl" sessionId={results.session_id} label="Download" />
+                    )}
+                    {results.results_zip_drive_id && (
+                        <DownloadResultsZip sessionId={results.session_id} />
+                    )}
+                </div>
+            )}
+            <ModelInfoPanel modelCode={MODEL_CODE} isOpen={infoOpen} onClose={() => setInfoOpen(false)} />
         </div>
     );
 }
+
+

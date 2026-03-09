@@ -1,95 +1,74 @@
-from flask import request, jsonify
-from sklearn.cluster import DBSCAN
-import numpy as np
+from flask import jsonify
+from sklearn.cluster import DBSCAN as DBSCANModel
 import pandas as pd
+import numpy as np
 import os
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import csv
-from utils.saveTrainedModel import saveTrainedModel
+from config import UPLOAD_DIR, IMAGES_DIR, ensure_dir
 
-def get_column_names(csv_file):
-    with open(csv_file, 'r', newline='') as file:
-        reader = csv.reader(file)
-        column_names = next(reader)  # Read the first row which contains column names
-    return column_names
 
-def save_cluster_plot(X, labels, title, xlabel, ylabel, output_path):
-  plt.figure(figsize=(6.4, 4.8))
-  unique_labels = set(labels)
-  colors = [plt.cm.Spectral(each) for each in np.linspace(0, 1, len(unique_labels))]
-  
-  for k, col in zip(unique_labels, colors):
-    if k == -1:
-      # Black used for noise.
-      col = [0, 0, 0, 1]
-
-    class_member_mask = (labels == k)
-    xy = X[class_member_mask]
-
-    # Check for empty data after filtering
-    if xy.shape[0] == 0:
-      continue  # Skip plotting for empty clusters
-
-    # Handle single-feature data or data with one remaining dimension
-    if xy.ndim == 1:
-      xy = xy.reshape(-1, 1)  # Reshape for single feature
-    elif xy.shape[1] == 1:
-      # If only one dimension remains after filtering, add a dummy dimension
-      xy = np.c_[xy, np.zeros_like(xy)]  # Add a column of zeros
-
-    plt.plot(xy[:, 0], xy[:, 1], 'o', markerfacecolor=tuple(col),
-             markeredgecolor='k', markersize=6)
-
-  plt.title(title)
-  plt.xlabel(xlabel)
-  plt.ylabel(ylabel)
-  plt.grid(True)
-  plt.savefig(output_path)
-  plt.close()
-
-def dbscan(request):
+def dbscan(request, validated_params=None, user_id=None, session_version=None):
     data = request.json
-    directory = 'static/uploads'
+    params = validated_params or {}
+    eps = params.get('eps', float(data.get('eps', 0.5)))
+    min_samples = params.get('min_samples', int(data.get('min_samples', 5)))
+    metric = params.get('metric', 'euclidean')
 
     X = None
-    eps = None
-    min_samples = None
-
-    if 'X' in data and 'eps' in data and 'min_samples' in data:
-        X = np.array(data['X'])
-        X = X.reshape(-1, 1)
-        eps = float(data['eps'])
-        min_samples = int(data['min_samples'])
-        columnNames = ['X', 'eps', 'min_samples']
-    elif 'filename' in data and 'eps' in data and 'min_samples' in data:
-        filepath = os.path.join(directory, data['filename'])
-        columnNames = get_column_names(filepath)
+    if 'filename' in data:
         try:
-            dataset = pd.read_csv(filepath)
-            X = dataset.iloc[:, [2, 3]].values
-            eps = float(data['eps'])
-            min_samples = int(data['min_samples'])
+            from services.dataset_service import get_dataset_df
+            dataset = get_dataset_df(user_id, data['filename'])
+            numeric_dataset = dataset.select_dtypes(include=[np.number]).dropna()
+            if numeric_dataset.empty or numeric_dataset.shape[1] < 2:
+                return {"error": "Dataset must contain at least 2 numeric columns and valid rows for clustering."}
+            X = numeric_dataset.values
         except FileNotFoundError:
-            return jsonify({"error": "File not found"})
+            return {"error": "File not found"}
         except Exception as e:
-            return jsonify({"error": str(e)})
+            return {"error": str(e)}
+    elif 'X' in data:
+        X = np.array(data['X'])
     else:
-        return jsonify({"error": "Incomplete data provided"})
+        return {"error": "Neither X nor filename provided"}
 
-    dbscan = DBSCAN(eps=eps, min_samples=min_samples)
-    y_dbscan = dbscan.fit_predict(X)
-    
-    saveTrainedModel(dbscan, "dbscan", "scikit-learn")
+    clustering = DBSCANModel(eps=eps, min_samples=min_samples, metric=metric)
+    labels = clustering.fit_predict(X)
 
-    # Save cluster plot
-    outputImageDir = 'static/images'
-    if not os.path.exists(outputImageDir):
-        os.makedirs(outputImageDir)
+    n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
+    n_noise = list(labels).count(-1)
 
-    outputImageUrls = [ os.path.join(outputImageDir, 'dbscanCluster.jpg') ]
-    save_cluster_plot(X, y_dbscan, 'DBSCAN Clustering', 'Feature 1', 'Feature 2', outputImageUrls[0])
+    img_dir = ensure_dir(IMAGES_DIR)
+    cluster_path = os.path.join(img_dir, 'dbscanClusters.jpg')
+    if os.path.exists(cluster_path):
+        os.remove(cluster_path)
+
+    unique_labels = set(labels)
+    colors = plt.cm.Spectral(np.linspace(0, 1, len(unique_labels)))
+    for k, col in zip(sorted(unique_labels), colors):
+        if k == -1:
+            col = [0, 0, 0, 1]  # Black for noise
+        class_mask = (labels == k)
+        plt.scatter(X[class_mask, 0], X[class_mask, 1], c=[col], s=50, label=f'Cluster {k}' if k != -1 else 'Noise')
+    plt.title(f'DBSCAN Clustering (eps={eps}, min_samples={min_samples})')
+    plt.xlabel('Feature 1')
+    plt.ylabel('Feature 2')
+    plt.legend()
+    plt.savefig(cluster_path)
+    plt.close()
+
+    from utils.saveTrainedModel import saveTrainedModel
+    model_path = saveTrainedModel(clustering, "dbscan", "scikit-learn", user_id=user_id, version=session_version)
 
     return {
-        'labels': y_dbscan.tolist(),
-        'outputImageUrls': outputImageUrls
+        "cluster_labels": labels.tolist(),
+        "n_clusters": n_clusters,
+        "n_noise_points": n_noise,
+        "outputImageUrls": [cluster_path],
+        "trained_model_path": model_path,
+        "results": {"n_clusters": n_clusters, "n_noise_points": n_noise},
+        "hyperparams_used": params,
     }

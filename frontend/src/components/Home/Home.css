@@ -1,0 +1,109 @@
+/* ================================================
+   Home / Lab Layout
+   ================================================ */
+
+.home-layout {
+    display: flex;
+    height: calc(100vh - 64px);
+    overflow: hidden;
+}
+
+.main-content {
+    flex: 1;
+    padding: 2rem;
+    overflow-y: auto;
+}
+
+/* Welcome Panel */
+.welcome-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    min-height: 60vh;
+    animation: fadeIn 0.5s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.welcome-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+}
+
+.welcome-panel h2 {
+    color: var(--text-primary);
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.welcome-panel > p {
+    color: var(--text-secondary);
+    font-size: 1.05rem;
+    margin-bottom: 2.5rem;
+}
+
+.welcome-cards {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.welcome-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1.5rem 2rem;
+    text-align: center;
+    min-width: 150px;
+    transition: transform 0.2s;
+}
+
+.welcome-card:hover {
+    transform: translateY(-4px);
+}
+
+.welcome-card span {
+    font-size: 2rem;
+    display: block;
+    margin-bottom: 0.5rem;
+}
+
+.welcome-card h4 {
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.welcome-card p {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+
+/* Model Loading */
+.model-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 50vh;
+    gap: 1rem;
+    color: var(--text-secondary);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .home-layout {
+        flex-direction: column;
+    }
+    .main-content {
+        padding: 1rem;
+    }
+}

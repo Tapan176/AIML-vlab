@@ -1,11 +1,25 @@
-import React from 'react';
-import modelsData from '../models.json'; // Assuming models.json is in the same directory
+import React, { useState, useEffect } from 'react';
+import { API_URL } from '../../constants';
 import { Collapse, Button } from 'react-bootstrap';
 import './ModelDescription.css';
 
 export default function ModelDescription({ modelCode }) {
-  // Find the model with the matching code
-  const model = modelsData.find(model => model.code === modelCode);
+  const [model, setModel] = useState(null);
+
+  useEffect(() => {
+      const fetchModel = async () => {
+          try {
+              const res = await fetch(`${API_URL}/models/info`);
+              if (res.ok) {
+                  const modelsData = await res.json();
+                  setModel(modelsData.find(m => m.code === modelCode) || null);
+              }
+          } catch (err) {
+              console.error(err);
+          }
+      };
+      fetchModel();
+  }, [modelCode]);
 
   if (!model) {
     return <div></div>;

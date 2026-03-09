@@ -1,14 +1,47 @@
+# Core ML / Data Science
 numpy
 pandas
 matplotlib
-requests
-scikit-learn
-# tensorflow
-keras
 scipy
+scikit-learn
+
+# Deep Learning — TensorFlow / Keras
+tensorflow
+keras
+
+# Deep Learning — PyTorch (StyleGAN)
+torch
+torchvision
+
+# Object Detection
+ultralytics
+
+# Boosting
+xgboost
+
+# Web Framework
 flask
-joblib
+flask_cors
+flask-limiter
+gunicorn
+
+# Database
+pymongo
+gridfs
+
+# Auth & Security
 bcrypt
 PyJWT
-pymongo
-flask_cors
+python-dotenv
+
+# Google Drive Integration
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib
+
+# Utilities
+joblib
+requests
+Pillow
+pyyaml
+Werkzeug
