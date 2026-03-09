@@ -7,7 +7,7 @@ from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload, MediaIoBaseDownload, MediaFileUpload
 from werkzeug.datastructures import FileStorage
-from config import BASE_DIR
+from config import BASE_DIR, GOOGLE_CREDENTIALS_JSON, GOOGLE_TOKEN_JSON
 
 # If modifying these scopes, delete the file token.json.
 SCOPES = ['https://www.googleapis.com/auth/drive.file']
@@ -21,23 +21,29 @@ token_path = os.environ.get('GOOGLE_TOKEN_PATH', os.path.join(BASE_DIR, 'token.j
 
 def get_drive_service():
     """Authenticate and return Google Drive v3 API service.
-    Handles expired and revoked tokens gracefully.
+    Handles expired and revoked tokens gracefully. Supports both env vars and files.
     """
     creds = None
-    # The file token.json stores the user's access and refresh tokens, and is
-    # created automatically when the authorization flow completes for the first
-    # time.
-    if os.path.exists(token_path):
+    
+    # --- 1. Try Loading Token ---
+    # Try loading token from Vercel Environment Variable first
+    if GOOGLE_TOKEN_JSON:
+        try:
+            token_info = json.loads(GOOGLE_TOKEN_JSON)
+            creds = Credentials.from_authorized_user_info(token_info, SCOPES)
+        except Exception as e:
+            print(f"Failed to parse GOOGLE_TOKEN_JSON: {e}")
+    # Fallback to local file
+    elif os.path.exists(token_path):
         creds = Credentials.from_authorized_user_file(token_path, SCOPES)
     
-    # If there are no (valid) credentials available, let the user log in.
+    # --- 2. Refresh or Create Credentials ---
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             try:
                 creds.refresh(Request())
             except Exception as e:
-                print(f"WARNING: Token refresh failed ({e}). Deleting stale token and re-authenticating...")
-                # Delete the stale token so we can re-authenticate
+                print(f"WARNING: Token refresh failed ({e}). Re-authenticating...")
                 try:
                     os.remove(token_path)
                 except Exception:
@@ -45,16 +51,30 @@ def get_drive_service():
                 creds = None
         
         if not creds:
-            if not os.path.exists(creds_path):
-                print(f"WARNING: Google Drive credentials not found at {creds_path}. Drive integration will fail.")
+            # Try loading client secrets from Vercel Env Var
+            if GOOGLE_CREDENTIALS_JSON:
+                try:
+                    client_config = json.loads(GOOGLE_CREDENTIALS_JSON)
+                    flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
+                    creds = flow.run_local_server(port=0)
+                except Exception as e:
+                    print(f"Failed to process GOOGLE_CREDENTIALS_JSON: {e}")
+            # Fallback to local file
+            elif os.path.exists(creds_path):
+                flow = InstalledAppFlow.from_client_secrets_file(creds_path, SCOPES)
+                creds = flow.run_local_server(port=0)
+            else:
+                print(f"WARNING: Google Drive credentials not found at {creds_path} or in GOOGLE_CREDENTIALS_JSON. Drive integration will fail.")
                 return None
-            flow = InstalledAppFlow.from_client_secrets_file(
-                creds_path, SCOPES)
-            creds = flow.run_local_server(port=0)
         
-        # Save the credentials for the next run
-        with open(token_path, 'w') as token:
-            token.write(creds.to_json())
+        # Save the updated credentials
+        # If running locally without GOOGLE_TOKEN_JSON, save to token.json
+        if not GOOGLE_TOKEN_JSON:
+            try:
+                with open(token_path, 'w') as token:
+                    token.write(creds.to_json())
+            except Exception as e:
+                print(f"Warning: Could not save token to {token_path}: {e}")
 
     try:
         service = build('drive', 'v3', credentials=creds)

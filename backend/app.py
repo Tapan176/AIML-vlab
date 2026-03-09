@@ -55,14 +55,17 @@ try:
 except Exception as e:
     print(f"Migration warning: {e}")
 
-# Register blueprints
-app.register_blueprint(model_routes)
-app.register_blueprint(utils_routes)
-app.register_blueprint(auth_routes)
-app.register_blueprint(admin_routes, url_prefix='/admin')
+# Register blueprints with /api prefix for Vercel serverless compatibility
+app.register_blueprint(model_routes, url_prefix='/api')
+app.register_blueprint(utils_routes, url_prefix='/api')
+app.register_blueprint(auth_routes, url_prefix='/api/auth')
+app.register_blueprint(admin_routes, url_prefix='/api/admin')
 
+@app.route('/api')
+def health_check():
+    return {"status": "ok", "message": "ML-vlab API is running on Vercel Context Region"}
 
-@app.route('/uploads/<path:filename>')
+@app.route('/api/uploads/<path:filename>')
 def serve_public_files(filename):
     return send_from_directory(UPLOAD_DIR, filename)
 
