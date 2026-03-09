@@ -5,6 +5,63 @@ import constants from '../../constants';
 const TAB_CLOUD = 'cloud';
 const TAB_UPLOAD = 'upload';
 
+/**
+ * Sub-component that fetches thumbnails on-demand for a specific folder
+ * when the initial preview didn't include them (e.g. more than 50 images per folder).
+ */
+function OnDemandFolderImages({ datasetId, folder, imageCount, token, renderImageGrid }) {
+    const [images, setImages] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [fetched, setFetched] = useState(false);
+
+    useEffect(() => {
+        if (!datasetId || fetched) return;
+        setLoading(true);
+        fetch(`${constants.API_BASE_URL}/datasets/${datasetId}/folder-images?folder=${encodeURIComponent(folder)}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        })
+        .then(res => res.json())
+        .then(data => {
+            setImages(data.thumbnails || []);
+            setFetched(true);
+        })
+        .catch(err => {
+            console.error('Failed to fetch folder images:', err);
+            setFetched(true);
+        })
+        .finally(() => setLoading(false));
+    }, [datasetId, folder, token, fetched]);
+
+    if (loading) {
+        return (
+            <div style={{ padding: '15px', textAlign: 'center', color: '#6c63ff' }}>
+                <span style={{ fontSize: '1.2em' }}>⏳</span> Loading {imageCount} images...
+            </div>
+        );
+    }
+
+    if (images.length > 0) {
+        return (
+            <div>
+                <h5 style={{ margin: '10px 0 5px', color: '#333' }}>
+                    🖼 Images ({imageCount})
+                </h5>
+                {renderImageGrid(images)}
+            </div>
+        );
+    }
+
+    if (fetched && images.length === 0) {
+        return (
+            <div style={{ padding: '10px', color: '#666', fontStyle: 'italic' }}>
+                🖼 {imageCount} image files in this folder (thumbnails unavailable)
+            </div>
+        );
+    }
+
+    return null;
+}
+
 export default function ShowDataset({ onDatasetUpload, ...props }) {
     const [csvData, setCsvData] = useState(null);
     const [imageLinks, setImageLinks] = useState([]);
@@ -279,12 +336,10 @@ export default function ShowDataset({ onDatasetUpload, ...props }) {
         });
         const nonImageFiles = currentFiles.filter(f => !currentImageFiles.includes(f));
 
-        // Fallback: if no folder-based thumbnails, try matching by filename
-        let fallbackImages = [];
-        if (currentImages.length === 0 && currentImageFiles.length > 0 && image_thumbnails.length > 0) {
-            const currentFileNames = new Set(currentImageFiles);
-            fallbackImages = image_thumbnails.filter(img => currentFileNames.has(img.path.split('/').pop()));
-        }
+        // Determine which images to show
+        const imagesToShow = currentImages.length > 0 ? currentImages : [];
+        const hasImageFiles = currentImageFiles.length > 0;
+        const needsOnDemandFetch = hasImageFiles && currentImages.length === 0;
 
         const folderBtnStyle = {
             padding: '8px 14px', borderRadius: '8px',
@@ -355,26 +410,34 @@ export default function ShowDataset({ onDatasetUpload, ...props }) {
                     </div>
                 )}
 
-                {/* Image thumbnails for current folder (with fallbacks) */}
-                {(currentImages.length > 0 || fallbackImages.length > 0 || (image_thumbnails.length > 0 && !zipCurrentFolder)) && (
+                {/* Image thumbnails for current folder */}
+                {imagesToShow.length > 0 && (
                     <div>
                         <h5 style={{ margin: '10px 0 5px', color: '#333' }}>
-                            🖼 Image Samples {currentImages.length > 0 || fallbackImages.length > 0 ? '' : `(${total_images} total)`}
+                            🖼 {currentImageFiles.length > 0 ? `Images (${currentImageFiles.length})` : 'Image Samples'}
                         </h5>
-                        {renderImageGrid(
-                            currentImages.length > 0
-                                ? currentImages
-                                : (fallbackImages.length > 0
-                                    ? fallbackImages
-                                    : image_thumbnails)
-                        )}
+                        {renderImageGrid(imagesToShow)}
                     </div>
                 )}
 
-                {/* If in a folder with image files but absolutely no thumbnails available */}
-                {currentImages.length === 0 && fallbackImages.length === 0 && currentImageFiles.length > 0 && image_thumbnails.length === 0 && (
-                    <div style={{ padding: '10px', color: '#666', fontStyle: 'italic' }}>
-                        🖼 {currentImageFiles.length} image files in this folder
+                {/* On-demand fetch for folders that have image files but no pre-loaded thumbnails */}
+                {needsOnDemandFetch && (
+                    <OnDemandFolderImages
+                        datasetId={selectedVersion?._id || selectedDatasetId}
+                        folder={currentFolderKey}
+                        imageCount={currentImageFiles.length}
+                        token={token}
+                        renderImageGrid={renderImageGrid}
+                    />
+                )}
+
+                {/* Root level: show all pre-loaded sample thumbnails when no specific folder */}
+                {!zipCurrentFolder && imagesToShow.length === 0 && image_thumbnails.length > 0 && !hasImageFiles && (
+                    <div>
+                        <h5 style={{ margin: '10px 0 5px', color: '#333' }}>
+                            🖼 Image Samples ({total_images} total)
+                        </h5>
+                        {renderImageGrid(image_thumbnails)}
                     </div>
                 )}
 

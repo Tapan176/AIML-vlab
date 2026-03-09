@@ -255,7 +255,47 @@ def _preview_csv(dataset, drive_id):
 
 
 def _preview_zip(dataset, drive_id, filename):
-    """Return folder structure and image thumbnails from a ZIP dataset."""
+    """Return folder structure and image thumbnails from a ZIP dataset.
+    
+    Uses resolve_image_dataset_path to download from Google Drive and extract
+    locally (with caching), then reads from the extracted directory for reliable
+    thumbnail generation.
+    """
+    import os
+    
+    user_id = dataset.get('user_id')
+    
+    # --- Strategy: resolve to a local extracted directory ---
+    # This downloads from Drive if needed, extracts, and caches locally.
+    try:
+        from services.dataset_resolver import resolve_image_dataset_path
+        extracted_path = resolve_image_dataset_path(
+            user_id, filename=filename, file_path=dataset.get('filepath')
+        )
+        if extracted_path and os.path.isdir(extracted_path):
+            return _preview_local_directory(extracted_path)
+    except Exception as e:
+        print(f"Dataset resolution failed for preview: {e}")
+    
+    # Fallback: try extracted_path from DB directly
+    extracted_path = dataset.get('extracted_path')
+    if extracted_path and os.path.isdir(extracted_path):
+        return _preview_local_directory(extracted_path)
+    
+    # Fallback: try the original filepath
+    filepath = dataset.get('filepath')
+    if filepath and os.path.isdir(filepath):
+        return _preview_local_directory(filepath)
+    
+    # Last resort: try in-memory ZIP processing from Drive
+    if drive_id or (filepath and os.path.exists(filepath)):
+        return _preview_zip_stream(dataset, drive_id, filename)
+    
+    return jsonify({"preview_type": "zip", "error": "Could not load dataset for preview. Try re-uploading."}), 200
+
+
+def _preview_zip_stream(dataset, drive_id, filename):
+    """Fallback: preview ZIP via in-memory streaming (used when extraction fails)."""
     import zipfile
     import io
     import os
@@ -264,26 +304,18 @@ def _preview_zip(dataset, drive_id, filename):
     
     zip_stream = None
     
-    # Try Drive first
     if drive_id:
         try:
             from services.google_drive_service import stream_file_from_drive
             fh, _ = stream_file_from_drive(drive_id)
             zip_stream = fh
         except Exception as e:
-            print(f"Drive ZIP preview failed: {e}")
+            print(f"Drive ZIP stream failed: {e}")
     
-    # Fallback to local file
     if zip_stream is None:
         filepath = dataset.get('filepath')
         if filepath and os.path.exists(filepath):
             zip_stream = open(filepath, 'rb')
-    
-    # Fallback to extracted_path (cached image directory on disk)
-    if zip_stream is None:
-        extracted_path = dataset.get('extracted_path')
-        if extracted_path and os.path.isdir(extracted_path):
-            return _preview_local_directory(extracted_path)
     
     if zip_stream is None:
         return jsonify({"preview_type": "zip", "error": "Could not load ZIP for preview"}), 200
@@ -292,92 +324,85 @@ def _preview_zip(dataset, drive_id, filename):
         with zipfile.ZipFile(zip_stream, 'r') as zf:
             all_entries = zf.namelist()
             
-            # Build folder tree — infer folders from file paths too
+            # Detect common root folder to strip
+            real_entries = [e for e in all_entries
+                           if not e.startswith('__MACOSX') and not e.split('/')[-1].startswith('.')]
+            common_prefix = ''
+            if real_entries:
+                parts_list = [e.split('/') for e in real_entries]
+                if all(len(p) > 1 for p in parts_list):
+                    first_part = parts_list[0][0]
+                    if first_part and all(p[0] == first_part for p in parts_list):
+                        common_prefix = first_part + '/'
+            
+            def strip_prefix(path):
+                if common_prefix and path.startswith(common_prefix):
+                    return path[len(common_prefix):]
+                return path
+            
             folders = set()
             files_by_folder = {}
-            csv_files = []
             image_files = []
             IMAGE_EXTS = {'.jpg', '.jpeg', '.png', '.bmp', '.gif', '.webp'}
             
             for entry in all_entries:
-                if entry.endswith('/'):
-                    folders.add(entry)
+                if '__MACOSX' in entry:
                     continue
-                
-                # Skip hidden / system files
-                basename = os.path.basename(entry)
+                normalized = strip_prefix(entry)
+                if not normalized:
+                    continue
+                if entry.endswith('/'):
+                    if normalized.rstrip('/'):
+                        folders.add(normalized)
+                    continue
+                basename = os.path.basename(normalized)
                 if basename.startswith('.') or basename.startswith('__'):
                     continue
-                    
-                parent = os.path.dirname(entry)
+                parent = os.path.dirname(normalized)
                 parent_key = parent + '/' if parent else ''
                 if parent_key not in files_by_folder:
                     files_by_folder[parent_key] = []
                 files_by_folder[parent_key].append(basename)
-                
-                # Infer all ancestor folders from the path
                 parts = parent.split('/') if parent else []
                 for depth in range(1, len(parts) + 1):
-                    inferred_folder = '/'.join(parts[:depth]) + '/'
-                    folders.add(inferred_folder)
-                
+                    folders.add('/'.join(parts[:depth]) + '/')
                 ext = os.path.splitext(entry)[1].lower()
-                if ext == '.csv':
-                    csv_files.append(entry)
-                elif ext in IMAGE_EXTS:
-                    image_files.append(entry)
+                if ext in IMAGE_EXTS:
+                    image_files.append((entry, normalized))
             
-            # Read inline CSVs (first 30 rows each, max 3 CSVs)
-            csv_previews = []
-            for csv_path in csv_files[:3]:
-                try:
-                    import pandas as pd
-                    with zf.open(csv_path) as cf:
-                        df = pd.read_csv(cf, nrows=30)
-                        csv_previews.append({
-                            "path": csv_path,
-                            "columns": list(df.columns),
-                            "rows": df.to_dict(orient='records'),
-                            "total_rows_shown": len(df)
-                        })
-                except Exception:
-                    pass
-            
-            # Generate thumbnails: sample per folder so each folder has previews
+            # Generate ALL thumbnails (no limit)
             images_by_folder = {}
-            for img_path in image_files:
-                parent = os.path.dirname(img_path)
+            for orig_path, norm_path in image_files:
+                parent = os.path.dirname(norm_path)
                 parent_key = parent + '/' if parent else ''
                 if parent_key not in images_by_folder:
                     images_by_folder[parent_key] = []
-                images_by_folder[parent_key].append(img_path)
+                images_by_folder[parent_key].append((orig_path, norm_path))
+            
             image_thumbnails = []
             for folder_key in sorted(images_by_folder.keys()):
-                folder_images = images_by_folder[folder_key]
-                # Generate thumbnails for ALL images if folder has <= 20 images, otherwise sample first 8
-                max_thumbnails = len(folder_images) if len(folder_images) <= 20 else 8
-                for img_path in folder_images[:max_thumbnails]:
+                for orig_path, norm_path in images_by_folder[folder_key]:
                     try:
-                        with zf.open(img_path) as img_file:
+                        with zf.open(orig_path) as img_file:
                             img = Image.open(img_file)
                             img.thumbnail((150, 150))
                             buf = io.BytesIO()
                             img.save(buf, format='JPEG', quality=70)
                             b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
                             image_thumbnails.append({
-                                "path": img_path,
+                                "path": norm_path,
                                 "data": f"data:image/jpeg;base64,{b64}"
                             })
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        print(f"Thumbnail generation failed for {orig_path}: {e}")
             
             return jsonify({
                 "preview_type": "zip",
                 "folder_tree": sorted(list(folders)),
                 "files_by_folder": {k: sorted(v) for k, v in files_by_folder.items()},
-                "total_files": len([e for e in all_entries if not e.endswith('/')]),
+                "total_files": sum(len(v) for v in files_by_folder.values()),
                 "total_images": len(image_files),
-                "csv_previews": csv_previews,
+                "csv_previews": [],
                 "image_thumbnails": image_thumbnails
             }), 200
             
@@ -389,7 +414,8 @@ def _preview_zip(dataset, drive_id, filename):
 
 
 def _preview_local_directory(dir_path):
-    """Preview an extracted directory (cached image dataset)."""
+    """Preview an extracted directory (cached image dataset).
+    Generates thumbnails for ALL images (no limit) in every folder."""
     import os
     import io
     import base64
@@ -430,13 +456,10 @@ def _preview_local_directory(dir_path):
         if file_list:
             files_by_folder[folder_key] = sorted(file_list)
     
-    # Generate thumbnails: sample up to 8 images per folder so each folder has previews
+    # Generate thumbnails for ALL images (no limit)
     image_thumbnails = []
     for folder_key in sorted(images_by_folder.keys()):
-        folder_images = images_by_folder[folder_key]
-        # Generate thumbnails for ALL images if folder has <= 20 images, otherwise sample first 8
-        max_thumbnails = len(folder_images) if len(folder_images) <= 20 else 8
-        for rel_path, abs_path in folder_images[:max_thumbnails]:
+        for rel_path, abs_path in images_by_folder[folder_key]:
             try:
                 img = Image.open(abs_path)
                 img.thumbnail((150, 150))
@@ -470,6 +493,91 @@ def get_versions(current_user, filename):
         versions = get_dataset_versions(current_user['_id'], filename)
         return jsonify({"versions": versions}), 200
     except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@utils_routes.route('/datasets/<dataset_id>/folder-images', methods=['GET'])
+@token_required
+def get_folder_images(current_user, dataset_id):
+    """On-demand thumbnail loading for a specific folder within a ZIP dataset.
+    
+    Uses resolve_image_dataset_path to download from Drive and extract locally
+    (with caching), then reads images from the filesystem for reliability.
+    
+    Query params:
+        folder: the folder path to load images from (e.g. 'test/cats/')
+    Returns ALL base64-encoded thumbnails for images in that folder.
+    """
+    try:
+        import io
+        import os
+        import base64
+        from PIL import Image
+        from services.dataset_service import get_dataset
+        
+        dataset = get_dataset(dataset_id)
+        
+        # Verify ownership
+        if dataset.get('user_id') and dataset['user_id'] != current_user['_id']:
+            if not dataset.get('is_default'):
+                return jsonify({"error": "Unauthorized"}), 403
+        
+        folder = request.args.get('folder', '')
+        IMAGE_EXTS = {'.jpg', '.jpeg', '.png', '.bmp', '.gif', '.webp'}
+        
+        # Resolve dataset to a local extracted directory
+        # This downloads from Drive if needed, extracts, and caches.
+        resolved_path = None
+        try:
+            from services.dataset_resolver import resolve_image_dataset_path
+            resolved_path = resolve_image_dataset_path(
+                dataset.get('user_id'),
+                filename=dataset.get('filename'),
+                file_path=dataset.get('filepath')
+            )
+        except Exception as e:
+            print(f"Dataset resolution failed for folder-images: {e}")
+        
+        # Fallback to extracted_path from DB
+        if not resolved_path or not os.path.isdir(resolved_path):
+            extracted_path = dataset.get('extracted_path')
+            if extracted_path and os.path.isdir(extracted_path):
+                resolved_path = extracted_path
+        
+        if not resolved_path or not os.path.isdir(resolved_path):
+            return jsonify({"thumbnails": [], "error": "Could not resolve dataset to local directory"}), 200
+        
+        # Read images from the specific folder
+        target_dir = os.path.join(resolved_path, folder.rstrip('/')) if folder else resolved_path
+        if not os.path.isdir(target_dir):
+            return jsonify({"thumbnails": [], "error": f"Folder not found: {folder}"}), 200
+        
+        thumbnails = []
+        files = [f for f in os.listdir(target_dir)
+                 if os.path.splitext(f)[1].lower() in IMAGE_EXTS
+                 and not f.startswith('.') and not f.startswith('__')]
+        
+        for fname in sorted(files):
+            try:
+                abs_path = os.path.join(target_dir, fname)
+                img = Image.open(abs_path)
+                img.thumbnail((150, 150))
+                buf = io.BytesIO()
+                img.save(buf, format='JPEG', quality=70)
+                b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+                rel_path = (folder + fname) if folder else fname
+                thumbnails.append({
+                    "path": rel_path,
+                    "data": f"data:image/jpeg;base64,{b64}"
+                })
+            except Exception:
+                pass
+        
+        return jsonify({"thumbnails": thumbnails}), 200
+                
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 
