@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { API_URL } from '../../constants';
-import './EditProfile.css';
+import './editProfile.css';
 
 const EditProfile = () => {
     const { user, updateProfile, uploadProfilePhoto, deleteAccount } = useAuth();
