@@ -58,7 +58,7 @@ except Exception as e:
 # Register blueprints with /api prefix for Vercel serverless compatibility
 app.register_blueprint(model_routes, url_prefix='/api')
 app.register_blueprint(utils_routes, url_prefix='/api')
-app.register_blueprint(auth_routes, url_prefix='/api/auth')
+app.register_blueprint(auth_routes, url_prefix='/api')
 app.register_blueprint(admin_routes, url_prefix='/api/admin')
 
 @app.route('/api')
