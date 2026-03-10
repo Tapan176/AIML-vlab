@@ -5,7 +5,9 @@
       "src": "package.json",
       "use": "@vercel/static-build",
       "config": {
-        "distDir": "build"
+        "distDir": "build",
+        "installCommand": "npm ci",
+        "buildCommand": "npm run build"
       }
     }
   ],
@@ -14,4 +16,3 @@
     { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
-
