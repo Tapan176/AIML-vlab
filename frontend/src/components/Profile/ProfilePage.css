@@ -158,15 +158,15 @@
 }
 
 .stat-card:nth-child(1) .stat-icon {
-    background: linear-gradient(135deg, #ff6b6b 0%, #ff8787 100%);
+    background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
 }
 
 .stat-card:nth-child(2) .stat-icon {
-    background: linear-gradient(135deg, #d946ef 0%, #e879f9 100%);
+    background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
 }
 
 .stat-card:nth-child(3) .stat-icon {
-    background: linear-gradient(135deg, #fbbf24 0%, #fcd34d 100%);
+    background: linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%);
 }
 
 .stat-value {

@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faPlayCircle, faFileAlt, faRobot, faBullseye } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
@@ -146,28 +148,36 @@ const Dashboard = () => {
             {/* Stats */}
             <div className="stats-grid">
                 <div className="stat-card">
-                    <span className="stat-icon">🧠</span>
+                    <span className="stat-icon">
+                        <FontAwesomeIcon icon={faPlayCircle} />
+                    </span>
                     <div>
                         <span className="stat-number">{sessions.length}</span>
                         <span className="stat-text">Training Sessions</span>
                     </div>
                 </div>
                 <div className="stat-card">
-                    <span className="stat-icon">📂</span>
+                    <span className="stat-icon">
+                        <FontAwesomeIcon icon={faFileAlt} />
+                    </span>
                     <div>
                         <span className="stat-number">{datasets.length}</span>
                         <span className="stat-text">Datasets</span>
                     </div>
                 </div>
                 <div className="stat-card">
-                    <span className="stat-icon">🤖</span>
+                    <span className="stat-icon">
+                        <FontAwesomeIcon icon={faRobot} />
+                    </span>
                     <div>
                         <span className="stat-number">{totalModels}</span>
                         <span className="stat-text">Models Used</span>
                     </div>
                 </div>
                 <div className="stat-card">
-                    <span className="stat-icon">🎯</span>
+                    <span className="stat-icon">
+                        <FontAwesomeIcon icon={faBullseye} />
+                    </span>
                     <div>
                         <span className="stat-number">{avgAccuracy}%</span>
                         <span className="stat-text">Avg Accuracy</span>

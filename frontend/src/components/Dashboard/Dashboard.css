@@ -86,6 +86,36 @@
 .stat-icon {
     font-size: 2.5rem;
     flex-shrink: 0;
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    margin-right: 1rem;
+    color: #fff;
+}
+
+.stat-card {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    position: relative;
+    padding: 1.2rem 1rem;
+}
+
+/* color variants */
+.stats-grid .stat-card:nth-child(1) .stat-icon {
+    background: linear-gradient(135deg, #10b981 0%, #34d399 100%); /* training/green */
+}
+.stats-grid .stat-card:nth-child(2) .stat-icon {
+    background: linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%); /* datasets/purple */
+}
+.stats-grid .stat-card:nth-child(3) .stat-icon {
+    background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%); /* models/orange */
+}
+.stats-grid .stat-card:nth-child(4) .stat-icon {
+    background: linear-gradient(135deg, #ef4444 0%, #f87171 100%); /* accuracy/red */
 }
 
 .stat-number {
