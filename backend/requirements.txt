@@ -27,7 +27,6 @@ gunicorn
 
 # Database
 pymongo
-gridfs
 
 # Auth & Security
 bcrypt

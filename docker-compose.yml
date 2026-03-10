@@ -12,15 +12,31 @@ services:
       - ./backend/.env
     environment:
       - FLASK_ENV=production
+      - PORT=5050
+    volumes:
+      # Persist runtime data across container restarts
+      - backend_uploads:/app/static/uploads
+      - backend_models:/app/trainedModels
+      - backend_images:/app/static/images
+      - backend_predictions:/app/predictions
     restart: unless-stopped
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        # This tells React where the backend API lives (baked in at build time)
+        REACT_APP_API_URL: http://localhost:5050/api
     container_name: aiml_frontend
     ports:
       - "3000:80"
     depends_on:
       - backend
     restart: unless-stopped
+
+volumes:
+  backend_uploads:
+  backend_models:
+  backend_images:
+  backend_predictions:
