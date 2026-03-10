@@ -1,30 +1,8 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { COUNTRY_CODES } from '../../constants';
 import './Auth.css';
-
-const COUNTRY_CODES = [
-    { code: '+91', name: 'India (IN)' },
-    { code: '+1', name: 'USA/Canada' },
-    { code: '+44', name: 'UK (GB)' },
-    { code: '+61', name: 'Australia (AU)' },
-    { code: '+49', name: 'Germany (DE)' },
-    { code: '+33', name: 'France (FR)' },
-    { code: '+81', name: 'Japan (JP)' },
-    { code: '+86', name: 'China (CN)' },
-    { code: '+55', name: 'Brazil (BR)' },
-    { code: '+7', name: 'Russia (RU)' },
-    { code: '+27', name: 'South Africa (ZA)' },
-    { code: '+971', name: 'UAE (AE)' },
-    { code: '+65', name: 'Singapore (SG)' },
-    { code: '+60', name: 'Malaysia (MY)' },
-    { code: '+39', name: 'Italy (IT)' },
-    { code: '+34', name: 'Spain (ES)' },
-    { code: '+82', name: 'South Korea (KR)' },
-    { code: '+92', name: 'Pakistan (PK)' },
-    { code: '+880', name: 'Bangladesh (BD)' },
-    { code: '+234', name: 'Nigeria (NG)' }
-];
 
 const SignUp = () => {
     const [formData, setFormData] = useState({

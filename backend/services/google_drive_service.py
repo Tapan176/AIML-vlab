@@ -7,7 +7,7 @@ from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload, MediaIoBaseDownload, MediaFileUpload
 from werkzeug.datastructures import FileStorage
-from config import BASE_DIR, GOOGLE_CREDENTIALS_JSON, GOOGLE_TOKEN_JSON
+from config import BASE_DIR, GOOGLE_CREDENTIALS_JSON, GOOGLE_TOKEN_JSON, GOOGLE_CREDENTIALS_PATH, GOOGLE_TOKEN_PATH
 
 # If modifying these scopes, delete the file token.json.
 SCOPES = ['https://www.googleapis.com/auth/drive.file']
@@ -16,8 +16,8 @@ SCOPES = ['https://www.googleapis.com/auth/drive.file']
 # If None, the service will create an 'AIML_VLab_Data' folder in the root and use it.
 APP_ROOT_FOLDER_ID = None
 
-creds_path = os.environ.get('GOOGLE_CREDENTIALS_PATH', os.path.join(BASE_DIR, 'credentials.json'))
-token_path = os.environ.get('GOOGLE_TOKEN_PATH', os.path.join(BASE_DIR, 'token.json'))
+creds_path = GOOGLE_CREDENTIALS_PATH
+token_path = GOOGLE_TOKEN_PATH
 
 def get_drive_service():
     """Authenticate and return Google Drive v3 API service.

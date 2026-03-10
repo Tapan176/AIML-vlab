@@ -29,6 +29,8 @@ PREDICTIONS_DIR = os.getenv('PREDICTIONS_DIR', 'predictions')
 # --- Google Drive ---
 GOOGLE_CREDENTIALS_JSON = os.getenv('GOOGLE_CREDENTIALS_JSON')
 GOOGLE_TOKEN_JSON = os.getenv('GOOGLE_TOKEN_JSON')
+GOOGLE_CREDENTIALS_PATH = os.getenv('GOOGLE_CREDENTIALS_PATH', os.path.join(BASE_DIR, 'credentials.json'))
+GOOGLE_TOKEN_PATH = os.getenv('GOOGLE_TOKEN_PATH', os.path.join(BASE_DIR, 'token.json'))
 
 # --- Server ---
 FLASK_PORT = int(os.getenv('FLASK_PORT', '5050'))
