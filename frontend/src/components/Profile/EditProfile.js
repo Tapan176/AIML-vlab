@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { API_URL } from '../../constants';
-import './editProfile.css';
+import './EditProfile.css';
 
 const EditProfile = () => {
-    const { user, updateProfile, uploadProfilePhoto, deleteAccount } = useAuth();
+    const { user, updateProfile, uploadProfilePhoto } = useAuth();
     const navigate = useNavigate();
 
     const [formData, setFormData] = useState({
@@ -50,18 +50,7 @@ const EditProfile = () => {
         }
     };
 
-    const handleDeleteAccount = async () => {
-        if (window.confirm("Are you sure you want to delete your account? This action cannot be undone.")) {
-            try {
-                setLoading(true);
-                await deleteAccount();
-                navigate('/');
-            } catch (err) {
-                setError(err.message || 'Failed to delete account');
-                setLoading(false);
-            }
-        }
-    };
+
 
     if (!user) {
         navigate('/login');

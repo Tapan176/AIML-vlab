@@ -1,5 +1,5 @@
-﻿/* eslint-disable jsx-a11y/img-redundant-alt */
-import React, { useState, useEffect } from 'react';
+/* eslint-disable jsx-a11y/img-redundant-alt */
+import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft, faArrowRight } from '@fortawesome/free-solid-svg-icons';
 import constants from '../../constants';
@@ -94,4 +94,5 @@ export default function DBSCAN() {
         </div>
     );
 }
+
 

@@ -1,5 +1,3 @@
-import React from 'react';
-
 const DEFAULT_LSTM_LAYER = { units: 64, return_sequences: true, dropout: 0.2 };
 const DEFAULT_DENSE_LAYER = { units: 32, activation: 'relu', dropout: 0 };
 

@@ -1,4 +1,3 @@
-import React from 'react';
 import '../ModelCss/ModelPage.css';
 
 const HiddenLayer = ({ index, layer, onChange, onRemove }) => {

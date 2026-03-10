@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { API_URL } from '../../constants';
 import { Collapse, Button } from 'react-bootstrap';
 import './ModelDescription.css';

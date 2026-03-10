@@ -1,4 +1,3 @@
-import React from 'react';
 import constants from '../../constants';
 
 export default function DownloadModelPredictions({ selectedModel, extension }) {

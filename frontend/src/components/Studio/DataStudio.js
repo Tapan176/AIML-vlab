@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import constants from '../../constants';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTrash, faDatabase, faMagic, faTags } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../../context/AuthContext';
 import ShowDataset from '../Dataset/ShowDataset';
 import ImageAnnotation from './ImageAnnotation';
-import Sidebar from '../Sidebar/Sidebar';
 import './DataStudio.css';
 
 export default function DataStudio() {

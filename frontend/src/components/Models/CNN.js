@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import constants from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
 import CnnHiddenLayer from '../HiddenLayers/CnnHiddenLayer';
@@ -212,5 +212,6 @@ export default function CNN() {
         </div>
     );
 }
+
 
 

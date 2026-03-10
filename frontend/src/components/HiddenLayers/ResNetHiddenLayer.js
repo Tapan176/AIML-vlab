@@ -1,5 +1,3 @@
-import React from 'react';
-
 const DEFAULT_DENSE_LAYER = { units: 128, activation: 'relu', dropout: 0.3 };
 
 export default function ResNetHiddenLayer({ layers, onChange, onAddLayer, onRemoveLayer, isFrozen = true, onToggleFrozen }) {

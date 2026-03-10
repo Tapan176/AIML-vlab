@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import constants from '../../constants';
 
 /**
@@ -27,7 +27,7 @@ export default function ImageAnnotation() {
     const imgRef = useRef(null);
 
     const currentImage = images[currentIdx] || null;
-    const currentAnnotations = currentImage ? (annotations[currentImage.name] || []) : [];
+    const currentAnnotations = useMemo(() => currentImage ? (annotations[currentImage.name] || []) : [], [currentImage, annotations]);
 
     // Load image onto canvas when current image changes
     useEffect(() => {

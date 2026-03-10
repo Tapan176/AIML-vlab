@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import constants, { API_URL } from '../../constants';
@@ -64,18 +64,24 @@ const ProfilePage = () => {
             <div className="profile-stats">
                 <div className="stat-card">
                     <span className="stat-icon">🎯</span>
-                    <div className="stat-value">{stats.totalSessions}</div>
-                    <div className="stat-label">Training Sessions</div>
+                    <div className="stat-info">
+                        <div className="stat-value">{stats.totalSessions}</div>
+                        <div className="stat-label">Training Sessions</div>
+                    </div>
                 </div>
                 <div className="stat-card">
                     <span className="stat-icon">🧠</span>
-                    <div className="stat-value">{stats.modelsUsed}</div>
-                    <div className="stat-label">Models Used</div>
+                    <div className="stat-info">
+                        <div className="stat-value">{stats.modelsUsed}</div>
+                        <div className="stat-label">Models Used</div>
+                    </div>
                 </div>
                 <div className="stat-card">
                     <span className="stat-icon">📊</span>
-                    <div className="stat-value">{stats.datasetsUploaded}</div>
-                    <div className="stat-label">Datasets</div>
+                    <div className="stat-info">
+                        <div className="stat-value">{stats.datasetsUploaded}</div>
+                        <div className="stat-label">Datasets</div>
+                    </div>
                 </div>
             </div>
 

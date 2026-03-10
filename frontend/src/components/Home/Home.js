@@ -1,4 +1,4 @@
-import React, { useState, lazy, Suspense } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import Sidebar from '../Sidebar/Sidebar';
 import './Home.css';
 
