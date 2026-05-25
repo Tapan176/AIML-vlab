@@ -5,8 +5,6 @@ import pandas as pd
 import numpy as np
 import csv
 import os
-import matplotlib
-matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from utils.saveTrainedModel import saveTrainedModel
 from config import UPLOAD_DIR, IMAGES_DIR, PREDICTIONS_DIR, ensure_dir

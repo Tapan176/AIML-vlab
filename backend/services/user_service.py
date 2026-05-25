@@ -5,6 +5,7 @@ import bcrypt
 from mongoDb.connection import get_db
 from bson import ObjectId
 from gridfs import GridFS
+from auth.auth_middleware import invalidate_user_cache
 
 
 def get_user_by_id(user_id):
@@ -45,6 +46,7 @@ def update_user_profile(user_id, data):
         {'$set': update_data}
     )
 
+    invalidate_user_cache(user_id)
     return get_user_by_id(user_id)
 
 
@@ -71,6 +73,7 @@ def change_password(user_id, old_password, new_password):
         {'$set': {'password': hashed}}
     )
 
+    invalidate_user_cache(user_id)
     return True
 
 def delete_user(user_id):
@@ -83,6 +86,7 @@ def delete_user(user_id):
         except Exception:
             pass
     db.users.delete_one({'_id': ObjectId(user_id)})
+    invalidate_user_cache(user_id)
     return True
 
 from services.google_drive_service import upload_file_to_drive, delete_file_from_drive
@@ -108,5 +112,6 @@ def update_profile_photo(user_id, file):
         {'_id': ObjectId(user_id)},
         {'$set': {'profile_photo_id': file_id, 'profile_photo_url': photo_url}}
     )
+    invalidate_user_cache(user_id)
     return get_user_by_id(user_id)
 

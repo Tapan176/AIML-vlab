@@ -2,6 +2,12 @@
 # before any TensorFlow/protobuf imports happen elsewhere.
 from config import FLASK_PORT, FLASK_DEBUG, UPLOAD_DIR, ALLOWED_ORIGINS
 
+# Pin matplotlib to the non-interactive Agg backend ONCE, before any model
+# module imports pyplot. After pyplot is imported, matplotlib.use() is a no-op
+# with a warning — so this must precede the route imports below.
+import matplotlib
+matplotlib.use('Agg')
+
 from flask import Flask, send_from_directory
 from flask_cors import CORS
 from flask_limiter import Limiter

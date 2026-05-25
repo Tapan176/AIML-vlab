@@ -60,6 +60,7 @@ def create_session(user_id, model_code, hyperparams, dataset_id=None):
 
 
 from services.google_drive_service import upload_file_to_drive
+from concurrent.futures import ThreadPoolExecutor
 import os
 import zipfile
 import shutil
@@ -132,82 +133,99 @@ def _create_results_zip(output_images, session_label):
                 
     return zip_path
 
+def _upload_model_chain(model_path, user_id, session_label):
+    """Zip + upload the trained model to Drive, then delete local files.
+    Returns (drive_url, drive_id, upload_filename); any field is None on failure.
+    """
+    if not (model_path and os.path.exists(model_path)):
+        return (None, None, None)
+
+    upload_path = _zip_model_path(model_path)
+    upload_filename = os.path.basename(upload_path)
+
+    try:
+        drive_res = upload_file_to_drive(
+            upload_path, upload_filename,
+            folder_type='trained_models',
+            user_id=user_id,
+            subfolder=session_label,
+        )
+        drive_url = drive_res.get('webContentLink')
+        drive_id = drive_res.get('id')
+
+        if os.path.exists(upload_path):
+            os.remove(upload_path)
+        if os.path.exists(model_path):
+            if os.path.isdir(model_path):
+                shutil.rmtree(model_path, ignore_errors=True)
+            else:
+                os.remove(model_path)
+
+        return (drive_url, drive_id, upload_filename)
+    except Exception as e:
+        print(f"Warning: Failed to upload trained model to Drive: {e}")
+        return (None, None, upload_filename)
+
+
+def _upload_results_zip_chain(output_images, user_id, session_label):
+    """Zip + upload output images, then delete locals. Returns (drive_url, drive_id)."""
+    if not output_images:
+        return (None, None)
+
+    results_zip_path = _create_results_zip(output_images, session_label)
+    if not results_zip_path:
+        return (None, None)
+
+    drive_url = None
+    drive_id = None
+    try:
+        drive_res = upload_file_to_drive(
+            results_zip_path, os.path.basename(results_zip_path),
+            folder_type='trained_models',
+            user_id=user_id,
+            subfolder=session_label,
+        )
+        drive_url = drive_res.get('webContentLink')
+        drive_id = drive_res.get('id')
+
+        if os.path.exists(results_zip_path):
+            os.remove(results_zip_path)
+    except Exception as e:
+        print(f"Warning: Failed to upload results zip to Drive: {e}")
+
+    for img_path in output_images:
+        if os.path.exists(img_path):
+            try:
+                os.remove(img_path)
+            except Exception:
+                pass
+
+    return (drive_url, drive_id)
+
+
 def update_session_results(session_id, results, output_images, model_path, predictions_path=None):
     """Update a training session with results after training completes.
-    
+
     - Zips the trained model if it's a directory or multi-file output.
     - Zips output images into a separate results.zip
     - Uploads both to Google Drive under UserData/{user_id}/trained_models/{session_label}.
     - Stores the Drive download URLs in the session record.
+
+    The two uploads (model + images zip) run concurrently in a thread pool —
+    the Drive API is I/O-bound so the wall-clock cost is set by whichever
+    upload is slower, not their sum.
     """
     db = get_db()
-    
+
     session = db.training_sessions.find_one({'_id': ObjectId(session_id)})
     user_id = session.get('user_id') if session else None
     session_label = session.get('session_label', f'session_{session_id}') if session else f'session_{session_id}'
-    
-    trained_model_drive_url = None
-    trained_model_drive_id = None
-    results_zip_drive_url = None
-    results_zip_drive_id = None
-    upload_filename = None
 
-    import shutil
-
-    # 1. Handle Model Upload
-    if model_path and os.path.exists(model_path):
-        upload_path = _zip_model_path(model_path)
-        upload_filename = os.path.basename(upload_path)
-        
-        try:
-            drive_res = upload_file_to_drive(
-                upload_path, upload_filename,
-                folder_type='trained_models',
-                user_id=user_id,
-                subfolder=session_label
-            )
-            trained_model_drive_url = drive_res.get('webContentLink')
-            trained_model_drive_id = drive_res.get('id')
-            
-            # Delete local model files to save disk space
-            if os.path.exists(upload_path):
-                os.remove(upload_path)
-            if os.path.exists(model_path):
-                if os.path.isdir(model_path):
-                    shutil.rmtree(model_path, ignore_errors=True)
-                else:
-                    os.remove(model_path)
-        except Exception as e:
-            print(f"Warning: Failed to upload trained model to Drive: {e}")
-
-
-    # 2. Handle Results Zip Upload
-    if output_images:
-        results_zip_path = _create_results_zip(output_images, session_label)
-        if results_zip_path:
-            try:
-                drive_res = upload_file_to_drive(
-                    results_zip_path, os.path.basename(results_zip_path),
-                    folder_type='trained_models',
-                    user_id=user_id,
-                    subfolder=session_label
-                )
-                results_zip_drive_url = drive_res.get('webContentLink')
-                results_zip_drive_id = drive_res.get('id')
-                
-                # Delete local results zip
-                if os.path.exists(results_zip_path):
-                    os.remove(results_zip_path)
-            except Exception as e:
-                print(f"Warning: Failed to upload results zip to Drive: {e}")
-                
-            # Delete the local output images
-            for img_path in output_images:
-                if os.path.exists(img_path):
-                    try:
-                        os.remove(img_path)
-                    except Exception:
-                        pass
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        f_model = ex.submit(_upload_model_chain, model_path, user_id, session_label)
+        f_results = ex.submit(_upload_results_zip_chain, output_images, user_id, session_label)
+        trained_model_drive_url, trained_model_drive_id, upload_filename = f_model.result()
+        results_zip_drive_url, results_zip_drive_id = f_results.result()
 
     # Resolve the linked dataset's drive_id for easy reference
     dataset_drive_id = None

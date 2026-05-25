@@ -6,8 +6,6 @@ from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, r
 import pandas as pd
 import numpy as np
 import os
-import matplotlib
-matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
 import csv

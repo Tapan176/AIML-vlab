@@ -3,8 +3,6 @@ from sklearn.cluster import DBSCAN as DBSCANModel
 import pandas as pd
 import numpy as np
 import os
-import matplotlib
-matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import csv
 from config import UPLOAD_DIR, IMAGES_DIR, ensure_dir

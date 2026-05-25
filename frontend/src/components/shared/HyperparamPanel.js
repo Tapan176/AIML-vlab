@@ -1,6 +1,29 @@
 import { useState, useEffect } from 'react';
 import constants from '../../constants';
 
+// Module-level cache: model schemas don't change at runtime, so one fetch per
+// modelCode is enough for the lifetime of the SPA. Keyed by modelCode →
+// either the resolved schema object or a pending Promise (so concurrent mounts
+// during dev hot-reload don't trigger duplicate fetches).
+const _schemaCache = new Map();
+
+function fetchSchema(modelCode) {
+    if (_schemaCache.has(modelCode)) return _schemaCache.get(modelCode);
+    const promise = fetch(`${constants.API_BASE_URL}/model-schema/${modelCode}`)
+        .then(res => res.json())
+        .then(data => {
+            const schema = data.schema || null;
+            _schemaCache.set(modelCode, schema);
+            return schema;
+        })
+        .catch(err => {
+            _schemaCache.delete(modelCode);  // allow retry on next mount
+            throw err;
+        });
+    _schemaCache.set(modelCode, promise);
+    return promise;
+}
+
 /**
  * HyperparamPanel — Fetches schema from /model-schema/<code> and renders inputs.
  * Props:
@@ -16,11 +39,16 @@ export default function HyperparamPanel({ modelCode, hyperparams, onChange, sche
 
     useEffect(() => {
         if (!modelCode) return;
+        const cached = _schemaCache.get(modelCode);
+        // Cached, non-Promise value — use immediately, skip the network round trip.
+        if (cached && typeof cached.then !== 'function') {
+            setSchema(cached);
+            return;
+        }
         setLoading(true);
-        fetch(`${constants.API_BASE_URL}/model-schema/${modelCode}`)
-            .then(res => res.json())
-            .then(data => {
-                setSchema(data.schema || null);
+        Promise.resolve(fetchSchema(modelCode))
+            .then(resolved => {
+                setSchema(resolved);
                 setLoading(false);
             })
             .catch(() => setLoading(false));
