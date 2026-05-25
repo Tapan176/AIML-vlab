@@ -1,43 +1,16 @@
 """Text Classification — CountVectorizer + MultinomialNB pipeline."""
-import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from sklearn.pipeline import Pipeline
 from utils.saveTrainedModel import saveTrainedModel
-import os
+from utils.data_loader import load_text_classification_data
 
 
 def train_text_classification(request, validated_params=None, user_id=None, session_version=None):
     data = request.json or {}
-    filename = data.get('filename')
-    text_column = data.get('text_column', None)
-    label_column = data.get('label_column', None)
-
-    if not filename:
-        raise ValueError("No dataset filename provided.")
-
-    from services.dataset_service import get_dataset_df
-    df = get_dataset_df(user_id, filename)
-
-    # Auto-detect text and label columns
-    if not text_column:
-        text_cols = df.select_dtypes(include=['object']).columns
-        if len(text_cols) >= 2:
-            text_column = text_cols[0]
-            label_column = label_column or text_cols[1]
-        elif len(text_cols) == 1:
-            text_column = text_cols[0]
-            label_column = label_column or df.columns[-1]
-        else:
-            raise ValueError("No text column detected in dataset.")
-
-    if not label_column:
-        label_column = df.columns[-1]
-
-    X = df[text_column].astype(str)
-    y = df[label_column]
+    X, y = load_text_classification_data(data, user_id)
 
     p = validated_params or {}
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=p.get('test_size', 0.2), random_state=42)

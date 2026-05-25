@@ -1,11 +1,9 @@
-from flask import jsonify
 from sklearn.cluster import DBSCAN as DBSCANModel
-import pandas as pd
 import numpy as np
 import os
 import matplotlib.pyplot as plt
-import csv
-from config import UPLOAD_DIR, IMAGES_DIR, ensure_dir
+from utils.data_loader import load_clustering_features
+from config import IMAGES_DIR, ensure_dir
 
 
 def dbscan(request, validated_params=None, user_id=None, session_version=None):
@@ -15,23 +13,14 @@ def dbscan(request, validated_params=None, user_id=None, session_version=None):
     min_samples = params.get('min_samples', int(data.get('min_samples', 5)))
     metric = params.get('metric', 'euclidean')
 
-    X = None
-    if 'filename' in data:
-        try:
-            from services.dataset_service import get_dataset_df
-            dataset = get_dataset_df(user_id, data['filename'])
-            numeric_dataset = dataset.select_dtypes(include=[np.number]).dropna()
-            if numeric_dataset.empty or numeric_dataset.shape[1] < 2:
-                return {"error": "Dataset must contain at least 2 numeric columns and valid rows for clustering."}
-            X = numeric_dataset.values
-        except FileNotFoundError:
-            return {"error": "File not found"}
-        except Exception as e:
-            return {"error": str(e)}
-    elif 'X' in data:
-        X = np.array(data['X'])
-    else:
-        return {"error": "Neither X nor filename provided"}
+    try:
+        X = load_clustering_features(data, user_id)
+    except FileNotFoundError:
+        return {"error": "File not found"}
+    except ValueError as e:
+        return {"error": str(e)}
+    except Exception as e:
+        return {"error": str(e)}
 
     clustering = DBSCANModel(eps=eps, min_samples=min_samples, metric=metric)
     labels = clustering.fit_predict(X)

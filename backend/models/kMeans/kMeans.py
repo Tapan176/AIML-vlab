@@ -1,12 +1,9 @@
-from flask import jsonify
 from sklearn.cluster import KMeans
-import pandas as pd
-import numpy as np
 import os
 import matplotlib.pyplot as plt
-import csv
 from utils.saveTrainedModel import saveTrainedModel
-from config import UPLOAD_DIR, IMAGES_DIR, ensure_dir
+from utils.data_loader import load_clustering_features
+from config import IMAGES_DIR, ensure_dir
 
 
 def kMeans(request, validated_params=None, user_id=None, session_version=None):
@@ -18,23 +15,14 @@ def kMeans(request, validated_params=None, user_id=None, session_version=None):
     n_init = params.get('n_init', 10)
     random_state = params.get('random_state', 42)
 
-    X = None
-    if 'filename' in data:
-        try:
-            from services.dataset_service import get_dataset_df
-            dataset = get_dataset_df(user_id, data['filename'])
-            numeric_dataset = dataset.select_dtypes(include=[np.number]).dropna()
-            if numeric_dataset.empty or numeric_dataset.shape[1] < 2:
-                return {"error": "Dataset must contain at least 2 numeric columns and valid rows for clustering."}
-            X = numeric_dataset.values
-        except FileNotFoundError:
-            return {"error": "File not found"}
-        except Exception as e:
-            return {"error": str(e)}
-    elif 'X' in data:
-        X = np.array(data['X'])
-    else:
-        return {"error": "Neither X nor filename provided"}
+    try:
+        X = load_clustering_features(data, user_id)
+    except FileNotFoundError:
+        return {"error": "File not found"}
+    except ValueError as e:
+        return {"error": str(e)}
+    except Exception as e:
+        return {"error": str(e)}
 
     # Elbow method
     img_dir = ensure_dir(IMAGES_DIR)
