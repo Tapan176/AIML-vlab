@@ -1,20 +1,12 @@
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-import pandas as pd
-import numpy as np
-import csv
 import os
 import matplotlib.pyplot as plt
 from utils.saveTrainedModel import saveTrainedModel
-from config import UPLOAD_DIR, IMAGES_DIR, PREDICTIONS_DIR, ensure_dir
-
-
-def get_column_names(csv_file):
-    with open(csv_file, 'r', newline='') as file:
-        reader = csv.reader(file)
-        column_names = next(reader)
-    return column_names
+from utils.data_loader import load_data_with_fallback
+from utils.predictions_writer import save_predictions_csv
+from config import IMAGES_DIR, PREDICTIONS_DIR, ensure_dir
 
 
 def save_result_images(X, y, X_train, model, title, xlabel, ylabel, output_path):
@@ -29,13 +21,6 @@ def save_result_images(X, y, X_train, model, title, xlabel, ylabel, output_path)
     plt.close()
 
 
-def save_predictions(X_test, y_test, columnNames, predictions, output_file):
-    dataset = pd.DataFrame(X_test, columns=columnNames[:-1])
-    dataset[columnNames[1]] = y_test
-    dataset['Predictions'] = predictions
-    dataset.to_csv(output_file, index=False)
-
-
 def simpleLinearRegression(request, validated_params=None, user_id=None, session_version=None):
     data = request.json
 
@@ -44,27 +29,14 @@ def simpleLinearRegression(request, validated_params=None, user_id=None, session
     test_size = params.get('test_size', 0.33)
     random_state = params.get('random_state', 0)
 
-    X = None
-    y = None
-
-    if 'X' in data and 'y' in data:
-        X = np.array(data['X'])
-        y = np.array(data['y'])
-        X = X.reshape(-1, 1)
-        columnNames = ['X', 'y']
-    elif 'filename' in data:
-        try:
-            from services.dataset_service import get_dataset_df
-            dataset = get_dataset_df(user_id, data['filename'])
-            columnNames = dataset.columns.tolist()
-            X = dataset.iloc[:, :-1].values
-            y = dataset.iloc[:, -1].values
-        except FileNotFoundError:
-            return {"error": "File not found"}
-        except Exception as e:
-            return {"error": str(e)}
-    else:
-        return {"error": "Neither X and y nor filename provided"}
+    try:
+        X, y, columnNames = load_data_with_fallback(data, user_id, reshape_x_to_2d=True)
+    except FileNotFoundError:
+        return {"error": "File not found"}
+    except ValueError as e:
+        return {"error": str(e)}
+    except Exception as e:
+        return {"error": str(e)}
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=random_state)
 
@@ -75,10 +47,9 @@ def simpleLinearRegression(request, validated_params=None, user_id=None, session
 
     y_pred = model.predict(X_test)
 
-    # Save predictions
     pred_dir = ensure_dir(PREDICTIONS_DIR)
     predictions_output_file = os.path.join(pred_dir, 'simple_linear_regression.csv')
-    save_predictions(X_test, y_test, columnNames, y_pred, predictions_output_file)
+    save_predictions_csv(X_test, y_test, columnNames, y_pred, predictions_output_file)
 
     mae = mean_absolute_error(y_test, y_pred)
     mse = mean_squared_error(y_test, y_pred)

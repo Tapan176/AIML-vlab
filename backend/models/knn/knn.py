@@ -1,23 +1,14 @@
-from flask import jsonify
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, recall_score, f1_score
-import pandas as pd
 import numpy as np
 import os
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
-import csv
 from utils.saveTrainedModel import saveTrainedModel
-from config import UPLOAD_DIR, IMAGES_DIR, ensure_dir
-
-
-def get_column_names(csv_file):
-    with open(csv_file, 'r', newline='') as file:
-        reader = csv.reader(file)
-        column_names = next(reader)
-    return column_names
+from utils.data_loader import load_data_with_fallback
+from config import IMAGES_DIR, ensure_dir
 
 
 def save_result_images(X, y, classifier, title, xlabel, ylabel, output_path):
@@ -50,27 +41,14 @@ def knn(request, validated_params=None, user_id=None, session_version=None):
     test_size = params.get('test_size', 0.25)
     random_state = params.get('random_state', 0)
 
-    X = None
-    y = None
-
-    if 'X' in data and 'y' in data:
-        X = np.array(data['X'])
-        y = np.array(data['y'])
-        X = X.reshape(-1, 1)
-        columnNames = ['X', 'y']
-    elif 'filename' in data:
-        try:
-            from services.dataset_service import get_dataset_df
-            dataset = get_dataset_df(user_id, data['filename'])
-            columnNames = dataset.columns.tolist()
-            X = dataset.iloc[:, :-1].values
-            y = dataset.iloc[:, -1].values
-        except FileNotFoundError:
-            return {"error": "File not found"}
-        except Exception as e:
-            return {"error": str(e)}
-    else:
-        return {"error": "Neither X and y nor filename provided"}
+    try:
+        X, y, columnNames = load_data_with_fallback(data, user_id, reshape_x_to_2d=True)
+    except FileNotFoundError:
+        return {"error": "File not found"}
+    except ValueError as e:
+        return {"error": str(e)}
+    except Exception as e:
+        return {"error": str(e)}
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=random_state)
 
