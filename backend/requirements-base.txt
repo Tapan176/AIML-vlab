@@ -1,0 +1,56 @@
+# =============================================================================
+#  requirements-base.txt
+#  Shared dependencies used by BOTH dev (GPU) and prod (CPU) installs.
+#  Do not install this file directly — install requirements-dev.txt or
+#  requirements.txt, both of which include this file via `-r`.
+#
+#  Anything that has CPU/GPU build variants (tensorflow, torch, ultralytics)
+#  lives in the dev/prod files instead, not here.
+# =============================================================================
+
+
+# --- Web Framework ----------------------------------------------------------
+flask>=3.0,<4
+flask-cors>=4.0,<5
+flask-limiter>=3.5,<4
+gunicorn>=21.2,<23
+
+
+# --- Database ---------------------------------------------------------------
+pymongo>=4.6,<5
+
+
+# --- Auth & Security --------------------------------------------------------
+bcrypt>=4.1,<5
+PyJWT>=2.8,<3
+python-dotenv>=1.0,<2
+
+
+# --- Google Drive Integration -----------------------------------------------
+google-api-python-client>=2.100,<3
+google-auth-httplib2>=0.2,<1
+google-auth-oauthlib>=1.2,<2
+
+
+# --- Core ML / Data Science (classic, no GPU build variants) ----------------
+numpy>=1.26,<2
+pandas>=2.1,<3
+scipy>=1.11,<2
+matplotlib>=3.8,<4
+scikit-learn>=1.4,<2
+
+
+# --- Boosting (CPU by default, GPU opt-in via runtime device flag) ----------
+xgboost>=2.0,<3
+
+
+# --- Vision (headless variant; ultralytics will not pull the GUI variant) ---
+opencv-python-headless>=4.9,<5
+
+
+# --- Utilities --------------------------------------------------------------
+joblib>=1.3,<2
+requests>=2.31,<3
+Pillow>=10.0,<11
+pyyaml>=6.0,<7
+Werkzeug>=3.0,<4

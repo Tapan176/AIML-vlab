@@ -35,7 +35,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy and install Python dependencies into an isolated prefix so we can
 # copy just that directory into the runtime stage cleanly.
+#
+# REQUIREMENTS_FILE selects the install profile:
+#   requirements.txt          — production/Docker, CPU-only (default)
+#   requirements-dev.txt      — local dev, GPU-capable
+#   requirements.railway.txt  — free-tier minimal, no DL
+#
+# requirements-base.txt is unconditionally copied because the other files
+# include it via `-r requirements-base.txt`.
 ARG REQUIREMENTS_FILE=requirements.txt
+COPY requirements-base.txt ./requirements-base.txt
 COPY ${REQUIREMENTS_FILE} ./requirements.txt
 
 RUN pip install --upgrade pip \

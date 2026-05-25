@@ -3,6 +3,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.txt
+!requirements*.txt
+!**/requirements*.txt
 backend/check_*
 backend/err.txt
 backend/start_err.txt

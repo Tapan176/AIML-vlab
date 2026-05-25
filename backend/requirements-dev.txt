@@ -1,0 +1,28 @@
+# =============================================================================
+#  requirements-dev.txt  —  Local development (GPU-capable wheels)
+#
+#  Install with:   pip install -r requirements-dev.txt
+#
+#  Pulls full tensorflow + torch + torchvision + ultralytics. On a machine
+#  with a working CUDA toolkit + drivers, these auto-use the GPU. Without
+#  GPU, they fall back to CPU automatically (just larger downloads/RAM).
+#
+#  For production / Docker / Vercel use requirements.txt (CPU-only) instead.
+# =============================================================================
+
+
+-r requirements-base.txt
+
+
+# --- Deep Learning — TensorFlow / Keras (GPU build) -------------------------
+tensorflow>=2.15,<3
+keras>=3.0,<4
+
+
+# --- Deep Learning — PyTorch (default index; will pull CUDA wheels on linux/win) ---
+torch>=2.3,<3
+torchvision>=0.18,<1
+
+
+# --- Object Detection — Ultralytics / YOLO ----------------------------------
+ultralytics>=8.0,<9

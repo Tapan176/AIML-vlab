@@ -92,11 +92,22 @@ All env variables are centralized in `backend/config.py`. **Never use `os.getenv
 
 ```bash
 cd backend
-pip install -r requirements.txt
+# Local development (GPU-capable wheels if your machine has CUDA)
+pip install -r requirements-dev.txt
+
+# OR — production / CPU-only (matches what runs in Docker)
+# pip install -r requirements.txt
+
 python app.py
 ```
 
 The API will be available at `http://127.0.0.1:5050`.
+
+**Requirements files**:
+- `requirements-base.txt` — shared deps (don't install directly; the others `-r` it).
+- `requirements-dev.txt` — local dev with GPU `tensorflow` + `torch`.
+- `requirements.txt` — production CPU-only `tensorflow-cpu` + `torch+cpu` (Docker default).
+- `requirements.railway.txt` — minimal RAM-friendly (no deep-learning stack).
 
 ### 2. Frontend
 
