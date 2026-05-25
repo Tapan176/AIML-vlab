@@ -1,6 +1,8 @@
 import os
 import io
 import json
+import threading
+from datetime import datetime
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
@@ -19,66 +21,132 @@ APP_ROOT_FOLDER_ID = None
 creds_path = GOOGLE_CREDENTIALS_PATH
 token_path = GOOGLE_TOKEN_PATH
 
-def get_drive_service():
-    """Authenticate and return Google Drive v3 API service.
-    Handles expired and revoked tokens gracefully. Supports both env vars and files.
-    """
-    creds = None
-    
-    # --- 1. Try Loading Token ---
-    # Try loading token from Vercel Environment Variable first
+# Per-process credentials cache. Drive API calls happen in bursts (folder
+# create → upload → set permissions); without this cache, each one would
+# hit MongoDB and rebuild the service object.
+_cached_creds = None
+_cached_creds_lock = threading.Lock()
+
+
+def _load_creds_from_mongo():
+    """Load Google Drive credentials from MongoDB. Returns None if not stored
+    or if MongoDB is unreachable."""
+    try:
+        from mongoDb.connection import get_db
+        db = get_db()
+        if db is None:
+            return None
+        doc = db.google_tokens.find_one({'_id': 'primary'})
+        if not doc or 'token_json' not in doc:
+            return None
+        return Credentials.from_authorized_user_info(doc['token_json'], SCOPES)
+    except Exception as e:
+        print(f"WARNING: Could not load Google token from MongoDB: {e}")
+        return None
+
+
+def _save_creds_to_mongo(creds):
+    """Persist Google Drive credentials to MongoDB. Silent on failure — the
+    in-memory creds still work for the rest of this process."""
+    try:
+        from mongoDb.connection import get_db
+        db = get_db()
+        if db is None:
+            return
+        token_json = json.loads(creds.to_json())
+        db.google_tokens.update_one(
+            {'_id': 'primary'},
+            {'$set': {'token_json': token_json, 'updated_at': datetime.utcnow()}},
+            upsert=True,
+        )
+    except Exception as e:
+        print(f"WARNING: Could not persist Google token to MongoDB: {e}")
+
+
+def _load_initial_creds():
+    """Try every source in order: MongoDB, env JSON, local token.json."""
+    creds = _load_creds_from_mongo()
+    if creds is not None:
+        return creds
+
     if GOOGLE_TOKEN_JSON:
         try:
-            token_info = json.loads(GOOGLE_TOKEN_JSON)
-            creds = Credentials.from_authorized_user_info(token_info, SCOPES)
+            return Credentials.from_authorized_user_info(json.loads(GOOGLE_TOKEN_JSON), SCOPES)
         except Exception as e:
             print(f"Failed to parse GOOGLE_TOKEN_JSON: {e}")
-    # Fallback to local file
-    elif os.path.exists(token_path):
-        creds = Credentials.from_authorized_user_file(token_path, SCOPES)
-    
-    # --- 2. Refresh or Create Credentials ---
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            try:
-                creds.refresh(Request())
-            except Exception as e:
-                print(f"WARNING: Token refresh failed ({e}). Re-authenticating...")
+
+    if os.path.exists(token_path):
+        try:
+            return Credentials.from_authorized_user_file(token_path, SCOPES)
+        except Exception as e:
+            print(f"Failed to read {token_path}: {e}")
+
+    return None
+
+
+def _persist_creds(creds):
+    """Save refreshed/new credentials to all relevant stores.
+    MongoDB is the source of truth for serverless; the local token.json
+    write is kept so local-dev environments without DB still work."""
+    _save_creds_to_mongo(creds)
+    try:
+        with open(token_path, 'w') as token:
+            token.write(creds.to_json())
+    except Exception as e:
+        # Read-only filesystems (Vercel) — MongoDB persistence is sufficient.
+        print(f"Note: could not save token to {token_path}: {e}")
+
+
+def get_drive_service():
+    """Authenticate and return Google Drive v3 API service.
+    Handles expired and revoked tokens gracefully. Supports env vars, files,
+    and MongoDB-backed persistence for serverless cold-start resilience.
+    """
+    global _cached_creds
+
+    with _cached_creds_lock:
+        creds = _cached_creds if (_cached_creds and _cached_creds.valid) else None
+
+        if creds is None:
+            creds = _load_initial_creds()
+
+            # Refresh expired tokens (refresh_token doesn't expire for Production-status
+            # OAuth apps, so this is the standard path on every cold start).
+            if creds and creds.expired and creds.refresh_token:
                 try:
-                    os.remove(token_path)
-                except Exception:
-                    pass
-                creds = None
-        
-        if not creds:
-            # Try loading client secrets from Vercel Env Var
-            if GOOGLE_CREDENTIALS_JSON:
-                try:
-                    client_config = json.loads(GOOGLE_CREDENTIALS_JSON)
-                    flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
-                    creds = flow.run_local_server(port=0)
+                    creds.refresh(Request())
+                    _persist_creds(creds)
                 except Exception as e:
-                    print(f"Failed to process GOOGLE_CREDENTIALS_JSON: {e}")
-            # Fallback to local file
-            elif os.path.exists(creds_path):
-                flow = InstalledAppFlow.from_client_secrets_file(creds_path, SCOPES)
-                creds = flow.run_local_server(port=0)
-            else:
-                print(f"WARNING: Google Drive credentials not found at {creds_path} or in GOOGLE_CREDENTIALS_JSON. Drive integration will fail.")
-                return None
-        
-        # Save the updated credentials
-        # If running locally without GOOGLE_TOKEN_JSON, save to token.json
-        if not GOOGLE_TOKEN_JSON:
-            try:
-                with open(token_path, 'w') as token:
-                    token.write(creds.to_json())
-            except Exception as e:
-                print(f"Warning: Could not save token to {token_path}: {e}")
+                    print(f"WARNING: Token refresh failed ({e}). Re-authenticating...")
+                    creds = None
+
+            # No usable token — fall back to running the OAuth flow (works locally,
+            # silently fails on serverless where there's no browser).
+            if creds is None:
+                if GOOGLE_CREDENTIALS_JSON:
+                    try:
+                        client_config = json.loads(GOOGLE_CREDENTIALS_JSON)
+                        flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
+                        creds = flow.run_local_server(port=0)
+                    except Exception as e:
+                        print(f"Failed to process GOOGLE_CREDENTIALS_JSON: {e}")
+                elif os.path.exists(creds_path):
+                    try:
+                        flow = InstalledAppFlow.from_client_secrets_file(creds_path, SCOPES)
+                        creds = flow.run_local_server(port=0)
+                    except Exception as e:
+                        print(f"Failed to run OAuth flow from {creds_path}: {e}")
+
+                if creds:
+                    _persist_creds(creds)
+                else:
+                    print(f"WARNING: Google Drive credentials not found at {creds_path} or in GOOGLE_CREDENTIALS_JSON. Drive integration will fail.")
+                    return None
+
+        _cached_creds = creds
 
     try:
-        service = build('drive', 'v3', credentials=creds)
-        return service
+        return build('drive', 'v3', credentials=creds)
     except Exception as e:
         print(f"Error connecting to Google Drive: {e}")
         return None
