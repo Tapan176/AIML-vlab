@@ -8,6 +8,7 @@ from auth.auth_middleware import token_required
 from services.hyperparam_validator import validate_hyperparams, get_model_schema
 from services.training_session_service import create_session, update_session_results, update_session_error, get_user_sessions, get_session, delete_session
 from services.dataset_service import get_user_datasets
+from utils.sse_helpers import run_sse_training
 
 from models.linearRegression.linearRegression import simpleLinearRegression
 # CNN/ANN are lazy-loaded at call time to avoid TensorFlow protobuf import errors at startup
@@ -255,53 +256,12 @@ def cnn(current_user):
         from models.cnn.cnn import train_cnn as _train_cnn
     except ImportError as e:
         return jsonify({"error": f"CNN requires TensorFlow: {e}"}), 500
-        
-    data = request.get_json() or {}
-    user_hyperparams = data.get('hyperparams', {})
-    try:
-        validated_params = validate_hyperparams('cnn', user_hyperparams)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
-        
-    user_id = current_user['_id']
-    dataset_id = data.get('dataset_id')
-    
-    session = create_session(user_id, 'cnn', validated_params, dataset_id)
-    session_id = session['_id']
-    
-    def generate():
-        import json
-        try:
-            results_data = {}
-            for chunk in _train_cnn(request, validated_params=validated_params, user_id=user_id, session_version=session['version']):
-                if 'status' in chunk and 'training_complete' in chunk:
-                    try:
-                        data_part = chunk.replace('data: ', '').strip()
-                        results_data = json.loads(data_part)
-                    except: pass
-                yield chunk
-            
-            # Final update with all metadata captured from the inner function
-            db_results = update_session_results(
-                session_id, 
-                results_data, 
-                [], 
-                results_data.get('trained_model_path', ''), 
-                ''
-            )
-            db_results['status'] = 'completed'
-            db_results['session_id'] = session_id
-            yield f"data: {json.dumps(db_results)}\n\n"
-        except Exception as e:
-            update_session_error(session_id, str(e))
-            yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
-    from flask import Response, stream_with_context
-    response = Response(stream_with_context(generate()), mimetype='text/event-stream')
-    response.headers['Cache-Control'] = 'no-cache'
-    response.headers['X-Accel-Buffering'] = 'no'
-    response.headers['Connection'] = 'keep-alive'
-    return response
+    return run_sse_training(
+        'cnn', current_user, request,
+        lambda params, uid, v: _train_cnn(
+            request, validated_params=params, user_id=uid, session_version=v),
+    )
 
 
 @model_routes.route('/ann', methods=['POST'])
@@ -312,51 +272,12 @@ def ann(current_user):
         from models.ann.ann import train_ann as _train_ann
     except ImportError as e:
         return jsonify({"error": f"ANN requires TensorFlow: {e}"}), 500
-    data = request.get_json() or {}
-    user_hyperparams = data.get('hyperparams', {})
-    try:
-        validated_params = validate_hyperparams('ann', user_hyperparams)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
-    
-    user_id = current_user['_id']
-    dataset_id = data.get('dataset_id')
-    session = create_session(user_id, 'ann', validated_params, dataset_id)
-    session_id = session['_id']
-    
-    def generate():
-        import json
-        try:
-            results_data = {}
-            for chunk in _train_ann(request, validated_params=validated_params, user_id=user_id, session_version=session['version']):
-                if 'status' in chunk and 'training_complete' in chunk:
-                    try:
-                        data_part = chunk.replace('data: ', '').strip()
-                        results_data = json.loads(data_part)
-                    except: pass
-                yield chunk
-            
-            # Update session with results
-            db_results = update_session_results(
-                session_id, 
-                results_data, 
-                [], 
-                results_data.get('trained_model_path', ''), 
-                ''
-            )
-            db_results['status'] = 'completed'
-            db_results['session_id'] = session_id
-            yield f"data: {json.dumps(db_results)}\n\n"
-        except Exception as e:
-            update_session_error(session_id, str(e))
-            yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
-    from flask import Response, stream_with_context
-    response = Response(stream_with_context(generate()), mimetype='text/event-stream')
-    response.headers['Cache-Control'] = 'no-cache'
-    response.headers['X-Accel-Buffering'] = 'no'
-    response.headers['Connection'] = 'keep-alive'
-    return response
+    return run_sse_training(
+        'ann', current_user, request,
+        lambda params, uid, v: _train_ann(
+            request, validated_params=params, user_id=uid, session_version=v),
+    )
 
 
 @model_routes.route('/xgboost', methods=['POST'])
@@ -413,59 +334,22 @@ def resnet(current_user):
         from models.resnet.resnet_model import train_resnet as _train_resnet
     except ImportError as e:
         return jsonify({"error": f"ResNet requires TensorFlow: {e}"}), 500
-    
+
     data = request.get_json() or {}
-    user_hyperparams = data.get('hyperparams', {})
     hidden_layer_array = data.get('hiddenLayerArray', [])
     class_mode = data.get('classMode', 'categorical')
     is_base_frozen = data.get('isBaseFrozen', True)
-    
-    try:
-        validated_params = validate_hyperparams('resnet', user_hyperparams)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
-        
-    user_id = current_user['_id']
-    dataset_id = data.get('dataset_id')
-    
-    session = create_session(user_id, 'resnet', validated_params, dataset_id)
-    session_id = session['_id']
-    
-    def generate():
-        import json
-        try:
-            results_data = {}
-            for chunk in _train_resnet(request, validated_params=validated_params, hidden_layer_array=hidden_layer_array, class_mode=class_mode, is_base_frozen=is_base_frozen, user_id=user_id, session_version=session['version']):
-                if 'status' in chunk and 'training_complete' in chunk:
-                    try:
-                        data_part = chunk.replace('data: ', '').strip()
-                        results_data = json.loads(data_part)
-                    except: pass
-                yield chunk
-            
-            yield f"data: {json.dumps({'log': 'Finalizing session results...'})}\n\n"
-            
-            # Final update with captures from inner function
-            db_results = update_session_results(
-                session_id, 
-                results_data or {"message": "Training complete."}, 
-                [], 
-                results_data.get('trained_model_path', ''), 
-                ''
-            )
-            db_results['status'] = 'completed'
-            db_results['session_id'] = session_id
-            yield f"data: {json.dumps(db_results)}\n\n"
-        except Exception as e:
-            update_session_error(session_id, str(e))
-            yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
-    from flask import Response, stream_with_context
-    response = Response(stream_with_context(generate()), mimetype='text/event-stream')
-    response.headers['Cache-Control'] = 'no-cache'
-    response.headers['X-Accel-Buffering'] = 'no'
-    response.headers['Connection'] = 'keep-alive'
-    return response
+    return run_sse_training(
+        'resnet', current_user, request,
+        lambda params, uid, v: _train_resnet(
+            request, validated_params=params,
+            hidden_layer_array=hidden_layer_array, class_mode=class_mode,
+            is_base_frozen=is_base_frozen,
+            user_id=uid, session_version=v),
+        finalizing_log='Finalizing session results...',
+    )
+
 
 @model_routes.route('/lstm', methods=['POST'])
 @token_required
@@ -475,58 +359,20 @@ def lstm(current_user):
         from models.lstm.lstm_model import train_lstm as _train_lstm
     except ImportError as e:
         return jsonify({"error": f"LSTM requires TensorFlow: {e}"}), 500
-        
+
     data = request.get_json() or {}
-    user_hyperparams = data.get('hyperparams', {})
     hidden_layer_array = data.get('hiddenLayerArray', [])
     class_mode = data.get('classMode', 'categorical')
-    
-    try:
-        validated_params = validate_hyperparams('lstm', user_hyperparams)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
-        
-    user_id = current_user['_id']
-    dataset_id = data.get('dataset_id')
-    
-    session = create_session(user_id, 'lstm', validated_params, dataset_id)
-    session_id = session['_id']
-    
-    def generate():
-        import json
-        try:
-            results_data = {}
-            for chunk in _train_lstm(request, validated_params=validated_params, hidden_layer_array=hidden_layer_array, class_mode=class_mode, user_id=user_id, session_version=session['version']):
-                if 'status' in chunk and 'training_complete' in chunk:
-                    try:
-                        data_part = chunk.replace('data: ', '').strip()
-                        results_data = json.loads(data_part)
-                    except: pass
-                yield chunk
-            
-            yield f"data: {json.dumps({'log': 'Finalizing LSTM session results...'})}\n\n"
-            
-            # Final update with captures from inner function
-            db_results = update_session_results(
-                session_id, 
-                results_data or {"message": "Training complete."}, 
-                [], 
-                results_data.get('trained_model_path', ''), 
-                ''
-            )
-            db_results['status'] = 'completed'
-            db_results['session_id'] = session_id
-            yield f"data: {json.dumps(db_results)}\n\n"
-        except Exception as e:
-            update_session_error(session_id, str(e))
-            yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
-    from flask import Response, stream_with_context
-    response = Response(stream_with_context(generate()), mimetype='text/event-stream')
-    response.headers['Cache-Control'] = 'no-cache'
-    response.headers['X-Accel-Buffering'] = 'no'
-    response.headers['Connection'] = 'keep-alive'
-    return response
+    return run_sse_training(
+        'lstm', current_user, request,
+        lambda params, uid, v: _train_lstm(
+            request, validated_params=params,
+            hidden_layer_array=hidden_layer_array, class_mode=class_mode,
+            user_id=uid, session_version=v),
+        finalizing_log='Finalizing LSTM session results...',
+    )
+
 
 @model_routes.route('/yolo', methods=['POST'])
 @token_required
@@ -536,54 +382,13 @@ def yolo(current_user):
         from models.yolo.yolo_model import train_yolo as _train_yolo
     except ImportError as e:
         return jsonify({"error": f"YOLO requires Ultralytics: {e}"}), 500
-        
-    data = request.get_json() or {}
-    user_hyperparams = data.get('hyperparams', {})
-    
-    try:
-        validated_params = validate_hyperparams('yolo', user_hyperparams)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
-        
-    user_id = current_user['_id']
-    dataset_id = data.get('dataset_id')
-    
-    session = create_session(user_id, 'yolo', validated_params, dataset_id)
-    session_id = session['_id']
-    
-    def generate():
-        import json
-        try:
-            results_data = {}
-            for chunk in _train_yolo(request, validated_params=validated_params, user_id=user_id, session_version=session['version']):
-                if 'status' in chunk and 'training_complete' in chunk:
-                    try:
-                        data_part = chunk.replace('data: ', '').strip()
-                        results_data = json.loads(data_part)
-                    except: pass
-                yield chunk
-            
-            # Final update with captures from inner function
-            db_results = update_session_results(
-                session_id, 
-                results_data or {"message": "Training complete."}, 
-                [], 
-                results_data.get('trained_model_path', ''), 
-                ''
-            )
-            db_results['status'] = 'completed'
-            db_results['session_id'] = session_id
-            yield f"data: {json.dumps(db_results)}\n\n"
-        except Exception as e:
-            update_session_error(session_id, str(e))
-            yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
-    from flask import Response, stream_with_context
-    response = Response(stream_with_context(generate()), mimetype='text/event-stream')
-    response.headers['Cache-Control'] = 'no-cache'
-    response.headers['X-Accel-Buffering'] = 'no'
-    response.headers['Connection'] = 'keep-alive'
-    return response
+    return run_sse_training(
+        'yolo', current_user, request,
+        lambda params, uid, v: _train_yolo(
+            request, validated_params=params, user_id=uid, session_version=v),
+    )
+
 
 @model_routes.route('/stylegan', methods=['POST'])
 @token_required
@@ -593,56 +398,17 @@ def stylegan(current_user):
         from models.stylegan.stylegan_model import train_stylegan as _train_stylegan
     except ImportError as e:
         return jsonify({"error": f"StyleGAN requires PyTorch: {e}"}), 500
-        
-    data = request.get_json() or {}
-    user_hyperparams = data.get('hyperparams', {})
-    
-    try:
-        validated_params = validate_hyperparams('stylegan', user_hyperparams)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
-        
-    user_id = current_user['_id']
-    dataset_id = data.get('dataset_id')
-    
-    session = create_session(user_id, 'stylegan', validated_params, dataset_id)
-    session_id = session['_id']
-    
-    def generate():
-        import json
-        try:
-            results_data = {}
-            for chunk in _train_stylegan(data, validated_params=validated_params, user_id=user_id, session_version=session['version']):
-                if 'status' in chunk and 'training_complete' in chunk:
-                    try:
-                        data_part = chunk.replace('data: ', '').strip()
-                        results_data = json.loads(data_part)
-                    except: pass
-                yield chunk
-            
-            yield f"data: {json.dumps({'log': 'Finalizing StyleGAN session results...'})}\n\n"
-            
-            # Final update with captures from inner function
-            db_results = update_session_results(
-                session_id, 
-                results_data or {"message": "Training complete."}, 
-                [], 
-                results_data.get('trained_model_path', ''), 
-                ''
-            )
-            db_results['status'] = 'completed'
-            db_results['session_id'] = session_id
-            yield f"data: {json.dumps(db_results)}\n\n"
-        except Exception as e:
-            update_session_error(session_id, str(e))
-            yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
-    from flask import Response, stream_with_context
-    response = Response(stream_with_context(generate()), mimetype='text/event-stream')
-    response.headers['Cache-Control'] = 'no-cache'
-    response.headers['X-Accel-Buffering'] = 'no'
-    response.headers['Connection'] = 'keep-alive'
-    return response
+    # StyleGAN's training function takes the already-extracted JSON dict
+    # rather than the Flask request object, unlike the other SSE models.
+    data = request.get_json() or {}
+
+    return run_sse_training(
+        'stylegan', current_user, request,
+        lambda params, uid, v: _train_stylegan(
+            data, validated_params=params, user_id=uid, session_version=v),
+        finalizing_log='Finalizing StyleGAN session results...',
+    )
 
 # --- Session & Schema Endpoints ---
 
