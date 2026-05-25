@@ -2,6 +2,7 @@ from flask import Blueprint, request, send_file, jsonify
 from utils.downloadFiles import get_model_path
 from utils.uploadFiles import handle_upload_file
 from utils.downloadPrediction import get_model_predictions
+from services.model_catalog import get_model_catalog, MODEL_CATALOG_VERSION
 
 utils_routes = Blueprint('utils_routes', __name__)
 
@@ -110,10 +111,19 @@ def get_models_info():
         from mongoDb.connection import get_db
         db = get_db()
         models = list(db.models.find({}, {'_id': 0}))
-        # Sort or just return as is
+
+        if not models:
+            return jsonify(get_model_catalog()), 200
+
+        if any(model.get('metadata_version') != MODEL_CATALOG_VERSION for model in models):
+            return jsonify(get_model_catalog()), 200
+
         return jsonify(models), 200
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        try:
+            return jsonify(get_model_catalog()), 200
+        except Exception:
+            return jsonify({"error": str(e)}), 500
 
 @utils_routes.route('/datasets/default', methods=['GET'])
 def list_default_datasets_public():

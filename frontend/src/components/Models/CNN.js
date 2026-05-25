@@ -12,9 +12,9 @@ const MODEL_CODE = 'cnn';
 
 const DEFAULT_LAYERS = [
     { type: 'conv', numberOfNeurons: 32, kernel: [3, 3], activationFunction: 'relu' },
-    { type: 'pooling', poolingType: 'maxPool', poolingSize: [2, 2] },
+    { type: 'pooling', poolingType: 'maxPool', poolingSize: [2, 2], stride: [2, 2] },
     { type: 'conv', numberOfNeurons: 64, kernel: [3, 3], activationFunction: 'relu' },
-    { type: 'pooling', poolingType: 'maxPool', poolingSize: [2, 2] },
+    { type: 'pooling', poolingType: 'maxPool', poolingSize: [2, 2], stride: [2, 2] },
     { type: 'flatten' },
     { type: 'dense', units: 128, activationFunction: 'relu', dropoutRate: 0.3 },
 ];
@@ -29,6 +29,12 @@ export default function CNN() {
     const [error, setError] = useState('');
     const [infoOpen, setInfoOpen] = useState(false);
     const [logs, setLogs] = useState([]);
+
+    const lossOptions = classMode === 'binary'
+        ? ['binary_crossentropy']
+        : classMode === 'sparse'
+            ? ['sparse_categorical_crossentropy']
+            : ['categorical_crossentropy'];
 
 
     useEffect(() => {
@@ -52,6 +58,18 @@ export default function CNN() {
         setLayers(newLayers);
     };
 
+    const handleClassModeChange = (value) => {
+        setClassMode(value);
+        setHyperparams(prev => ({
+            ...prev,
+            loss: value === 'binary'
+                ? 'binary_crossentropy'
+                : value === 'sparse'
+                    ? 'sparse_categorical_crossentropy'
+                    : 'categorical_crossentropy'
+        }));
+    };
+
     const addLayer = () => setLayers([...layers, { ...DEFAULT_LAYERS[0] }]);
     const removeLayer = (index) => setLayers(layers.filter((_, i) => i !== index));
 
@@ -71,7 +89,11 @@ export default function CNN() {
                 inputLayerActivationFunction: layers.length > 0 ? (layers[0].activationFunction || 'relu') : 'relu',
                 inputShape: [64, 64, 3], 
                 hiddenLayerArray: layers.length > 0 ? layers.slice(1) : [],
-                optimizerObject: { type: hyperparams.optimizer || 'adam', learning_rate: 0.001 },
+                optimizerObject: {
+                    type: hyperparams.optimizer || 'adam',
+                    learning_rate: hyperparams.learning_rate || 0.001,
+                    momentum: hyperparams.momentum || 0.0,
+                },
                 lossFunction: { type: hyperparams.loss || 'categorical_crossentropy' },
                 evaluationMetrics: ['accuracy'],
                 numberOfEpochs: hyperparams.epochs || 10,
@@ -145,7 +167,7 @@ export default function CNN() {
                 <div className="form-grid">
                     <div className="form-group">
                         <label>Class Mode</label>
-                        <select value={classMode} onChange={(e) => setClassMode(e.target.value)}>
+                        <select value={classMode} onChange={(e) => handleClassModeChange(e.target.value)}>
                             <option value="categorical">Categorical</option>
                             <option value="binary">Binary</option>
                             <option value="sparse">Sparse</option>
@@ -157,6 +179,7 @@ export default function CNN() {
                     modelCode="cnn"
                     hyperparams={hyperparams}
                     onChange={(name, value) => setHyperparams(prev => ({ ...prev, [name]: value }))}
+                    schemaOverrides={{ loss: { options: lossOptions, default: lossOptions[0] } }}
                 />
 
                 {/* Layer Builder */}

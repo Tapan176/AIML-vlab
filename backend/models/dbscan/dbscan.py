@@ -66,9 +66,10 @@ def dbscan(request, validated_params=None, user_id=None, session_version=None):
     return {
         "cluster_labels": labels.tolist(),
         "n_clusters": n_clusters,
+        "n_noise": n_noise,
         "n_noise_points": n_noise,
         "outputImageUrls": [cluster_path],
         "trained_model_path": model_path,
-        "results": {"n_clusters": n_clusters, "n_noise_points": n_noise},
+        "results": {"n_clusters": n_clusters, "n_noise": n_noise, "n_noise_points": n_noise},
         "hyperparams_used": params,
     }

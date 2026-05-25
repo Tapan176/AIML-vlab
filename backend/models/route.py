@@ -29,6 +29,14 @@ model_routes = Blueprint('model_routes', __name__)
 
 def _sanitize_for_json(value):
     """Recursively replace NaN/Infinity with None so JSON is valid."""
+    try:
+        import numpy as np
+        if isinstance(value, np.generic):
+            return _sanitize_for_json(value.item())
+        if isinstance(value, np.ndarray):
+            return [_sanitize_for_json(v) for v in value.tolist()]
+    except Exception:
+        pass
     if isinstance(value, float):
         if math.isnan(value) or math.isinf(value):
             return None
@@ -115,6 +123,11 @@ def _train_model(model_code, request_obj, current_user=None):
         train_fn = MODEL_FUNCTIONS[model_code]
         results = train_fn(request_obj, validated_params=validated_params, user_id=user_id, session_version=session.get('version') if user_id else None)
 
+        if isinstance(results, dict) and results.get('error'):
+            if session_id:
+                update_session_error(session_id, results['error'])
+            return jsonify({"error": results['error']}), 400
+
         output_image_urls = results.get('outputImageUrls', [])
         
         # Base64 encode images for frontend display before they get deleted
@@ -146,7 +159,7 @@ def _train_model(model_code, request_obj, current_user=None):
             results.update(db_results)
             results['session_id'] = session_id
 
-        return jsonify(results), 200
+        return jsonify(_sanitize_for_json(results)), 200
 
     except Exception as e:
         if session_id:
@@ -214,6 +227,24 @@ def naive_bayes(current_user):
 @token_required(optional=True)
 def db_scan(current_user):
     return _train_model('dbscan', request, current_user)
+
+
+@model_routes.route('/gradient-boosting', methods=['POST'])
+@token_required(optional=True)
+def gradient_boosting(current_user):
+    return _train_model('gradient_boosting', request, current_user)
+
+
+@model_routes.route('/sentiment-analysis', methods=['POST'])
+@token_required(optional=True)
+def sentiment_analysis(current_user):
+    return _train_model('sentiment_analysis', request, current_user)
+
+
+@model_routes.route('/text-classification', methods=['POST'])
+@token_required(optional=True)
+def text_classification(current_user):
+    return _train_model('text_classification', request, current_user)
 
 
 @model_routes.route('/cnn', methods=['POST'])
@@ -343,7 +374,36 @@ def xgboost(current_user):
     except Exception as e:
         return jsonify({"error": str(e)}), 400
     user_id = current_user['_id'] if current_user else None
-    return jsonify(_train_xgboost(request, validated_params=validated_params, user_id=user_id)), 200
+    session_id = None
+
+    if user_id:
+        dataset_id = data.get('dataset_id')
+        session = create_session(user_id, 'xgboost', validated_params, dataset_id)
+        session_id = session['_id']
+
+    try:
+        results = _train_xgboost(request, validated_params=validated_params, user_id=user_id, session_version=session.get('version') if user_id else None)
+        if isinstance(results, dict) and results.get('error'):
+            if session_id:
+                update_session_error(session_id, results['error'])
+            return jsonify({"error": results['error']}), 400
+
+        if session_id:
+            db_results = update_session_results(
+                session_id,
+                results.get('evaluation_metrics') or results.get('results') or results,
+                results.get('outputImageUrls', []),
+                results.get('trained_model_path', ''),
+                results.get('predictions_output_file', '')
+            )
+            results.update(db_results)
+            results['session_id'] = session_id
+
+        return jsonify(_sanitize_for_json(results)), 200
+    except Exception as e:
+        if session_id:
+            update_session_error(session_id, str(e))
+        return jsonify({"error": str(e)}), 500
 
 @model_routes.route('/resnet', methods=['POST'])
 @token_required

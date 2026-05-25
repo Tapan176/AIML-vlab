@@ -62,6 +62,10 @@ const HiddenLayer = ({ index, layer, onChange, onRemove }) => {
                             <label>Pool Size</label>
                             <input type="text" value={Array.isArray(layer.poolingSize) ? layer.poolingSize.join(',') : layer.poolingSize} onChange={(e) => handleChange('poolingSize', e.target.value.split(',').map(Number))} />
                         </div>
+                        <div>
+                            <label>Stride</label>
+                            <input type="text" value={Array.isArray(layer.stride) ? layer.stride.join(',') : (layer.stride || '2,2')} onChange={(e) => handleChange('stride', e.target.value.split(',').map(Number))} />
+                        </div>
                     </>
                 )}
 
@@ -75,10 +79,17 @@ const HiddenLayer = ({ index, layer, onChange, onRemove }) => {
                             <label>Activation</label>
                             <select value={layer.activationFunction || 'relu'} onChange={(e) => handleChange('activationFunction', e.target.value)}>
                                 <option value="relu">ReLU</option>
+                                <option value="leaky_relu">Leaky ReLU</option>
+                                <option value="prelu">PReLU</option>
+                                <option value="elu">ELU</option>
                                 <option value="softmax">Softmax</option>
                                 <option value="sigmoid">Sigmoid</option>
                                 <option value="tanh">Tanh</option>
                             </select>
+                        </div>
+                        <div>
+                            <label>Dropout After Dense</label>
+                            <input type="number" step="0.05" min="0" max="1" value={layer.dropoutRate || 0} onChange={(e) => handleChange('dropoutRate', parseFloat(e.target.value))} />
                         </div>
                     </>
                 )}

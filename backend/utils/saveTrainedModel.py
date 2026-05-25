@@ -32,7 +32,7 @@ def saveTrainedModel(model, filename, model_type, user_id=None, version=None):
     else:
         save_filename = filename
 
-    if model_type in ("scikit-learn", "nlp-learn"):
+    if model_type in ("scikit-learn", "sklearn", "nlp-learn"):
         import joblib
         extension = ".pkl"
         save_path = os.path.join(save_dir, save_filename + extension)

@@ -7,8 +7,9 @@ import constants from '../../constants';
  *   modelCode: string — e.g. 'simple_linear_regression'
  *   hyperparams: object — current hyperparam values from parent
  *   onChange: (paramName, value) => void
+ *   schemaOverrides?: object â€” optional per-param schema overrides
  */
-export default function HyperparamPanel({ modelCode, hyperparams, onChange }) {
+export default function HyperparamPanel({ modelCode, hyperparams, onChange, schemaOverrides = {} }) {
     const [schema, setSchema] = useState(null);
     const [isOpen, setIsOpen] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -27,14 +28,26 @@ export default function HyperparamPanel({ modelCode, hyperparams, onChange }) {
 
     if (!schema && !loading) return null;
 
-    const paramEntries = schema ? Object.entries(schema) : [];
+    const mergedSchema = schema
+        ? Object.fromEntries(
+            Object.entries(schema).map(([name, rules]) => [
+                name,
+                { ...rules, ...(schemaOverrides[name] || {}) }
+            ])
+        )
+        : null;
+
+    const paramEntries = mergedSchema ? Object.entries(mergedSchema) : [];
 
     const labelOverrides = {
         'imgsz': 'Image Resolution (imgsz)',
         'cos_lr': 'Cosine Learning Rate',
         'lr': 'Learning Rate',
+        'lr0': 'Initial Learning Rate (lr0)',
+        'lrf': 'Final LR Multiplier (lrf)',
         'fliplr': 'Horizontal Flip (fliplr)',
-        'mosaic': 'Mosaic Augmentation'
+        'mosaic': 'Mosaic Augmentation',
+        'r1_penalty': 'R1 Penalty'
     };
 
     const formatLabel = (name) => {
@@ -67,6 +80,22 @@ export default function HyperparamPanel({ modelCode, hyperparams, onChange }) {
             );
         }
 
+        if (rules.type === 'bool') {
+            return (
+                <div className="form-group" key={name}>
+                    <label htmlFor={`hp-${name}`}>{formatLabel(name)}</label>
+                    <select
+                        id={`hp-${name}`}
+                        value={String(currentVal ?? rules.default ?? false)}
+                        onChange={e => onChange(name, e.target.value === 'true')}
+                    >
+                        <option value="true">true</option>
+                        <option value="false">false</option>
+                    </select>
+                </div>
+            );
+        }
+
         // Number (int or float)
         if (rules.type === 'int' || rules.type === 'float') {
             return (
@@ -78,7 +107,7 @@ export default function HyperparamPanel({ modelCode, hyperparams, onChange }) {
                         value={currentVal ?? ''}
                         min={rules.min}
                         max={rules.max}
-                        step={rules.type === 'float' ? 0.01 : 1}
+                        step={rules.type === 'float' ? 'any' : 1}
                         onChange={e => {
                             const val = e.target.value === '' ? null :
                                 rules.type === 'float' ? parseFloat(e.target.value) : parseInt(e.target.value, 10);

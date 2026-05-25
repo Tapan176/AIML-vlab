@@ -29,10 +29,10 @@ export default function ModelDescription({ modelCode }) {
   const renderParameters = parameters => {
     return (
       <ul>
-        {parameters.map(param => (
-          <li key={param.parameter}>
+        {parameters.map((param, index) => (
+          <li key={`${param.parameter}-${index}`}>
             <strong>{param.parameter}:</strong> {param.description}
-            {param.parameters && renderParameters(param.parameters)}
+            {(param.sub_parameters || param.parameters) && renderParameters(param.sub_parameters || param.parameters)}
           </li>
         ))}
       </ul>

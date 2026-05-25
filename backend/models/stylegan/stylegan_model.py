@@ -244,6 +244,9 @@ def train_stylegan(body, validated_params, user_id=None, session_version=None):
     w_dim = int(validated_params.get('w_dim', 256))
     log_resolution = int(validated_params.get('log_resolution', 7))
     lr = float(validated_params.get('learning_rate', 0.0001))
+    disc_lr = float(validated_params.get('disc_lr', lr))  # Discriminator LR, defaults to generator LR
+    r1_penalty_weight = float(validated_params.get('r1_penalty', 10.0))
+    optimizer_type = validated_params.get('optimizer', 'adam')
     
     device = "cuda" if torch.cuda.is_available() else "cpu"
     resolution = 2 ** log_resolution
@@ -302,9 +305,16 @@ def train_stylegan(body, validated_params, user_id=None, session_version=None):
         disc = Discriminator(log_resolution).to(device)
         map_net = MappingNetwork(z_dim, w_dim).to(device)
         
-        opt_gen = optim.Adam(list(gen.parameters()) + list(map_net.parameters()), lr=lr, betas=(0.0, 0.99))
-        opt_disc = optim.Adam(disc.parameters(), lr=lr, betas=(0.0, 0.99))
+        # Build optimizers based on user selection
+        gen_params = list(gen.parameters()) + list(map_net.parameters())
+        if optimizer_type == 'rmsprop':
+            opt_gen = optim.RMSprop(gen_params, lr=lr)
+            opt_disc = optim.RMSprop(disc.parameters(), lr=disc_lr)
+        else:  # default: adam
+            opt_gen = optim.Adam(gen_params, lr=lr, betas=(0.0, 0.99))
+            opt_disc = optim.Adam(disc.parameters(), lr=disc_lr, betas=(0.0, 0.99))
         
+        yield f"data: {json.dumps({'log': f'Optimizer: {optimizer_type}, Gen LR: {lr}, Disc LR: {disc_lr}, R1 penalty: {r1_penalty_weight}'})}\n\n"
         yield f"data: {json.dumps({'log': f'Starting Real Training for {epochs} epochs...'})}\n\n"
         
         final_loss_g = 0
@@ -330,6 +340,18 @@ def train_stylegan(body, validated_params, user_id=None, session_version=None):
                 disc_fake = disc(fake.detach())
                 
                 loss_d = -(torch.mean(disc_real) - torch.mean(disc_fake))
+                
+                # R1 gradient penalty on real images
+                if r1_penalty_weight > 0:
+                    real.requires_grad_(True)
+                    real_scores = disc(real)
+                    r1_grads = torch.autograd.grad(
+                        outputs=real_scores.sum(), inputs=real,
+                        create_graph=True
+                    )[0]
+                    r1_penalty = r1_grads.pow(2).reshape(r1_grads.shape[0], -1).sum(1).mean()
+                    loss_d = loss_d + (r1_penalty_weight / 2) * r1_penalty
+                    real.requires_grad_(False)
                 
                 opt_disc.zero_grad()
                 loss_d.backward()

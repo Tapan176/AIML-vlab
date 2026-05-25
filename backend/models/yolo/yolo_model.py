@@ -50,7 +50,8 @@ def train_yolo(request, validated_params, user_id=None, session_version=None):
             yaml_content = _auto_detect_yolo_config(dataset_path)
             with open(yaml_path, 'w') as f:
                 yaml.dump(yaml_content, f)
-            yield f"data: {json.dumps({'log': f'Auto-generated data.yaml with {len(yaml_content.get(\"names\", {}))} classes.'})}\n\n"
+            class_count = len(yaml_content.get('names', {}))
+            yield f"data: {json.dumps({'log': f'Auto-generated data.yaml with {class_count} classes.'})}\n\n"
         else:
             with open(yaml_path, 'r') as f:
                 yaml_content = yaml.safe_load(f)
@@ -58,7 +59,8 @@ def train_yolo(request, validated_params, user_id=None, session_version=None):
             yaml_content['path'] = os.path.abspath(dataset_path)
             with open(yaml_path, 'w') as f:
                 yaml.dump(yaml_content, f)
-            yield f"data: {json.dumps({'log': f'Found data.yaml with {len(yaml_content.get('names', {}))} class(es).'})}\n\n"
+            class_count = len(yaml_content.get('names', {}))
+            yield f"data: {json.dumps({'log': f'Found data.yaml with {class_count} class(es).'})}\n\n"
 
         yield f"data: {json.dumps({'log': 'Loading pre-trained YOLOv8n weights...'})}\n\n"
         model = YOLO('yolov8n.pt')
@@ -140,7 +142,8 @@ def train_yolo(request, validated_params, user_id=None, session_version=None):
         train_thread.join(timeout=10)
 
         if training_result['error']:
-            yield f"data: {json.dumps({'error': f'YOLO Training failed: {training_result[\"error\"]}'})}\n\n"
+            training_error = training_result['error']
+            yield f"data: {json.dumps({'error': f'YOLO Training failed: {training_error}'})}\n\n"
             return
 
         # Save model

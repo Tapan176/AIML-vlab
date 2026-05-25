@@ -11,7 +11,6 @@ const MODEL_CODE = 'yolo';
 
 export default function ObjectDetection() {
     const [datasetData, setDatasetData] = useState('');
-    const [classMode, setClassMode] = useState('detection');
     const [hyperparams, setHyperparams] = useState({});
     const [results, setResults] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -47,7 +46,6 @@ export default function ObjectDetection() {
                 filename: datasetData?.filename,
                 dataset_id: datasetData?.dataset_id || null,
                 hyperparams,
-                classMode: classMode,
             };
 
             const response = await fetch(`${constants.API_URL}/yolo`, {
@@ -113,11 +111,8 @@ export default function ObjectDetection() {
             <form className="model-form" onSubmit={handleSubmit}>
                 <div className="form-grid">
                     <div className="form-group">
-                        <label>Architecture Task</label>
-                        <select value={classMode} onChange={(e) => setClassMode(e.target.value)}>
-                            <option value="detection">Bounding Box Detection</option>
-                            <option value="segmentation">Instance Segmentation</option>
-                        </select>
+                        <label>Task</label>
+                        <input type="text" value="Object Detection (YOLOv8n)" readOnly />
                     </div>
                 </div>
 

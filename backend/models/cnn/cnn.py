@@ -1,5 +1,5 @@
 from keras.models import Sequential
-from keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout, AvgPool2D, Lambda
+from keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout, AvgPool2D, Lambda, LeakyReLU, PReLU
 import keras.backend as K
 from keras.metrics import Precision, Recall
 from keras.optimizers import SGD, Adam, RMSprop, Adagrad, Adadelta
@@ -21,6 +21,23 @@ def f1_score(y_true, y_pred):
     recall = Recall()(y_true, y_pred)
     return 2 * ((precision * recall) / (precision + recall + K.epsilon()))
 
+
+def _normalize_activation(activation):
+    return (activation or 'relu').lower()
+
+
+def _dense_or_conv_activation(activation):
+    activation = _normalize_activation(activation)
+    return 'linear' if activation in ('leaky_relu', 'prelu') else activation
+
+
+def _add_special_activation(model, activation):
+    activation = _normalize_activation(activation)
+    if activation == 'leaky_relu':
+        model.add(LeakyReLU(alpha=0.01))
+    elif activation == 'prelu':
+        model.add(PReLU())
+
 def build_cnn_model(
         numberOfNeuronsInInputLayer,
         inputKernelSize,
@@ -33,24 +50,39 @@ def build_cnn_model(
         num_classes=None,
     ):
     classifier = Sequential()
-    classifier.add(Conv2D(numberOfNeuronsInInputLayer, kernel_size=inputKernelSize, activation=inputLayerActivationFunction, input_shape=inputShape))
+    classifier.add(
+        Conv2D(
+            numberOfNeuronsInInputLayer,
+            kernel_size=inputKernelSize,
+            activation=_dense_or_conv_activation(inputLayerActivationFunction),
+            input_shape=inputShape
+        )
+    )
+    _add_special_activation(classifier, inputLayerActivationFunction)
 
     has_flatten = False
     for hiddenLayer in hiddenLayerArray:
         layer_type = hiddenLayer['type']
         if layer_type == 'conv':
-            classifier.add(Conv2D(hiddenLayer.get('numberOfNeurons', 64), tuple(hiddenLayer.get('kernel', [3, 3])), activation=hiddenLayer.get('activationFunction', 'relu')))
+            activation = hiddenLayer.get('activationFunction', 'relu')
+            classifier.add(
+                Conv2D(
+                    hiddenLayer.get('numberOfNeurons', 64),
+                    tuple(hiddenLayer.get('kernel', [3, 3])),
+                    activation=_dense_or_conv_activation(activation)
+                )
+            )
+            _add_special_activation(classifier, activation)
         elif layer_type in ('pooling', 'pool'):
             pool_size = tuple(hiddenLayer.get('poolingSize', (2, 2)))
+            pool_stride = tuple(hiddenLayer.get('stride', pool_size))
             pooling_type = hiddenLayer.get('poolingType', 'maxPool').replace('Pool', '')
             if pooling_type in ('maxPool', 'max'):
-                classifier.add(MaxPooling2D(pool_size=pool_size))
+                classifier.add(MaxPooling2D(pool_size=pool_size, strides=pool_stride))
             elif pooling_type in ('minPool', 'min'):
-                strides = tuple(hiddenLayer.get('minPoolStride', pool_size))
-                classifier.add(min_pooling(pool_size=pool_size, strides=strides))
+                classifier.add(min_pooling(pool_size=pool_size, strides=pool_stride))
             elif pooling_type in ('averagePool', 'avgPool', 'avg', 'average'):
-                strides = tuple(hiddenLayer.get('avgPoolStride', pool_size))
-                classifier.add(AvgPool2D(pool_size=pool_size, strides=strides))
+                classifier.add(AvgPool2D(pool_size=pool_size, strides=pool_stride))
         elif layer_type == 'flatten':
             classifier.add(Flatten())
             has_flatten = True
@@ -60,7 +92,12 @@ def build_cnn_model(
                 classifier.add(Flatten())
                 has_flatten = True
             units = hiddenLayer.get('units') or hiddenLayer.get('numberOfNeurons', 128)
-            classifier.add(Dense(units=int(units), activation=hiddenLayer.get('activationFunction', 'relu')))
+            activation = hiddenLayer.get('activationFunction', 'relu')
+            classifier.add(Dense(units=int(units), activation=_dense_or_conv_activation(activation)))
+            _add_special_activation(classifier, activation)
+            dropout_rate = hiddenLayer.get('dropoutRate')
+            if dropout_rate is not None and float(dropout_rate) > 0:
+                classifier.add(Dropout(float(dropout_rate)))
         elif layer_type == 'dropout':
             classifier.add(Dropout(hiddenLayer.get('dropoutRate', 0.5)))
 
@@ -88,11 +125,11 @@ def build_cnn_model(
     else:
         raise ValueError("Unsupported optimizer type.")
     
-    if lossFunction['type'] == 'mean_squared_error':
+    if lossFunction['type'] in ('mean_squared_error', 'mse'):
         loss_function = 'mean_squared_error'
     
     # Determine the loss function based on the 'type' parameter in lossFunction
-    if lossFunction['type'] == 'mean_squared_error':
+    if lossFunction['type'] in ('mean_squared_error', 'mse'):
         loss_function = 'mean_squared_error'
     elif lossFunction['type'] == 'binary_crossentropy':
         loss_function = 'binary_crossentropy'
@@ -138,6 +175,16 @@ def train_cnn(request, validated_params=None, user_id=None, session_version=None
     numberOfEpochs = int(validated_params.get('epochs', data.get('numberOfEpochs', 50))) if validated_params else int(data.get('numberOfEpochs', 50))
     batchSize = int(validated_params.get('batch_size', data.get('batchSize', 32))) if validated_params else int(data.get('batchSize', 32))
     classMode = data['classMode']
+    
+    # Use learning_rate from validated hyperparams, falling back to optimizerObject
+    if validated_params and 'learning_rate' in validated_params:
+        optimizerObject['learning_rate'] = validated_params['learning_rate']
+    if validated_params and 'momentum' in validated_params:
+        optimizerObject['momentum'] = validated_params['momentum']
+    if validated_params and 'optimizer' in validated_params:
+        optimizerObject['type'] = validated_params['optimizer']
+    if validated_params and 'loss' in validated_params:
+        lossFunction['type'] = validated_params['loss']
     
     filename = data.get('filename')
     file_path = data.get('filePath')

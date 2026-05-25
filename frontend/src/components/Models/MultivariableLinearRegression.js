@@ -40,6 +40,16 @@ export default function MultivariableLinearRegression() {
         }
     };
     const images = results?.outputImageBase64?.length > 0 ? results.outputImageBase64 : (results?.outputImageUrls?.map(url => `${constants.API_BASE_URL}/${url}?timestamp=${Date.now()}`) || []);
+    const downloadCurrentImage = () => {
+        const imageUrl = images[currentImageIndex];
+        if (!imageUrl) return;
+        const link = document.createElement('a');
+        link.href = imageUrl;
+        link.download = `multivariable_linear_regression_graph_${currentImageIndex + 1}.jpg`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -50,6 +60,7 @@ export default function MultivariableLinearRegression() {
         e.preventDefault();
         setLoading(true);
         setError('');
+        setCurrentImageIndex(0);
         try {
             let dataToSend;
             if (datasetData && datasetData.filename) {
@@ -127,6 +138,11 @@ export default function MultivariableLinearRegression() {
                         <button type="button" className="carousel-btn" onClick={() => setCurrentImageIndex(i => i === 0 ? images.length - 1 : i - 1)}><FontAwesomeIcon icon={faArrowLeft} /></button>
                         <img src={images[currentImageIndex]} alt={`Output ${currentImageIndex + 1}`} />
                         <button type="button" className="carousel-btn" onClick={() => setCurrentImageIndex(i => i === images.length - 1 ? 0 : i + 1)}><FontAwesomeIcon icon={faArrowRight} /></button>
+                    </div>
+                    <div className="download-section" style={{ marginTop: '12px' }}>
+                        <button type="button" className="btn-download-primary" onClick={downloadCurrentImage}>
+                            Download Current Graph
+                        </button>
                     </div>
                 </div>
             )}

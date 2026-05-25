@@ -62,6 +62,10 @@ MODEL_CODES = [
     'lstm',
     'yolo',
     'stylegan',
+    'gradient_boosting',
+    'xgboost',
+    'sentiment_analysis',
+    'text_classification',
 ]
 
 # Default hyperparameter values per model  (optimised for best out-of-the-box accuracy)
@@ -135,6 +139,7 @@ DEFAULT_HYPERPARAMS = {
         'batch_size': 32,
         'optimizer': 'adam',
         'loss': 'binary_crossentropy',
+        'learning_rate': 0.001,
         'validation_split': 0.15,
         'test_size': 0.2,
     },
@@ -166,7 +171,6 @@ DEFAULT_HYPERPARAMS = {
         'batch_size': 16,
         'optimizer': 'adam',
         'loss': 'categorical_crossentropy',
-        'validation_split': 0.15,
         'learning_rate': 0.0001,
     },
     'lstm': {
@@ -174,6 +178,7 @@ DEFAULT_HYPERPARAMS = {
         'batch_size': 32,
         'optimizer': 'adam',
         'loss': 'mse',
+        'learning_rate': 0.001,
         'validation_split': 0.15,
         'sequence_length': 20,
     },
@@ -182,6 +187,13 @@ DEFAULT_HYPERPARAMS = {
         'batch_size': 16,
         'imgsz': 640,
         'optimizer': 'auto',
+        'lr0': 0.01,
+        'lrf': 0.01,
+        'momentum': 0.937,
+        'weight_decay': 0.0005,
+        'warmup_epochs': 3,
+        'augment': True,
+        'mosaic': 1.0,
     },
     'stylegan': {
         'epochs': 300,
@@ -190,14 +202,17 @@ DEFAULT_HYPERPARAMS = {
         'w_dim': 256,
         'log_resolution': 7,
         'learning_rate': 0.0001,
+        'optimizer': 'adam',
+        'disc_lr': 0.0001,
+        'r1_penalty': 10.0,
     },
     'cnn': {
         'epochs': 50,
         'batch_size': 32,
         'optimizer': 'adam',
         'loss': 'categorical_crossentropy',
-        'validation_split': 0.15,
-        'test_size': 0.2,
+        'learning_rate': 0.001,
+        'momentum': 0.0,
     },
 }
 

@@ -25,6 +25,10 @@ export default function LSTM() {
     const [infoOpen, setInfoOpen] = useState(false);
     const [logs, setLogs] = useState([]);
 
+    const lossOptions = classMode === 'linear'
+        ? ['mse', 'mae', 'huber']
+        : ['binary_crossentropy', 'categorical_crossentropy', 'sparse_categorical_crossentropy'];
+
     useEffect(() => {
         const cached = localStorage.getItem(`${MODEL_CODE}_dataset`);
         if (cached) {
@@ -39,6 +43,14 @@ export default function LSTM() {
         } else {
             localStorage.removeItem(`${MODEL_CODE}_dataset`);
         }
+    };
+
+    const handleClassModeChange = (value) => {
+        setClassMode(value);
+        setHyperparams(prev => ({
+            ...prev,
+            loss: value === 'linear' ? 'mse' : (prev.loss === 'categorical_crossentropy' ? prev.loss : 'sparse_categorical_crossentropy')
+        }));
     };
 
     const handleSubmit = async (e) => {
@@ -121,7 +133,7 @@ export default function LSTM() {
                 <div className="form-grid">
                     <div className="form-group">
                         <label>Output Mode</label>
-                        <select value={classMode} onChange={(e) => setClassMode(e.target.value)}>
+                        <select value={classMode} onChange={(e) => handleClassModeChange(e.target.value)}>
                             <option value="categorical">Categorical (Classification)</option>
                             <option value="linear">Linear (Regression)</option>
                         </select>
@@ -132,6 +144,7 @@ export default function LSTM() {
                     modelCode={MODEL_CODE}
                     hyperparams={hyperparams}
                     onChange={(name, value) => setHyperparams(prev => ({ ...prev, [name]: value }))}
+                    schemaOverrides={{ loss: { options: lossOptions, default: lossOptions[0] } }}
                 />
 
                 <LstmHiddenLayer

@@ -4,6 +4,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft, faArrowRight } from '@fortawesome/free-solid-svg-icons';
 import constants from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
+import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
+import DownloadResultsZip from '../DownloadResultsZip/DownloadResultsZip';
 import HyperparamPanel from '../shared/HyperparamPanel';
 import ModelInfoPanel from '../shared/ModelInfoPanel';
 import '../ModelCss/ModelPage.css';
@@ -37,10 +39,22 @@ export default function DBSCAN() {
     };
     const images = results?.outputImageBase64?.length > 0 ? results.outputImageBase64 : (results?.outputImageUrls?.map(url => `${constants.API_BASE_URL}/${url}?timestamp=${Date.now()}`) || []);
 
+    const downloadCurrentImage = () => {
+        const imageUrl = images[currentImageIndex];
+        if (!imageUrl) return;
+        const link = document.createElement('a');
+        link.href = imageUrl;
+        link.download = `dbscan_graph_${currentImageIndex + 1}.jpg`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
         setError('');
+        setCurrentImageIndex(0);
         try {
             const response = await fetch(`${constants.API_BASE_URL}/dbscan`, {
                 method: 'POST',
@@ -75,7 +89,12 @@ export default function DBSCAN() {
                     <h2>Clustering Results</h2>
                     <div className="metrics-grid">
                         {results.n_clusters != null && <div className="metric-item"><div className="metric-label">Clusters</div><div className="metric-value">{results.n_clusters}</div></div>}
-                        {results.n_noise != null && <div className="metric-item"><div className="metric-label">Noise Points</div><div className="metric-value">{results.n_noise}</div></div>}
+                        {(results.n_noise != null || results.n_noise_points != null) && (
+                            <div className="metric-item">
+                                <div className="metric-label">Noise Points</div>
+                                <div className="metric-value">{results.n_noise ?? results.n_noise_points}</div>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
@@ -87,9 +106,21 @@ export default function DBSCAN() {
                         <img src={images[currentImageIndex]} alt={`Output ${currentImageIndex + 1}`} />
                         <button type="button" className="carousel-btn" onClick={() => setCurrentImageIndex(i => i === images.length - 1 ? 0 : i + 1)}><FontAwesomeIcon icon={faArrowRight} /></button>
                     </div>
+                    <div className="download-section" style={{ marginTop: '12px' }}>
+                        <button type="button" className="btn-download-primary" onClick={downloadCurrentImage}>
+                            Download Current Graph
+                        </button>
+                    </div>
                 </div>
             )}
-            {/* DBSCAN has no trained model to download */}
+            {results && (
+                <div className="download-section">
+                    <DownloadTrainedModel selectedModel="dbscan" extension=".pkl" sessionId={results.session_id} label="Download" />
+                    {results.results_zip_drive_id && (
+                        <DownloadResultsZip sessionId={results.session_id} />
+                    )}
+                </div>
+            )}
             <ModelInfoPanel modelCode={MODEL_CODE} isOpen={infoOpen} onClose={() => setInfoOpen(false)} />
         </div>
     );

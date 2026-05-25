@@ -39,10 +39,22 @@ export default function KMeans() {
     };
     const images = results?.outputImageBase64?.length > 0 ? results.outputImageBase64 : (results?.outputImageUrls?.map(url => `${constants.API_BASE_URL}/${url}?timestamp=${Date.now()}`) || []);
 
+    const downloadCurrentImage = () => {
+        const imageUrl = images[currentImageIndex];
+        if (!imageUrl) return;
+        const link = document.createElement('a');
+        link.href = imageUrl;
+        link.download = `k_means_graph_${currentImageIndex + 1}.jpg`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
         setError('');
+        setCurrentImageIndex(0);
         try {
             const response = await fetch(`${constants.API_BASE_URL}/k-means`, {
                 method: 'POST',
@@ -89,13 +101,16 @@ export default function KMeans() {
                         <img src={images[currentImageIndex]} alt={`Output ${currentImageIndex + 1}`} />
                         <button type="button" className="carousel-btn" onClick={() => setCurrentImageIndex(i => i === images.length - 1 ? 0 : i + 1)}><FontAwesomeIcon icon={faArrowRight} /></button>
                     </div>
+                    <div className="download-section" style={{ marginTop: '12px' }}>
+                        <button type="button" className="btn-download-primary" onClick={downloadCurrentImage}>
+                            Download Current Graph
+                        </button>
+                    </div>
                 </div>
             )}
             {results && (
                 <div className="download-section">
-                    {(results.trained_model_drive_id || !results.session_id) && (
-                        <DownloadTrainedModel selectedModel="k_means" extension=".pkl" sessionId={results.session_id} label="Download" />
-                    )}
+                    <DownloadTrainedModel selectedModel="k_means" extension=".pkl" sessionId={results.session_id} label="Download" />
                     {results.results_zip_drive_id && (
                         <DownloadResultsZip sessionId={results.session_id} />
                     )}

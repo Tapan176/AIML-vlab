@@ -65,7 +65,7 @@ def train_lstm(request, validated_params, hidden_layer_array=None, class_mode='c
             return
         
         df = get_dataset_df(user_id, lookup_name)
-        yield f"data: {json.dumps({'log': f'Loaded dataset \"{lookup_name}\" with {len(df)} rows and {len(df.columns)} columns.'})}\n\n"
+        yield f"data: {json.dumps({'log': f'Loaded dataset {lookup_name} with {len(df)} rows and {len(df.columns)} columns.'})}\n\n"
     except FileNotFoundError as e:
         yield f"data: {json.dumps({'error': f'Dataset not found: {str(e)}'})}\n\n"
         return
@@ -169,14 +169,22 @@ def train_lstm(request, validated_params, hidden_layer_array=None, class_mode='c
         # Output layer
         if is_regression:
             model.add(Dense(1, activation='linear'))
-            compile_loss = loss_type if loss_type in ['mse', 'mae', 'huber_loss'] else 'mse'
+            if loss_type in ('huber', 'huber_loss'):
+                compile_loss = 'huber'
+            else:
+                compile_loss = loss_type if loss_type in ['mse', 'mae'] else 'mse'
             compile_metrics = ['mae']
             yield f"data: {json.dumps({'log': f'Output: Dense(1, linear) — Regression mode'})}\n\n"
         else:
             num_classes = len(np.unique(y_seq))
             if num_classes > 2:
                 model.add(Dense(num_classes, activation='softmax'))
-                compile_loss = 'sparse_categorical_crossentropy'
+                if loss_type == 'categorical_crossentropy':
+                    from keras.utils import to_categorical
+                    y_seq = to_categorical(y_seq.astype(int), num_classes)
+                    compile_loss = 'categorical_crossentropy'
+                else:
+                    compile_loss = 'sparse_categorical_crossentropy'
                 compile_metrics = ['accuracy']
                 yield f"data: {json.dumps({'log': f'Output: Dense({num_classes}, softmax) — {num_classes}-class classification'})}\n\n"
             else:
@@ -189,7 +197,9 @@ def train_lstm(request, validated_params, hidden_layer_array=None, class_mode='c
         optimizer = _get_optimizer(validated_params)
         model.compile(optimizer=optimizer, loss=compile_loss, metrics=compile_metrics)
 
-        yield f"data: {json.dumps({'log': f'Model compiled. Optimizer: {validated_params.get("optimizer", "adam")}, Loss: {compile_loss}, LR: {validated_params.get("learning_rate", 0.001)}'})}\n\n"
+        optimizer_name = validated_params.get('optimizer', 'adam')
+        learning_rate = validated_params.get('learning_rate', 0.001)
+        yield f"data: {json.dumps({'log': f'Model compiled. Optimizer: {optimizer_name}, Loss: {compile_loss}, LR: {learning_rate}'})}\n\n"
         yield f"data: {json.dumps({'log': f'Starting Sequential Training for {epochs} epochs (batch_size={batch_size}, val_split={validation_split})...'})}\n\n"
 
         # --- Training loop ---

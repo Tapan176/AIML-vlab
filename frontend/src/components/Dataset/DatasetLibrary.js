@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { API_URL } from '../../constants';
+import api from '../../services/api';
 import './DatasetLibrary.css';
 
 const DatasetLibrary = () => {
@@ -15,15 +15,11 @@ const DatasetLibrary = () => {
     const fetchDatasets = async () => {
         try {
             setLoading(true);
-            const [defaultRes, userRes] = await Promise.all([
-                fetch(`${API_URL}/datasets/default`, { headers: { 'Authorization': `Bearer ${token}` } }),
-                fetch(`${API_URL}/user-datasets`, { headers: { 'Authorization': `Bearer ${token}` } })
+            // Use shared API helper so auth handling is consistent
+            const [defaultData, userData] = await Promise.all([
+                api.get('/datasets/default'),
+                api.get('/user-datasets'),
             ]);
-
-            if (!defaultRes.ok || !userRes.ok) throw new Error("Failed to load datasets.");
-
-            const defaultData = await defaultRes.json();
-            const userData = await userRes.json();
             
             // Deduplicate if necessary, though they should be distinct
             const combined = [...(defaultData.datasets || []), ...(userData.datasets || [])];
@@ -63,16 +59,8 @@ const DatasetLibrary = () => {
             const formData = new FormData();
             formData.append('file', file);
 
-            const res = await fetch(`${API_URL}/upload`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` },
-                body: formData
-            });
-
-            if (!res.ok) {
-                const errData = await res.json();
-                throw new Error(errData.error || 'Upload failed');
-            }
+            // Authenticated upload via shared api helper
+            await api.upload('/upload', formData);
 
             // Refresh datasets
             await fetchDatasets();

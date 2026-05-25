@@ -25,6 +25,12 @@ export default function ResNet() {
     const [infoOpen, setInfoOpen] = useState(false);
     const [logs, setLogs] = useState([]);
 
+    const lossOptions = classMode === 'binary'
+        ? ['binary_crossentropy']
+        : classMode === 'sparse'
+            ? ['sparse_categorical_crossentropy']
+            : ['categorical_crossentropy'];
+
     useEffect(() => {
         const cached = localStorage.getItem(`${MODEL_CODE}_dataset`);
         if (cached) {
@@ -39,6 +45,18 @@ export default function ResNet() {
         } else {
             localStorage.removeItem(`${MODEL_CODE}_dataset`);
         }
+    };
+
+    const handleClassModeChange = (value) => {
+        setClassMode(value);
+        setHyperparams(prev => ({
+            ...prev,
+            loss: value === 'binary'
+                ? 'binary_crossentropy'
+                : value === 'sparse'
+                    ? 'sparse_categorical_crossentropy'
+                    : 'categorical_crossentropy'
+        }));
     };
 
     const handleSubmit = async (e) => {
@@ -124,7 +142,7 @@ export default function ResNet() {
                 <div className="form-grid">
                     <div className="form-group">
                         <label>Class Mode</label>
-                        <select value={classMode} onChange={(e) => setClassMode(e.target.value)}>
+                        <select value={classMode} onChange={(e) => handleClassModeChange(e.target.value)}>
                             <option value="categorical">Categorical</option>
                             <option value="binary">Binary</option>
                             <option value="sparse">Sparse</option>
@@ -136,6 +154,7 @@ export default function ResNet() {
                     modelCode={MODEL_CODE}
                     hyperparams={hyperparams}
                     onChange={(name, value) => setHyperparams(prev => ({ ...prev, [name]: value }))}
+                    schemaOverrides={{ loss: { options: lossOptions, default: lossOptions[0] } }}
                 />
 
                 <ResNetHiddenLayer

@@ -111,8 +111,9 @@ def train_resnet(request, validated_params, hidden_layer_array=None, class_mode=
 
         # Output layer
         num_classes = training_set.num_classes
-        final_activation = 'softmax' if class_mode == 'categorical' else 'sigmoid'
-        final_units = num_classes if class_mode == 'categorical' else 1
+        is_multiclass_mode = class_mode in ('categorical', 'sparse')
+        final_activation = 'softmax' if is_multiclass_mode else 'sigmoid'
+        final_units = num_classes if is_multiclass_mode else 1
         model.add(Dense(final_units, activation=final_activation))
 
         yield f"data: {json.dumps({'log': f'Output layer: Dense({final_units}, activation={final_activation}) — {num_classes} classes detected.'})}\n\n"
@@ -121,7 +122,9 @@ def train_resnet(request, validated_params, hidden_layer_array=None, class_mode=
         optimizer = _get_optimizer(validated_params)
         model.compile(optimizer=optimizer, loss=loss_type, metrics=['accuracy'])
 
-        yield f"data: {json.dumps({'log': f'Model compiled. Optimizer: {validated_params.get("optimizer", "adam")}, Loss: {loss_type}, LR: {validated_params.get("learning_rate", 0.0001)}'})}\n\n"
+        optimizer_name = validated_params.get('optimizer', 'adam')
+        learning_rate = validated_params.get('learning_rate', 0.0001)
+        yield f"data: {json.dumps({'log': f'Model compiled. Optimizer: {optimizer_name}, Loss: {loss_type}, LR: {learning_rate}'})}\n\n"
         yield f"data: {json.dumps({'log': f'Starting Fine-Tuning for {epochs} epochs...'})}\n\n"
 
         # --- Training loop with early stopping ---

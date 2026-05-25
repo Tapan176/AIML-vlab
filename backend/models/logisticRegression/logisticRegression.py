@@ -60,8 +60,8 @@ def logisticRegression(request, validated_params=None, user_id=None, session_ver
             from services.dataset_service import get_dataset_df
             dataset = get_dataset_df(user_id, data['filename'])
             columnNames = dataset.columns.tolist()
-            X = dataset.iloc[:, [2, 3]].values
-            y = dataset.iloc[:, 4].values
+            X = dataset.iloc[:, :-1].values
+            y = dataset.iloc[:, -1].values
         except FileNotFoundError:
             return {"error": "File not found"}
         except Exception as e:
@@ -86,12 +86,15 @@ def logisticRegression(request, validated_params=None, user_id=None, session_ver
     f1 = f1_score(y_test, y_pred, zero_division=0)
 
     img_dir = ensure_dir(IMAGES_DIR)
-    outputImageUrls = [
-        os.path.join(img_dir, 'logisticRegressionTrainGraph.jpg'),
-        os.path.join(img_dir, 'logisticRegressionTestGraph.jpg')
-    ]
-    save_result_images(X_train, y_train, classifier, title='Training', xlabel=columnNames[2], ylabel=columnNames[3], output_path=outputImageUrls[0])
-    save_result_images(X_test, y_test, classifier, title='Test', xlabel=columnNames[2], ylabel=columnNames[3], output_path=outputImageUrls[1])
+    outputImageUrls = []
+    # Only generate 2D decision boundary plots if exactly 2 features
+    if X_train.shape[1] == 2:
+        outputImageUrls = [
+            os.path.join(img_dir, 'logisticRegressionTrainGraph.jpg'),
+            os.path.join(img_dir, 'logisticRegressionTestGraph.jpg')
+        ]
+        save_result_images(X_train, y_train, classifier, title='Training', xlabel=columnNames[-3], ylabel=columnNames[-2], output_path=outputImageUrls[0])
+        save_result_images(X_test, y_test, classifier, title='Test', xlabel=columnNames[-3], ylabel=columnNames[-2], output_path=outputImageUrls[1])
 
     return {
         "predictions": y_pred.tolist(), "confusion_matrix": confusion.tolist(),

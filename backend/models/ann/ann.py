@@ -7,12 +7,25 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from keras.models import Sequential
-from keras.layers import Dense, Dropout
+from keras.layers import Dense, Dropout, LeakyReLU
 from keras.optimizers import Adam, SGD, RMSprop, Adagrad
 from keras.callbacks import EarlyStopping
 from utils.saveTrainedModel import saveTrainedModel
 import os
 import tempfile
+
+
+def _add_dense_with_activation(model, units, activation, input_dim=None):
+    activation = (activation or 'relu').lower()
+    dense_activation = 'linear' if activation == 'leaky_relu' else activation
+
+    if input_dim is not None:
+        model.add(Dense(units, activation=dense_activation, input_dim=input_dim))
+    else:
+        model.add(Dense(units, activation=dense_activation))
+
+    if activation == 'leaky_relu':
+        model.add(LeakyReLU(alpha=0.01))
 
 
 def train_ann(request, validated_params=None, user_id=None, session_version=None):
@@ -22,10 +35,10 @@ def train_ann(request, validated_params=None, user_id=None, session_version=None
     # Extract parameters
     filename = data.get('filename')
     hidden_layers = data.get('hidden_layers', [{'units': 64, 'activation': 'relu'}])
-    epochs = data.get('epochs', validated_params.get('epochs', 50) if validated_params else 50)
-    batch_size = data.get('batch_size', validated_params.get('batch_size', 32) if validated_params else 32)
-    optimizer_name = data.get('optimizer', validated_params.get('optimizer', 'adam') if validated_params else 'adam')
-    loss_fn = data.get('loss', validated_params.get('loss', 'binary_crossentropy') if validated_params else 'binary_crossentropy')
+    epochs = validated_params.get('epochs', data.get('epochs', 50)) if validated_params else data.get('epochs', 50)
+    batch_size = validated_params.get('batch_size', data.get('batch_size', 32)) if validated_params else data.get('batch_size', 32)
+    optimizer_name = validated_params.get('optimizer', data.get('optimizer', 'adam')) if validated_params else data.get('optimizer', 'adam')
+    loss_fn = validated_params.get('loss', data.get('loss', 'binary_crossentropy')) if validated_params else data.get('loss', 'binary_crossentropy')
     validation_split = validated_params.get('validation_split', 0.2) if validated_params else 0.2
     test_size = validated_params.get('test_size', 0.2) if validated_params else 0.2
 
@@ -60,8 +73,12 @@ def train_ann(request, validated_params=None, user_id=None, session_version=None
     X_train = scaler.fit_transform(X_train)
     X_test = scaler.transform(X_test)
 
-    # One-hot encode target for categorical crossentropy
-    if loss_fn == 'categorical_crossentropy' and num_classes > 2:
+    # Configure output layer based on loss function
+    if loss_fn == 'mse':
+        # Regression mode — linear output
+        output_units = 1
+        output_activation = 'linear'
+    elif loss_fn == 'categorical_crossentropy' and num_classes > 2:
         from keras.utils import to_categorical
         y_train = to_categorical(y_train, num_classes)
         y_test = to_categorical(y_test, num_classes)
@@ -71,6 +88,7 @@ def train_ann(request, validated_params=None, user_id=None, session_version=None
         output_units = num_classes
         output_activation = 'softmax'
     else:
+        # binary_crossentropy
         output_units = 1
         output_activation = 'sigmoid'
 
@@ -84,9 +102,9 @@ def train_ann(request, validated_params=None, user_id=None, session_version=None
         dropout = layer_config.get('dropout', 0)
 
         if i == 0:
-            model.add(Dense(units, activation=activation, input_dim=input_dim))
+            _add_dense_with_activation(model, units, activation, input_dim=input_dim)
         else:
-            model.add(Dense(units, activation=activation))
+            _add_dense_with_activation(model, units, activation)
 
         if dropout and float(dropout) > 0:
             model.add(Dropout(float(dropout)))
@@ -95,6 +113,7 @@ def train_ann(request, validated_params=None, user_id=None, session_version=None
     model.add(Dense(output_units, activation=output_activation))
 
     # Optimizer
+    learning_rate = float(validated_params.get('learning_rate', 0.001)) if validated_params else 0.001
     optimizers = {
         'adam': Adam,
         'sgd': SGD,
@@ -102,7 +121,7 @@ def train_ann(request, validated_params=None, user_id=None, session_version=None
         'adagrad': Adagrad,
     }
     OptimizerClass = optimizers.get(optimizer_name, Adam)
-    optimizer = OptimizerClass(learning_rate=0.001)
+    optimizer = OptimizerClass(learning_rate=learning_rate)
 
     # Compile
     metrics = ['accuracy']

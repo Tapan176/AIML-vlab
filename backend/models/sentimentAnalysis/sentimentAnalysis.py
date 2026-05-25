@@ -50,11 +50,12 @@ def train_sentiment_analysis(request, validated_params=None, user_id=None, sessi
     pipeline.fit(X_train, y_train)
     y_pred = pipeline.predict(X_test)
 
-    saveTrainedModel(pipeline, "sentiment_analysis", "sklearn", user_id=user_id, version=session_version)
+    model_path = saveTrainedModel(pipeline, "sentiment_analysis", "sklearn", user_id=user_id, version=session_version)
 
     return {
         'accuracy': float(accuracy_score(y_test, y_pred)),
         'precision': float(precision_score(y_test, y_pred, average='weighted', zero_division=0)),
         'recall': float(recall_score(y_test, y_pred, average='weighted', zero_division=0)),
         'f1_score': float(f1_score(y_test, y_pred, average='weighted', zero_division=0)),
+        'trained_model_path': model_path,
     }

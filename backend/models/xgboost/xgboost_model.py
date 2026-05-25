@@ -45,11 +45,12 @@ def train_xgboost(request, validated_params=None, user_id=None, session_version=
     model.fit(X_train, y_train)
     y_pred = model.predict(X_test)
 
-    saveTrainedModel(model, "xgboost", "sklearn", user_id=user_id, version=session_version)
+    model_path = saveTrainedModel(model, "xgboost", "sklearn", user_id=user_id, version=session_version)
 
     return {
         'accuracy': float(accuracy_score(y_test, y_pred)),
         'precision': float(precision_score(y_test, y_pred, average='weighted', zero_division=0)),
         'recall': float(recall_score(y_test, y_pred, average='weighted', zero_division=0)),
         'f1_score': float(f1_score(y_test, y_pred, average='weighted', zero_division=0)),
+        'trained_model_path': model_path,
     }

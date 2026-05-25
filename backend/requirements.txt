@@ -1,44 +1,104 @@
+# =============================================================================
+#  requirements.txt
+#  TWO MODES — switch by commenting/uncommenting the relevant block
+#
+#  [GPU / LOCAL]  — full CUDA builds, best for local dev & GPU-enabled servers
+#                   uncomment the "GPU" lines, comment the "CPU" lines
+#
+#  [CPU / FREE TIER] — CPU-only builds, ~1.3 GB image, free-tier deployable
+#                      active by default (lines below are ready to use)
+# =============================================================================
+
+
+# -----------------------------------------------------------------------------
 # Core ML / Data Science
+# (same for both modes — no GPU/CPU split needed here)
+# -----------------------------------------------------------------------------
 numpy
 pandas
 matplotlib
 scipy
 scikit-learn
 
+
+# -----------------------------------------------------------------------------
 # Deep Learning — TensorFlow / Keras
-tensorflow
+# -----------------------------------------------------------------------------
+
+# -- GPU / LOCAL (uncomment for local dev or GPU server) ----------------------
+# tensorflow
+# keras
+
+# -- CPU / FREE TIER (active) -------------------------------------------------
+tensorflow-cpu
 keras
 
-# Deep Learning — PyTorch (StyleGAN)
-torch
-torchvision
 
-# Object Detection
+# -----------------------------------------------------------------------------
+# Deep Learning — PyTorch  (StyleGAN, custom nets)
+# NOTE: CPU wheels require a separate index URL.
+#       When switching back to GPU, remove the --extra-index-url line too.
+# -----------------------------------------------------------------------------
+
+# -- GPU / LOCAL (uncomment for local dev or GPU server) ----------------------
+# torch
+# torchvision
+
+# -- CPU / FREE TIER (active) -------------------------------------------------
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.3.1+cpu
+torchvision==0.18.1+cpu
+
+
+# -----------------------------------------------------------------------------
+# Object Detection — Ultralytics / YOLO
+# opencv-python-headless is pinned first so ultralytics does not pull the
+# heavier opencv-python (GUI) variant as a transitive dependency.
+# -----------------------------------------------------------------------------
+opencv-python-headless
 ultralytics
 
+
+# -----------------------------------------------------------------------------
 # Boosting
+# -----------------------------------------------------------------------------
 xgboost
 
+
+# -----------------------------------------------------------------------------
 # Web Framework
+# -----------------------------------------------------------------------------
 flask
 flask_cors
 flask-limiter
 gunicorn
 
+
+# -----------------------------------------------------------------------------
 # Database
+# -----------------------------------------------------------------------------
 pymongo
 
+
+# -----------------------------------------------------------------------------
 # Auth & Security
+# -----------------------------------------------------------------------------
 bcrypt
 PyJWT
 python-dotenv
 
+
+# -----------------------------------------------------------------------------
 # Google Drive Integration
+# -----------------------------------------------------------------------------
 google-api-python-client
 google-auth-httplib2
 google-auth-oauthlib
 
+
+# -----------------------------------------------------------------------------
 # Utilities
+# -----------------------------------------------------------------------------
 joblib
 requests
 Pillow

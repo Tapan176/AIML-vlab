@@ -1,6 +1,7 @@
 /* eslint-disable jsx-a11y/img-redundant-alt */
 import React, { useState, useEffect, useCallback } from 'react';
 import constants from '../../constants';
+import api from '../../services/api';
 
 const TAB_CLOUD = 'cloud';
 const TAB_UPLOAD = 'upload';
@@ -9,7 +10,7 @@ const TAB_UPLOAD = 'upload';
  * Sub-component that fetches thumbnails on-demand for a specific folder
  * when the initial preview didn't include them (e.g. more than 50 images per folder).
  */
-function OnDemandFolderImages({ datasetId, folder, imageCount, token, renderImageGrid }) {
+function OnDemandFolderImages({ datasetId, folder, imageCount, renderImageGrid }) {
     const [images, setImages] = useState([]);
     const [loading, setLoading] = useState(false);
     const [fetched, setFetched] = useState(false);
@@ -17,10 +18,7 @@ function OnDemandFolderImages({ datasetId, folder, imageCount, token, renderImag
     useEffect(() => {
         if (!datasetId || fetched) return;
         setLoading(true);
-        fetch(`${constants.API_BASE_URL}/datasets/${datasetId}/folder-images?folder=${encodeURIComponent(folder)}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        })
-        .then(res => res.json())
+        api.get(`/datasets/${datasetId}/folder-images?folder=${encodeURIComponent(folder)}`)
         .then(data => {
             setImages(data.thumbnails || []);
             setFetched(true);
@@ -30,7 +28,7 @@ function OnDemandFolderImages({ datasetId, folder, imageCount, token, renderImag
             setFetched(true);
         })
         .finally(() => setLoading(false));
-    }, [datasetId, folder, token, fetched]);
+    }, [datasetId, folder, fetched]);
 
     if (loading) {
         return (
@@ -87,17 +85,13 @@ export default function ShowDataset({ onDatasetUpload, ...props }) {
 
     const { allowedTypes } = props;
 
-    const token = localStorage.getItem('aiml_token');
-
     useEffect(() => {
         const fetchDatasets = async () => {
             try {
-                const [defaultRes, userRes] = await Promise.all([
-                    fetch(`${constants.API_BASE_URL}/datasets/default`, { headers: { 'Authorization': `Bearer ${token}` } }),
-                    fetch(`${constants.API_BASE_URL}/user-datasets`, { headers: { 'Authorization': `Bearer ${token}` } })
+                const [defaultData, userData] = await Promise.all([
+                    api.get('/datasets/default'),
+                    api.get('/user-datasets'),
                 ]);
-                const defaultData = await defaultRes.json();
-                const userData = await userRes.json();
 
                 let combined = [
                     ...(defaultData.datasets || []).map(d => ({ ...d, group: 'Default' })),
@@ -132,26 +126,20 @@ export default function ShowDataset({ onDatasetUpload, ...props }) {
     // Fetch versions when a cloud dataset is selected
     const fetchVersions = useCallback(async (filename) => {
         try {
-            const res = await fetch(`${constants.API_BASE_URL}/datasets/versions/${encodeURIComponent(filename)}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const data = await res.json();
+            const data = await api.get(`/datasets/versions/${encodeURIComponent(filename)}`);
             setVersions(data.versions || []);
         } catch (err) {
             console.error("Failed to fetch versions:", err);
             setVersions([]);
         }
-    }, [token]);
+    }, []);
 
     // Fetch preview for a specific dataset ID
     const fetchPreview = useCallback(async (datasetId) => {
         setPreviewLoading(true);
         setCloudPreview(null);
         try {
-            const res = await fetch(`${constants.API_BASE_URL}/datasets/${datasetId}/preview`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const data = await res.json();
+            const data = await api.get(`/datasets/${datasetId}/preview`);
             setCloudPreview(data);
             setZipCurrentFolder('');
         } catch (err) {
@@ -160,7 +148,7 @@ export default function ShowDataset({ onDatasetUpload, ...props }) {
         } finally {
             setPreviewLoading(false);
         }
-    }, [token]);
+    }, []);
 
     function handleCloudSelection(e) {
         const filename = e.target.value;
@@ -226,15 +214,7 @@ export default function ShowDataset({ onDatasetUpload, ...props }) {
         const formData = new FormData();
         formData.append('file', file);
 
-        fetch(`${constants.API_BASE_URL}/upload`, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}` },
-            body: formData,
-        })
-        .then(response => {
-            if (!response.ok) throw new Error('Network response was not ok');
-            return response.json();
-        })
+        api.upload('/upload', formData)
         .then(data => {
             if (data.csv_data) {
                 setCsvData(data.csv_data);
@@ -426,7 +406,6 @@ export default function ShowDataset({ onDatasetUpload, ...props }) {
                         datasetId={selectedVersion?._id || selectedDatasetId}
                         folder={currentFolderKey}
                         imageCount={currentImageFiles.length}
-                        token={token}
                         renderImageGrid={renderImageGrid}
                     />
                 )}
