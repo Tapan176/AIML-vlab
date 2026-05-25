@@ -1,5 +1,6 @@
-import os
-os.environ['PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION'] = 'python'
+# config import must come first — it sets PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION
+# before any TensorFlow/protobuf imports happen elsewhere.
+from config import FLASK_PORT, FLASK_DEBUG, UPLOAD_DIR, ALLOWED_ORIGINS
 
 from flask import Flask, send_from_directory
 from flask_cors import CORS
@@ -7,7 +8,6 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
 from mongoDb.connection import init_db, get_db
-from config import FLASK_PORT, FLASK_DEBUG, UPLOAD_DIR, ALLOWED_ORIGINS
 
 # import routes
 from models.route import model_routes

@@ -3,6 +3,12 @@ Centralized configuration loader for ML-vlab backend.
 All constants and settings are loaded from .env — no hardcoded values.
 """
 import os
+
+# Force the pure-Python protobuf implementation BEFORE anything imports TensorFlow
+# or other protobuf-using libraries. Must stay at the top of this module since
+# config.py is the first thing app.py imports.
+os.environ['PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION'] = 'python'
+
 from dotenv import load_dotenv
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
@@ -16,9 +22,18 @@ MONGO_URI = os.getenv('MONGO_URI', 'mongodb://localhost:27017/')
 DB_NAME = os.getenv('DB_NAME', 'aiml-lab')
 
 # --- JWT ---
-JWT_SECRET = os.getenv('JWT_SECRET', 'change-me-in-production')
+_JWT_DEFAULT = 'change-me-in-production'
+JWT_SECRET = os.getenv('JWT_SECRET', _JWT_DEFAULT)
 JWT_EXPIRY_HOURS = int(os.getenv('JWT_EXPIRY_HOURS', '24'))
 JWT_ALGORITHM = 'HS256'
+
+if JWT_SECRET == _JWT_DEFAULT:
+    import warnings
+    warnings.warn(
+        "JWT_SECRET is using the public default value. "
+        "Set JWT_SECRET in backend/.env to a long random string before running in any non-throwaway environment.",
+        stacklevel=2,
+    )
 
 # --- File Storage ---
 UPLOAD_DIR = os.getenv('UPLOAD_DIR', 'static/uploads')

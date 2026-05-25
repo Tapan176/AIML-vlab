@@ -62,18 +62,25 @@ def download_results_zip_session(current_user, session_id):
 @utils_routes.route('/download-trained-model', methods=['GET'])
 @token_required(optional=True)
 def download_model(current_user):
-    model_path = get_model_path(request)
     import os
+    try:
+        model_path = get_model_path(request)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
     if not os.path.exists(model_path):
         return jsonify({"error": "Trained model file not found on server. Please train a new model."}), 404
-        
+
     download_name = os.path.basename(model_path)
     return send_file(model_path, as_attachment=True, download_name=download_name)
 
 @utils_routes.route('/download-model-predictions', methods=['GET'])
 @token_required(optional=True)
 def download_model_predictions(current_user):
-    model_path = get_model_predictions(request)
+    try:
+        model_path = get_model_predictions(request)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
     return send_file(model_path, as_attachment=True)
 
 @utils_routes.route('/upload', methods=['POST'])

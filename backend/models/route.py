@@ -170,79 +170,79 @@ def _train_model(model_code, request_obj, current_user=None):
 # --- Model Training Endpoints ---
 
 @model_routes.route('/linear-regression', methods=['POST'])
-@token_required(optional=True)
+@token_required
 def linear_regression(current_user):
     return _train_model('simple_linear_regression', request, current_user)
 
 
 @model_routes.route('/multivariable-linear-regression', methods=['POST'])
-@token_required(optional=True)
+@token_required
 def multivariate_linear_regression(current_user):
     return _train_model('multivariable_linear_regression', request, current_user)
 
 
 @model_routes.route('/logistic-regression', methods=['POST'])
-@token_required(optional=True)
+@token_required
 def logistic_regression_route(current_user):
     return _train_model('logistic_regression', request, current_user)
 
 
 @model_routes.route('/decision-tree', methods=['POST'])
-@token_required(optional=True)
+@token_required
 def decision_tree(current_user):
     return _train_model('decision_tree', request, current_user)
 
 
 @model_routes.route('/random-forest', methods=['POST'])
-@token_required(optional=True)
+@token_required
 def random_forest(current_user):
     return _train_model('random_forest', request, current_user)
 
 
 @model_routes.route('/knn', methods=['POST'])
-@token_required(optional=True)
+@token_required
 def k_nearest_neighbors(current_user):
     return _train_model('knn', request, current_user)
 
 
 @model_routes.route('/k-means', methods=['POST'])
-@token_required(optional=True)
+@token_required
 def k_means(current_user):
     return _train_model('k_means', request, current_user)
 
 
 @model_routes.route('/support-vector-machine', methods=['POST'])
-@token_required(optional=True)
+@token_required
 def support_vector_machine(current_user):
     return _train_model('svm', request, current_user)
 
 
 @model_routes.route('/naive-bayes', methods=['POST'])
-@token_required(optional=True)
+@token_required
 def naive_bayes(current_user):
     return _train_model('naive_bayes', request, current_user)
 
 
 @model_routes.route('/dbscan', methods=['POST'])
-@token_required(optional=True)
+@token_required
 def db_scan(current_user):
     return _train_model('dbscan', request, current_user)
 
 
 @model_routes.route('/gradient-boosting', methods=['POST'])
-@token_required(optional=True)
+@token_required
 def gradient_boosting(current_user):
     return _train_model('gradient_boosting', request, current_user)
 
 
 @model_routes.route('/sentiment-analysis', methods=['POST'])
-@token_required(optional=True)
+@token_required
 def sentiment_analysis(current_user):
     return _train_model('sentiment_analysis', request, current_user)
 
 
 @model_routes.route('/text-classification', methods=['POST'])
-@token_required(optional=True)
+@token_required
 def text_classification(current_user):
     return _train_model('text_classification', request, current_user)
 
@@ -360,7 +360,7 @@ def ann(current_user):
 
 
 @model_routes.route('/xgboost', methods=['POST'])
-@token_required(optional=True)
+@token_required
 def xgboost(current_user):
     """XGBoost training — lazy-imports xgboost."""
     try:
