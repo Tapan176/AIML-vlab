@@ -2,13 +2,12 @@ from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-import pandas as pd
-import numpy as np
-import csv
 import os
 import matplotlib.pyplot as plt
 from utils.saveTrainedModel import saveTrainedModel
-from config import UPLOAD_DIR, IMAGES_DIR, PREDICTIONS_DIR, ensure_dir
+from utils.data_loader import load_data_with_fallback
+from utils.predictions_writer import save_predictions_csv
+from config import IMAGES_DIR, PREDICTIONS_DIR, ensure_dir
 
 
 def multivariateLinearRegression(request, validated_params=None, user_id=None, session_version=None):
@@ -17,22 +16,14 @@ def multivariateLinearRegression(request, validated_params=None, user_id=None, s
     test_size = params.get('test_size', 0.33)
     random_state = params.get('random_state', 0)
 
-    X = None
-    y = None
-
-    if 'filename' in data:
-        try:
-            from services.dataset_service import get_dataset_df
-            dataset = get_dataset_df(user_id, data['filename'])
-            X = dataset.iloc[:, :-1].values
-            y = dataset.iloc[:, -1].values
-            columnNames = dataset.columns.tolist()
-        except FileNotFoundError:
-            return {"error": "File not found"}
-        except Exception as e:
-            return {"error": str(e)}
-    else:
-        return {"error": "Filename required for multivariate regression"}
+    try:
+        X, y, columnNames = load_data_with_fallback(data, user_id)
+    except FileNotFoundError:
+        return {"error": "File not found"}
+    except ValueError as e:
+        return {"error": str(e)}
+    except Exception as e:
+        return {"error": str(e)}
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=random_state)
 
@@ -51,13 +42,9 @@ def multivariateLinearRegression(request, validated_params=None, user_id=None, s
     mse = mean_squared_error(y_test, y_pred)
     r2 = r2_score(y_test, y_pred)
 
-    # Save predictions
     pred_dir = ensure_dir(PREDICTIONS_DIR)
     predictions_output_file = os.path.join(pred_dir, 'multivariable_linear_regression.csv')
-    pred_dataset = pd.DataFrame(X_test, columns=columnNames[:-1])
-    pred_dataset[columnNames[-1]] = y_test
-    pred_dataset['Predictions'] = y_pred
-    pred_dataset.to_csv(predictions_output_file, index=False)
+    save_predictions_csv(X_test, y_test, columnNames, y_pred, predictions_output_file)
 
     # Actual vs Predicted plot
     img_dir = ensure_dir(IMAGES_DIR)

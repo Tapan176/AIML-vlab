@@ -34,7 +34,15 @@ def load_data_with_fallback(data, user_id, *, reshape_x_to_2d=False):
         y = np.array(data['y'])
         if reshape_x_to_2d:
             X = X.reshape(-1, 1)
-        return X, y, ['X', 'y']
+        # Column names need to match the actual feature width so downstream
+        # consumers (predictions CSV writer, decision-boundary plot labels)
+        # don't crash on multi-feature inline payloads.
+        n_features = X.shape[1] if X.ndim > 1 else 1
+        if n_features == 1:
+            column_names = ['X', 'y']
+        else:
+            column_names = [f'X{i + 1}' for i in range(n_features)] + ['y']
+        return X, y, column_names
 
     if 'filename' in data:
         # Local import keeps this module light when callers want only the

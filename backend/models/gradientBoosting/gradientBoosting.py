@@ -1,23 +1,15 @@
 """Gradient Boosting Classifier — scikit-learn."""
-import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from sklearn.preprocessing import LabelEncoder
 from utils.saveTrainedModel import saveTrainedModel
-import os
+from utils.data_loader import load_data_with_fallback
 
 
 def train_gradient_boosting(request, validated_params=None, user_id=None, session_version=None):
     data = request.json or {}
-    filename = data.get('filename')
-    if not filename:
-        raise ValueError("No dataset filename provided.")
-
-    from services.dataset_service import get_dataset_df
-    df = get_dataset_df(user_id, filename)
-    X = df.iloc[:, :-1]
-    y = df.iloc[:, -1]
+    X, y, _ = load_data_with_fallback(data, user_id)
 
     if y.dtype == 'object':
         le = LabelEncoder()
