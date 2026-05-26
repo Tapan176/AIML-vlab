@@ -1,38 +1,24 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import constants from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
 import DownloadResultsZip from '../DownloadResultsZip/DownloadResultsZip';
 import HyperparamPanel from '../shared/HyperparamPanel';
 import ModelInfoPanel from '../shared/ModelInfoPanel';
+import useDatasetCache from '../../hooks/useDatasetCache';
+import { formatMetric } from '../../utils/formatMetric';
 import '../ModelCss/ModelPage.css';
 
 const MODEL_CODE = 'yolo';
 
 export default function ObjectDetection() {
-    const [datasetData, setDatasetData] = useState('');
     const [hyperparams, setHyperparams] = useState({});
     const [results, setResults] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [infoOpen, setInfoOpen] = useState(false);
     const [logs, setLogs] = useState([]);
-
-    useEffect(() => {
-        const cached = localStorage.getItem(`${MODEL_CODE}_dataset`);
-        if (cached) {
-            try { setDatasetData(JSON.parse(cached)); } catch(e) {}
-        }
-    }, []);
-
-    const handleDatasetSelect = (data) => {
-        setDatasetData(data);
-        if (data && data.filename) {
-            localStorage.setItem(`${MODEL_CODE}_dataset`, JSON.stringify(data));
-        } else {
-            localStorage.removeItem(`${MODEL_CODE}_dataset`);
-        }
-    };
+    const { datasetData, handleDatasetSelect } = useDatasetCache(MODEL_CODE);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -42,7 +28,7 @@ export default function ObjectDetection() {
         setResults(null);
         try {
             const bodyPayload = {
-                filePath: datasetData?.extracted_file_path || datasetData?.filepath || datasetData?.path || datasetData?.filename, 
+                filePath: datasetData?.extracted_file_path || datasetData?.filepath || datasetData?.path || datasetData?.filename,
                 filename: datasetData?.filename,
                 dataset_id: datasetData?.dataset_id || null,
                 hyperparams,
@@ -146,8 +132,8 @@ export default function ObjectDetection() {
                     <h2>Training Results</h2>
                     {results.message && <p>{results.message}</p>}
                     <div className="metrics-grid">
-                        {results.map50 != null && <div className="metric-item"><div className="metric-label">mAP50</div><div className="metric-value">{(results.map50 * 100).toFixed(2)}%</div></div>}
-                        {results.loss != null && <div className="metric-item"><div className="metric-label">Loss</div><div className="metric-value">{results.loss.toFixed(4)}</div></div>}
+                        <div className="metric-item"><div className="metric-label">mAP50</div><div className="metric-value">{formatMetric(results.map50, { percent: true, decimals: 2 })}</div></div>
+                        <div className="metric-item"><div className="metric-label">Loss</div><div className="metric-value">{formatMetric(results.loss)}</div></div>
                     </div>
                 </div>
             )}
@@ -167,6 +153,3 @@ export default function ObjectDetection() {
         </div>
     );
 }
-
-
-

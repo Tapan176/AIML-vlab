@@ -5,12 +5,13 @@ import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
 import DownloadResultsZip from '../DownloadResultsZip/DownloadResultsZip';
 import HyperparamPanel from '../shared/HyperparamPanel';
 import ModelInfoPanel from '../shared/ModelInfoPanel';
+import useDatasetCache from '../../hooks/useDatasetCache';
+import { formatMetric } from '../../utils/formatMetric';
 import '../ModelCss/ModelPage.css';
 
 const MODEL_CODE = 'stylegan';
 
 export default function StyleGAN() {
-    const [datasetData, setDatasetData] = useState('');
     const [hyperparams, setHyperparams] = useState({});
     const [results, setResults] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -18,6 +19,7 @@ export default function StyleGAN() {
     const [infoOpen, setInfoOpen] = useState(false);
     const [logs, setLogs] = useState([]);
     const logsEndRef = useRef(null);
+    const { datasetData, handleDatasetSelect } = useDatasetCache(MODEL_CODE);
 
     useEffect(() => {
         if (logsEndRef.current) {
@@ -25,29 +27,13 @@ export default function StyleGAN() {
         }
     }, [logs]);
 
-    useEffect(() => {
-        const cached = localStorage.getItem(`${MODEL_CODE}_dataset`);
-        if (cached) {
-            try { setDatasetData(JSON.parse(cached)); } catch(e) {}
-        }
-    }, []);
-
-    const handleDatasetSelect = (data) => {
-        setDatasetData(data);
-        if (data && data.filename) {
-            localStorage.setItem(`${MODEL_CODE}_dataset`, JSON.stringify(data));
-        } else {
-            localStorage.removeItem(`${MODEL_CODE}_dataset`);
-        }
-    };
-
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
         setError('');
         setLogs([]);
         setResults(null);
-        
+
         try {
             const bodyPayload = {
                 filePath: datasetData?.extracted_file_path || datasetData?.filepath || datasetData?.path || datasetData?.filename,
@@ -64,16 +50,16 @@ export default function StyleGAN() {
                 },
                 body: JSON.stringify(bodyPayload)
             });
-            
+
             if (!response.ok) {
                 const errData = await response.json();
                 throw new Error(errData.error || 'Failed to start generative process');
             }
-            
+
             const reader = response.body.getReader();
             const decoder = new TextDecoder("utf-8");
             let done = false;
-            
+
             while (!done) {
                 const { value, done: doneReading } = await reader.read();
                 done = doneReading;
@@ -139,7 +125,7 @@ export default function StyleGAN() {
 
             {logs.length > 0 && (
                 <div className="terminal-log-container" style={{
-                    backgroundColor: '#1e1e1e', color: '#00ff00', padding: '15px', 
+                    backgroundColor: '#1e1e1e', color: '#00ff00', padding: '15px',
                     borderRadius: '8px', fontFamily: 'monospace', marginTop: '20px',
                     maxHeight: '300px', overflowY: 'auto', textAlign: 'left',
                     boxShadow: 'inset 0 0 10px rgba(0,0,0,0.5)'
@@ -163,17 +149,17 @@ export default function StyleGAN() {
                     <h2>Training Complete</h2>
                     {results.message && <p>{results.message}</p>}
                     <div className="metrics-grid">
-                        {results.loss_d != null && <div className="metric-item"><div className="metric-label">Discriminator Loss</div><div className="metric-value">{results.loss_d.toFixed(4)}</div></div>}
-                        {results.loss_g != null && <div className="metric-item"><div className="metric-label">Generator Loss</div><div className="metric-value">{results.loss_g.toFixed(4)}</div></div>}
+                        <div className="metric-item"><div className="metric-label">Discriminator Loss</div><div className="metric-value">{formatMetric(results.loss_d)}</div></div>
+                        <div className="metric-item"><div className="metric-label">Generator Loss</div><div className="metric-value">{formatMetric(results.loss_g)}</div></div>
                         {results.epochs_trained != null && <div className="metric-item"><div className="metric-label">Epochs Trained</div><div className="metric-value">{results.epochs_trained}</div></div>}
                     </div>
-                    
+
                     <div className="download-section" style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
                         {(results.trained_model_drive_id || !results.session_id) && (
-                            <DownloadTrainedModel 
-                                selectedModel={MODEL_CODE} 
-                                extension=".pt" 
-                                sessionId={results.session_id} label="Download" 
+                            <DownloadTrainedModel
+                                selectedModel={MODEL_CODE}
+                                extension=".pt"
+                                sessionId={results.session_id} label="Download"
                             />
                         )}
                         {results.results_zip_drive_id && (
@@ -189,4 +175,3 @@ export default function StyleGAN() {
         </div>
     );
 }
-

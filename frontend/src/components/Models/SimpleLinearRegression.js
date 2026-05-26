@@ -1,14 +1,15 @@
 /* eslint-disable jsx-a11y/img-redundant-alt */
-import { useState, useEffect } from 'react';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowLeft, faArrowRight } from '@fortawesome/free-solid-svg-icons';
-import constants from '../../constants';
+import { useState } from 'react';
 import ShowDataset from '../Dataset/ShowDataset';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
 import DownloadResultsZip from '../DownloadResultsZip/DownloadResultsZip';
 import DownloadModelPredictions from '../DownloadModelPredictions/DownloadModelPredictions';
 import HyperparamPanel from '../shared/HyperparamPanel';
 import ModelInfoPanel from '../shared/ModelInfoPanel';
+import ImageCarousel from '../shared/ImageCarousel';
+import useDatasetCache from '../../hooks/useDatasetCache';
+import useModelTrain from '../../hooks/useModelTrain';
+import { formatMetric } from '../../utils/formatMetric';
 import '../ModelCss/ModelPage.css';
 
 const MODEL_CODE = 'simple_linear_regression';
@@ -16,40 +17,9 @@ const MODEL_CODE = 'simple_linear_regression';
 export default function SimpleLinearRegression() {
     const [inputData, setInputData] = useState({ X: [], y: [] });
     const [hyperparams, setHyperparams] = useState({});
-    const [results, setResults] = useState(null);
-    const [datasetData, setDatasetData] = useState('');
-    const [currentImageIndex, setCurrentImageIndex] = useState(0);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
     const [infoOpen, setInfoOpen] = useState(false);
-
-    useEffect(() => {
-        const cached = localStorage.getItem(`${MODEL_CODE}_dataset`);
-        if (cached) {
-            try { setDatasetData(JSON.parse(cached)); } catch(e) {}
-        }
-    }, []);
-
-    const handleDatasetSelect = (data) => {
-        setDatasetData(data);
-        if (data && data.filename) {
-            localStorage.setItem(`${MODEL_CODE}_dataset`, JSON.stringify(data));
-        } else {
-            localStorage.removeItem(`${MODEL_CODE}_dataset`);
-        }
-    };
-
-    const images = results?.outputImageBase64?.length > 0 ? results.outputImageBase64 : (results?.outputImageUrls?.map(url => `${constants.API_BASE_URL}/${url}?timestamp=${Date.now()}`) || []);
-    const downloadCurrentImage = () => {
-        const imageUrl = images[currentImageIndex];
-        if (!imageUrl) return;
-        const link = document.createElement('a');
-        link.href = imageUrl;
-        link.download = `simple_linear_regression_graph_${currentImageIndex + 1}.jpg`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
+    const { datasetData, handleDatasetSelect } = useDatasetCache(MODEL_CODE);
+    const { train, loading, error, results } = useModelTrain('/linear-regression');
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -58,9 +28,6 @@ export default function SimpleLinearRegression() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setLoading(true);
-        setError('');
-        setCurrentImageIndex(0);
         try {
             let dataToSend;
             if (datasetData && datasetData.filename) {
@@ -68,21 +35,8 @@ export default function SimpleLinearRegression() {
             } else {
                 dataToSend = { X: inputData.X, y: inputData.y, hyperparams };
             }
-            const response = await fetch(`${constants.API_BASE_URL}/linear-regression`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...(localStorage.getItem('aiml_token') ? { 'Authorization': `Bearer ${localStorage.getItem('aiml_token')}` } : {}) },
-                body: JSON.stringify(dataToSend),
-            });
-            if (!response.ok) {
-                const errData = await response.json();
-                throw new Error(errData.error || 'Request failed');
-            }
-            setResults(await response.json());
-        } catch (err) {
-            setError(err.message);
-        } finally {
-            setLoading(false);
-        }
+            await train(dataToSend);
+        } catch (err) { /* error captured by hook */ }
     };
 
     return (
@@ -124,28 +78,14 @@ export default function SimpleLinearRegression() {
                 <div className="results-card">
                     <h2>Regression Results</h2>
                     <div className="metrics-grid">
-                        {results.MAE != null && <div className="metric-item"><div className="metric-label">MAE</div><div className="metric-value">{results.MAE.toFixed(4)}</div></div>}
-                        {results.MSE != null && <div className="metric-item"><div className="metric-label">MSE</div><div className="metric-value">{results.MSE.toFixed(4)}</div></div>}
-                        {results.R2 != null && <div className="metric-item"><div className="metric-label">RÂ² Score</div><div className="metric-value">{results.R2.toFixed(4)}</div></div>}
+                        <div className="metric-item"><div className="metric-label">MAE</div><div className="metric-value">{formatMetric(results.MAE)}</div></div>
+                        <div className="metric-item"><div className="metric-label">MSE</div><div className="metric-value">{formatMetric(results.MSE)}</div></div>
+                        <div className="metric-item"><div className="metric-label">RÂ² Score</div><div className="metric-value">{formatMetric(results.R2)}</div></div>
                     </div>
                 </div>
             )}
 
-            {images.length > 0 && (
-                <div className="output-section">
-                    <h2>Visualizations</h2>
-                    <div className="image-carousel">
-                        <button type="button" className="carousel-btn" onClick={() => setCurrentImageIndex(i => i === 0 ? images.length - 1 : i - 1)}><FontAwesomeIcon icon={faArrowLeft} /></button>
-                        <img src={images[currentImageIndex]} alt={`Output ${currentImageIndex + 1}`} />
-                        <button type="button" className="carousel-btn" onClick={() => setCurrentImageIndex(i => i === images.length - 1 ? 0 : i + 1)}><FontAwesomeIcon icon={faArrowRight} /></button>
-                    </div>
-                    <div className="download-section" style={{ marginTop: '12px' }}>
-                        <button type="button" className="btn-download-primary" onClick={downloadCurrentImage}>
-                            Download Current Graph
-                        </button>
-                    </div>
-                </div>
-            )}
+            <ImageCarousel images={results?.images || []} modelName="simple_linear_regression" />
 
             {results && (
                 <div className="download-section">
@@ -163,5 +103,3 @@ export default function SimpleLinearRegression() {
         </div>
     );
 }
-
-

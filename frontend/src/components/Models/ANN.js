@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import constants from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
 import DownloadResultsZip from '../DownloadResultsZip/DownloadResultsZip';
 import HyperparamPanel from '../shared/HyperparamPanel';
 import ModelInfoPanel from '../shared/ModelInfoPanel';
+import useDatasetCache from '../../hooks/useDatasetCache';
+import { formatMetric } from '../../utils/formatMetric';
 import '../ModelCss/ModelPage.css';
 
 const MODEL_CODE = 'ann';
@@ -16,7 +18,6 @@ const DEFAULT_LAYERS = [
 ];
 
 export default function ANN() {
-    const [datasetData, setDatasetData] = useState('');
     const [layers, setLayers] = useState(DEFAULT_LAYERS.map(l => ({ ...l })));
     const [hyperparams, setHyperparams] = useState({});
     const [results, setResults] = useState(null);
@@ -24,23 +25,8 @@ export default function ANN() {
     const [error, setError] = useState('');
     const [infoOpen, setInfoOpen] = useState(false);
     const [logs, setLogs] = useState([]);
+    const { datasetData, handleDatasetSelect } = useDatasetCache(MODEL_CODE);
 
-
-    useEffect(() => {
-        const cached = localStorage.getItem(`ann_dataset`);
-        if (cached) {
-            try { setDatasetData(JSON.parse(cached)); } catch(e) {}
-        }
-    }, []);
-
-    const handleDatasetSelect = (data) => {
-        setDatasetData(data);
-        if (data && data.filename) {
-            localStorage.setItem(`ann_dataset`, JSON.stringify(data));
-        } else {
-            localStorage.removeItem(`ann_dataset`);
-        }
-    };
     const handleLayerChange = (index, key, value) => {
         const updated = [...layers];
         updated[index] = { ...updated[index], [key]: value };
@@ -138,7 +124,7 @@ export default function ANN() {
                 {/* ANN Layer Builder */}
                 <div className="hidden-layers-section">
                     <div className="hidden-layers-header">
-                        <h3>ðŸ§  Dense Layers ({layers.length})</h3>
+                        <h3>ðŸ§  Dense Layers ({layers.length})</h3>
                     </div>
                     <div className="hidden-layers-list">
                         {layers.map((layer, index) => (
@@ -200,10 +186,10 @@ export default function ANN() {
                     <h2>Training Results</h2>
                     {results.message && <p>{results.message}</p>}
                     <div className="metrics-grid">
-                        {results.accuracy != null && <div className="metric-item"><div className="metric-label">Test Accuracy</div><div className="metric-value">{(results.accuracy * 100).toFixed(2)}%</div></div>}
-                        {results.loss != null && <div className="metric-item"><div className="metric-label">Test Loss</div><div className="metric-value">{results.loss.toFixed(4)}</div></div>}
-                        {results.val_accuracy != null && <div className="metric-item"><div className="metric-label">Val Accuracy</div><div className="metric-value">{(results.val_accuracy * 100).toFixed(2)}%</div></div>}
-                        {results.val_loss != null && <div className="metric-item"><div className="metric-label">Val Loss</div><div className="metric-value">{results.val_loss.toFixed(4)}</div></div>}
+                        <div className="metric-item"><div className="metric-label">Test Accuracy</div><div className="metric-value">{formatMetric(results.accuracy, { percent: true, decimals: 2 })}</div></div>
+                        <div className="metric-item"><div className="metric-label">Test Loss</div><div className="metric-value">{formatMetric(results.loss)}</div></div>
+                        <div className="metric-item"><div className="metric-label">Val Accuracy</div><div className="metric-value">{formatMetric(results.val_accuracy, { percent: true, decimals: 2 })}</div></div>
+                        <div className="metric-item"><div className="metric-label">Val Loss</div><div className="metric-value">{formatMetric(results.val_loss)}</div></div>
                         {results.epochs_trained != null && <div className="metric-item"><div className="metric-label">Epochs</div><div className="metric-value">{results.epochs_trained}</div></div>}
                     </div>
                 </div>
@@ -224,6 +210,3 @@ export default function ANN() {
         </div>
     );
 }
-
-
-

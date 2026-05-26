@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import constants from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
 import CnnHiddenLayer from '../HiddenLayers/CnnHiddenLayer';
@@ -6,6 +6,8 @@ import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
 import DownloadResultsZip from '../DownloadResultsZip/DownloadResultsZip';
 import HyperparamPanel from '../shared/HyperparamPanel';
 import ModelInfoPanel from '../shared/ModelInfoPanel';
+import useDatasetCache from '../../hooks/useDatasetCache';
+import { formatMetric } from '../../utils/formatMetric';
 import '../ModelCss/ModelPage.css';
 
 const MODEL_CODE = 'cnn';
@@ -20,7 +22,6 @@ const DEFAULT_LAYERS = [
 ];
 
 export default function CNN() {
-    const [datasetData, setDatasetData] = useState('');
     const [layers, setLayers] = useState(DEFAULT_LAYERS.map(l => ({ ...l })));
     const [classMode, setClassMode] = useState('categorical');
     const [hyperparams, setHyperparams] = useState({});
@@ -29,6 +30,7 @@ export default function CNN() {
     const [error, setError] = useState('');
     const [infoOpen, setInfoOpen] = useState(false);
     const [logs, setLogs] = useState([]);
+    const { datasetData, handleDatasetSelect } = useDatasetCache(MODEL_CODE);
 
     const lossOptions = classMode === 'binary'
         ? ['binary_crossentropy']
@@ -36,22 +38,6 @@ export default function CNN() {
             ? ['sparse_categorical_crossentropy']
             : ['categorical_crossentropy'];
 
-
-    useEffect(() => {
-        const cached = localStorage.getItem(`cnn_dataset`);
-        if (cached) {
-            try { setDatasetData(JSON.parse(cached)); } catch(e) {}
-        }
-    }, []);
-
-    const handleDatasetSelect = (data) => {
-        setDatasetData(data);
-        if (data && data.filename) {
-            localStorage.setItem(`cnn_dataset`, JSON.stringify(data));
-        } else {
-            localStorage.removeItem(`cnn_dataset`);
-        }
-    };
     const handleLayerChange = (index, updatedLayer) => {
         const newLayers = [...layers];
         newLayers[index] = updatedLayer;
@@ -82,12 +68,12 @@ export default function CNN() {
         try {
             const bodyPayload = {
                 filename: datasetData?.filename || '',
-                filePath: datasetData?.extracted_file_path || datasetData?.filepath || datasetData?.path || datasetData?.filename, 
+                filePath: datasetData?.extracted_file_path || datasetData?.filepath || datasetData?.path || datasetData?.filename,
                 dataset_id: datasetData?.dataset_id || null,
                 numberOfNeuronsInInputLayer: layers.length > 0 ? (layers[0].numberOfNeurons || 64) : 64,
                 inputKernelSize: layers.length > 0 ? (layers[0].kernel || [3, 3]) : [3, 3],
                 inputLayerActivationFunction: layers.length > 0 ? (layers[0].activationFunction || 'relu') : 'relu',
-                inputShape: [64, 64, 3], 
+                inputShape: [64, 64, 3],
                 hiddenLayerArray: layers.length > 0 ? layers.slice(1) : [],
                 optimizerObject: {
                     type: hyperparams.optimizer || 'adam',
@@ -214,8 +200,8 @@ export default function CNN() {
                     <h2>Training Results</h2>
                     {results.message && <p>{results.message}</p>}
                     <div className="metrics-grid">
-                        {results.accuracy != null && <div className="metric-item"><div className="metric-label">Accuracy</div><div className="metric-value">{(results.accuracy * 100).toFixed(2)}%</div></div>}
-                        {results.loss != null && <div className="metric-item"><div className="metric-label">Loss</div><div className="metric-value">{results.loss.toFixed(4)}</div></div>}
+                        <div className="metric-item"><div className="metric-label">Accuracy</div><div className="metric-value">{formatMetric(results.accuracy, { percent: true, decimals: 2 })}</div></div>
+                        <div className="metric-item"><div className="metric-label">Loss</div><div className="metric-value">{formatMetric(results.loss)}</div></div>
                     </div>
                 </div>
             )}
@@ -235,6 +221,3 @@ export default function CNN() {
         </div>
     );
 }
-
-
-

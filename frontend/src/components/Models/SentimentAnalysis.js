@@ -1,63 +1,34 @@
-import { useState, useEffect } from 'react';
-import constants from '../../constants';
+import { useState } from 'react';
 import ShowDataset from '../Dataset/ShowDataset';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
 import DownloadResultsZip from '../DownloadResultsZip/DownloadResultsZip';
 import HyperparamPanel from '../shared/HyperparamPanel';
 import ModelInfoPanel from '../shared/ModelInfoPanel';
+import useDatasetCache from '../../hooks/useDatasetCache';
+import useModelTrain from '../../hooks/useModelTrain';
+import { formatMetric } from '../../utils/formatMetric';
 import '../ModelCss/ModelPage.css';
 
+const MODEL_CODE = 'sentiment_analysis';
+
 export default function SentimentAnalysis() {
-    const [datasetData, setDatasetData] = useState('');
     const [textColumn, setTextColumn] = useState('');
     const [labelColumn, setLabelColumn] = useState('');
     const [hyperparams, setHyperparams] = useState({});
-    const [results, setResults] = useState(null);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
     const [infoOpen, setInfoOpen] = useState(false);
+    const { datasetData, handleDatasetSelect } = useDatasetCache('sentimentanalysis');
+    const { train, loading, error, results } = useModelTrain('/sentiment-analysis');
 
-
-    useEffect(() => {
-        const cached = localStorage.getItem(`sentimentanalysis_dataset`);
-        if (cached) {
-            try { setDatasetData(JSON.parse(cached)); } catch(e) {}
-        }
-    }, []);
-
-    const handleDatasetSelect = (data) => {
-        setDatasetData(data);
-        if (data && data.filename) {
-            localStorage.setItem(`sentimentanalysis_dataset`, JSON.stringify(data));
-        } else {
-            localStorage.removeItem(`sentimentanalysis_dataset`);
-        }
-    };
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setLoading(true);
-        setError('');
         try {
-            const response = await fetch(`${constants.API_BASE_URL}/sentiment-analysis`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...(localStorage.getItem('aiml_token') ? { 'Authorization': `Bearer ${localStorage.getItem('aiml_token')}` } : {}) },
-                body: JSON.stringify({
-                    filename: datasetData?.filename,
-                    text_column: textColumn || undefined,
-                    label_column: labelColumn || undefined,
-                    hyperparams,
-                }),
+            await train({
+                filename: datasetData?.filename,
+                text_column: textColumn || undefined,
+                label_column: labelColumn || undefined,
+                hyperparams,
             });
-            if (!response.ok) {
-                const errData = await response.json();
-                throw new Error(errData.error || 'Training failed');
-            }
-            setResults(await response.json());
-        } catch (err) {
-            setError(err.message);
-        } finally {
-            setLoading(false);
-        }
+        } catch (err) { /* error captured by hook */ }
     };
 
     return (
@@ -84,7 +55,7 @@ export default function SentimentAnalysis() {
                     </div>
                 </div>
                 <HyperparamPanel
-                    modelCode="sentiment_analysis"
+                    modelCode={MODEL_CODE}
                     hyperparams={hyperparams}
                     onChange={(name, value) => setHyperparams(prev => ({ ...prev, [name]: value }))}
                 />
@@ -95,10 +66,10 @@ export default function SentimentAnalysis() {
                 <div className="results-card">
                     <h2>Results</h2>
                     <div className="metrics-grid">
-                        <div className="metric-item"><div className="metric-label">Accuracy</div><div className="metric-value">{(results.accuracy * 100).toFixed(2)}%</div></div>
-                        <div className="metric-item"><div className="metric-label">Precision</div><div className="metric-value">{(results.precision * 100).toFixed(2)}%</div></div>
-                        <div className="metric-item"><div className="metric-label">Recall</div><div className="metric-value">{(results.recall * 100).toFixed(2)}%</div></div>
-                        <div className="metric-item"><div className="metric-label">F1 Score</div><div className="metric-value">{(results.f1_score * 100).toFixed(2)}%</div></div>
+                        <div className="metric-item"><div className="metric-label">Accuracy</div><div className="metric-value">{formatMetric(results.accuracy, { percent: true, decimals: 2 })}</div></div>
+                        <div className="metric-item"><div className="metric-label">Precision</div><div className="metric-value">{formatMetric(results.precision, { percent: true, decimals: 2 })}</div></div>
+                        <div className="metric-item"><div className="metric-label">Recall</div><div className="metric-value">{formatMetric(results.recall, { percent: true, decimals: 2 })}</div></div>
+                        <div className="metric-item"><div className="metric-label">F1 Score</div><div className="metric-value">{formatMetric(results.f1_score, { percent: true, decimals: 2 })}</div></div>
                     </div>
                 </div>
             )}
@@ -112,10 +83,7 @@ export default function SentimentAnalysis() {
                     )}
                 </div>
             )}
-            <ModelInfoPanel modelCode="sentiment_analysis" isOpen={infoOpen} onClose={() => setInfoOpen(false)} />
+            <ModelInfoPanel modelCode={MODEL_CODE} isOpen={infoOpen} onClose={() => setInfoOpen(false)} />
         </div>
     );
 }
-
-
-

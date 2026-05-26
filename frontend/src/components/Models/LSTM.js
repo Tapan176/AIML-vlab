@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import constants from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
@@ -6,12 +6,13 @@ import DownloadResultsZip from '../DownloadResultsZip/DownloadResultsZip';
 import HyperparamPanel from '../shared/HyperparamPanel';
 import LstmHiddenLayer from '../HiddenLayers/LstmHiddenLayer';
 import ModelInfoPanel from '../shared/ModelInfoPanel';
+import useDatasetCache from '../../hooks/useDatasetCache';
+import { formatMetric } from '../../utils/formatMetric';
 import '../ModelCss/ModelPage.css';
 
 const MODEL_CODE = 'lstm';
 
 export default function LSTM() {
-    const [datasetData, setDatasetData] = useState('');
     const [layers, setLayers] = useState([
         { type: 'lstm', units: 128, return_sequences: true, dropout: 0.2 },
         { type: 'lstm', units: 64, return_sequences: false, dropout: 0.2 },
@@ -24,26 +25,11 @@ export default function LSTM() {
     const [error, setError] = useState('');
     const [infoOpen, setInfoOpen] = useState(false);
     const [logs, setLogs] = useState([]);
+    const { datasetData, handleDatasetSelect } = useDatasetCache(MODEL_CODE);
 
     const lossOptions = classMode === 'linear'
         ? ['mse', 'mae', 'huber']
         : ['binary_crossentropy', 'categorical_crossentropy', 'sparse_categorical_crossentropy'];
-
-    useEffect(() => {
-        const cached = localStorage.getItem(`${MODEL_CODE}_dataset`);
-        if (cached) {
-            try { setDatasetData(JSON.parse(cached)); } catch(e) {}
-        }
-    }, []);
-
-    const handleDatasetSelect = (data) => {
-        setDatasetData(data);
-        if (data && data.filename) {
-            localStorage.setItem(`${MODEL_CODE}_dataset`, JSON.stringify(data));
-        } else {
-            localStorage.removeItem(`${MODEL_CODE}_dataset`);
-        }
-    };
 
     const handleClassModeChange = (value) => {
         setClassMode(value);
@@ -61,7 +47,7 @@ export default function LSTM() {
         setResults(null);
         try {
             const bodyPayload = {
-                filePath: datasetData?.extracted_file_path || datasetData?.filepath || datasetData?.path || datasetData?.filename, 
+                filePath: datasetData?.extracted_file_path || datasetData?.filepath || datasetData?.path || datasetData?.filename,
                 filename: datasetData?.filename,
                 dataset_id: datasetData?.dataset_id || null,
                 hyperparams,
@@ -185,9 +171,9 @@ export default function LSTM() {
                     <h2>Training Results</h2>
                     {results.message && <p>{results.message}</p>}
                     <div className="metrics-grid">
-                        {results.accuracy != null && <div className="metric-item"><div className="metric-label">Accuracy</div><div className="metric-value">{(results.accuracy * 100).toFixed(2)}%</div></div>}
-                        {results.loss != null && <div className="metric-item"><div className="metric-label">Loss</div><div className="metric-value">{results.loss.toFixed(4)}</div></div>}
-                        {results.rmse != null && <div className="metric-item"><div className="metric-label">RMSE</div><div className="metric-value">{results.rmse.toFixed(4)}</div></div>}
+                        <div className="metric-item"><div className="metric-label">Accuracy</div><div className="metric-value">{formatMetric(results.accuracy, { percent: true, decimals: 2 })}</div></div>
+                        <div className="metric-item"><div className="metric-label">Loss</div><div className="metric-value">{formatMetric(results.loss)}</div></div>
+                        <div className="metric-item"><div className="metric-label">RMSE</div><div className="metric-value">{formatMetric(results.rmse)}</div></div>
                     </div>
                 </div>
             )}
@@ -207,6 +193,3 @@ export default function LSTM() {
         </div>
     );
 }
-
-
-

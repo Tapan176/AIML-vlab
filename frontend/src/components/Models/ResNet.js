@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import constants from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
@@ -6,12 +6,13 @@ import DownloadResultsZip from '../DownloadResultsZip/DownloadResultsZip';
 import HyperparamPanel from '../shared/HyperparamPanel';
 import ResNetHiddenLayer from '../HiddenLayers/ResNetHiddenLayer';
 import ModelInfoPanel from '../shared/ModelInfoPanel';
+import useDatasetCache from '../../hooks/useDatasetCache';
+import { formatMetric } from '../../utils/formatMetric';
 import '../ModelCss/ModelPage.css';
 
 const MODEL_CODE = 'resnet';
 
 export default function ResNet() {
-    const [datasetData, setDatasetData] = useState('');
     const [layers, setLayers] = useState([
         { units: 256, activation: 'relu', dropout: 0.5 },
         { units: 128, activation: 'relu', dropout: 0.3 },
@@ -24,28 +25,13 @@ export default function ResNet() {
     const [error, setError] = useState('');
     const [infoOpen, setInfoOpen] = useState(false);
     const [logs, setLogs] = useState([]);
+    const { datasetData, handleDatasetSelect } = useDatasetCache(MODEL_CODE);
 
     const lossOptions = classMode === 'binary'
         ? ['binary_crossentropy']
         : classMode === 'sparse'
             ? ['sparse_categorical_crossentropy']
             : ['categorical_crossentropy'];
-
-    useEffect(() => {
-        const cached = localStorage.getItem(`${MODEL_CODE}_dataset`);
-        if (cached) {
-            try { setDatasetData(JSON.parse(cached)); } catch(e) {}
-        }
-    }, []);
-
-    const handleDatasetSelect = (data) => {
-        setDatasetData(data);
-        if (data && data.filename) {
-            localStorage.setItem(`${MODEL_CODE}_dataset`, JSON.stringify(data));
-        } else {
-            localStorage.removeItem(`${MODEL_CODE}_dataset`);
-        }
-    };
 
     const handleClassModeChange = (value) => {
         setClassMode(value);
@@ -67,7 +53,7 @@ export default function ResNet() {
         setResults(null);
         try {
             const bodyPayload = {
-                filePath: datasetData?.extracted_file_path || datasetData?.filepath || datasetData?.path || datasetData?.filename, 
+                filePath: datasetData?.extracted_file_path || datasetData?.filepath || datasetData?.path || datasetData?.filename,
                 filename: datasetData?.filename,
                 dataset_id: datasetData?.dataset_id || null,
                 inputShape: [224, 224, 3],
@@ -194,8 +180,8 @@ export default function ResNet() {
                     <h2>Training Results</h2>
                     {results.message && <p>{results.message}</p>}
                     <div className="metrics-grid">
-                        {results.accuracy != null && <div className="metric-item"><div className="metric-label">Accuracy</div><div className="metric-value">{(results.accuracy * 100).toFixed(2)}%</div></div>}
-                        {results.loss != null && <div className="metric-item"><div className="metric-label">Loss</div><div className="metric-value">{results.loss.toFixed(4)}</div></div>}
+                        <div className="metric-item"><div className="metric-label">Accuracy</div><div className="metric-value">{formatMetric(results.accuracy, { percent: true, decimals: 2 })}</div></div>
+                        <div className="metric-item"><div className="metric-label">Loss</div><div className="metric-value">{formatMetric(results.loss)}</div></div>
                     </div>
                 </div>
             )}
@@ -215,6 +201,3 @@ export default function ResNet() {
         </div>
     );
 }
-
-
-
