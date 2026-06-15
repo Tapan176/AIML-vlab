@@ -202,6 +202,101 @@ def preprocess_cloud_dataset(current_user):
         return jsonify({"error": str(e)}), 500
 
 
+# ── Data Profiling ──────────────────────────────────────────────────────
+
+@utils_routes.route('/datasets/<dataset_id>/profile', methods=['GET'])
+@token_required
+def profile_dataset_route(current_user, dataset_id):
+    """Generate a comprehensive data quality profile for a CSV dataset."""
+    try:
+        from services.preprocessing_service import profile_dataset
+        profile = profile_dataset(current_user['_id'], dataset_id)
+        return jsonify(profile), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@utils_routes.route('/datasets/diff', methods=['POST'])
+@token_required
+def diff_datasets_route(current_user):
+    """Compare two datasets side-by-side."""
+    try:
+        data = request.get_json()
+        id_a = data.get('dataset_id_a')
+        id_b = data.get('dataset_id_b')
+        if not id_a or not id_b:
+            return jsonify({"error": "Both dataset_id_a and dataset_id_b are required"}), 400
+        from services.preprocessing_service import diff_datasets
+        result = diff_datasets(current_user['_id'], id_a, id_b)
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ── Pipeline Management ─────────────────────────────────────────────────
+
+@utils_routes.route('/pipelines/templates', methods=['GET'])
+def get_pipeline_templates_route():
+    """Get built-in pipeline templates."""
+    try:
+        from services.preprocessing_service import get_pipeline_templates
+        return jsonify(get_pipeline_templates()), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@utils_routes.route('/pipelines', methods=['GET'])
+@token_required
+def list_pipelines_route(current_user):
+    """List all saved pipelines for the current user."""
+    try:
+        from services.preprocessing_service import list_pipelines
+        return jsonify(list_pipelines(current_user['_id'])), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@utils_routes.route('/pipelines', methods=['POST'])
+@token_required
+def save_pipeline_route(current_user):
+    """Save a named preprocessing pipeline."""
+    try:
+        data = request.get_json()
+        name = data.get('name')
+        operations = data.get('operations', [])
+        if not name:
+            return jsonify({"error": "Pipeline name is required"}), 400
+        from services.preprocessing_service import save_pipeline
+        pid = save_pipeline(current_user['_id'], name, operations)
+        return jsonify({"message": "Pipeline saved", "pipeline_id": pid}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@utils_routes.route('/pipelines/<pipeline_name>', methods=['GET'])
+@token_required
+def load_pipeline_route(current_user, pipeline_name):
+    """Load a saved pipeline by name."""
+    try:
+        from services.preprocessing_service import load_pipeline
+        ops = load_pipeline(current_user['_id'], pipeline_name)
+        return jsonify({"name": pipeline_name, "operations": ops}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 404
+
+
+@utils_routes.route('/pipelines/<pipeline_name>', methods=['DELETE'])
+@token_required
+def delete_pipeline_route(current_user, pipeline_name):
+    """Delete a saved pipeline."""
+    try:
+        from services.preprocessing_service import delete_pipeline
+        delete_pipeline(current_user['_id'], pipeline_name)
+        return jsonify({"message": f"Pipeline '{pipeline_name}' deleted"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 404
+
+
 @utils_routes.route('/datasets/<dataset_id>/preview', methods=['GET'])
 @token_required
 def preview_dataset(current_user, dataset_id):
@@ -610,22 +705,35 @@ def get_folder_images(current_user, dataset_id):
 @utils_routes.route('/datasets/save-annotations', methods=['POST'])
 @token_required
 def save_annotations(current_user):
-    """Save annotated dataset ZIP to Google Drive with versioning."""
+    """Save annotated dataset to Google Drive with proper versioning and provenance.
+    
+    Uses a stable base name derived from `dataset_name` form field so repeated
+    saves to the same project create versioned records (v1, v2, v3...) instead
+    of scattergun timestamp-based filenames.
+    """
     try:
         if 'file' not in request.files:
             return jsonify({"error": "No file provided"}), 400
 
         file = request.files['file']
-        filename = file.filename or 'annotations.zip'
-        
-        # Get annotation metadata
         label_classes = request.form.get('label_classes', '[]')
         image_count = request.form.get('image_count', '0')
-        
+        dataset_name = request.form.get('dataset_name', '').strip()
+        source_dataset_id = request.form.get('source_dataset_id', '').strip()
+
+        # Build a stable, human-readable base filename for version grouping
+        if dataset_name:
+            base = dataset_name.replace(' ', '_').replace('.zip', '').replace('.csv', '')
+            filename = f"{base}_annotated.json"
+        else:
+            base = 'annotation_project'
+            filename = f"annotations_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
+
+        from datetime import datetime
         from services.google_drive_service import upload_file_to_drive
         from services.dataset_service import save_dataset
         
-        # Upload to Drive under annotations subfolder
+        # Upload to Drive under annotations subfolder (per-user isolated)
         drive_res = upload_file_to_drive(
             file, filename,
             folder_type='datasets',
@@ -633,31 +741,49 @@ def save_annotations(current_user):
             subfolder='annotations'
         )
 
-        # Save to DB with annotation metadata
+        # save_dataset auto-increments version for this (user_id, filename) pair
         dataset = save_dataset(
             current_user['_id'], filename, '',
-            file_type='annotated_zip',
+            file_type='annotated_json',
             drive_id=drive_res.get('id')
         )
-        
+
+        # Attach annotation metadata + provenance
         from mongoDb.connection import get_db
-        db = get_db()
         from bson import ObjectId
+        db = get_db()
+
+        update_doc = {
+            'annotation_meta': {
+                'label_classes': label_classes,
+                'image_count': int(image_count),
+            },
+            'dataset_name': dataset_name if dataset_name else None,
+        }
+        if source_dataset_id:
+            update_doc['source_dataset_id'] = source_dataset_id
+            try:
+                src = db.datasets.find_one({'_id': ObjectId(source_dataset_id)}, {'filename': 1})
+                if src:
+                    update_doc['source_filename'] = src.get('filename')
+            except Exception:
+                pass
+
         db.datasets.update_one(
             {'_id': ObjectId(dataset['_id'])},
-            {'$set': {
-                'annotation_meta': {
-                    'label_classes': label_classes,
-                    'image_count': int(image_count)
-                }
-            }}
+            {'$set': update_doc}
         )
 
         return jsonify({
             "message": "Annotations saved successfully",
             "dataset_id": dataset['_id'],
+            "filename": filename,
             "version": dataset.get('version', 1),
-            "drive_id": drive_res.get('id')
+            "drive_id": drive_res.get('id'),
+            "provenance": {
+                "source_dataset_id": source_dataset_id or None,
+                "source_filename": update_doc.get('source_filename'),
+            }
         }), 201
 
     except Exception as e:
