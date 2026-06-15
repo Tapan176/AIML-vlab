@@ -67,20 +67,23 @@ def _find_or_create_user(email, first_name='', last_name='', oauth_provider='', 
                 existing['oauth_provider'] = oauth_provider
             return existing
 
-    # Create new user
+    # Create new user. Field names MUST match the password-signup schema in
+    # authController.signup (password / countryCode / termsAccepted) so the
+    # rest of the app — login, _sanitize_user, profile — treats OAuth users
+    # identically to password users.
     names = first_name.split(' ', 1) if first_name else ['User', '']
     new_user = {
         'email': email.lower().strip() if email else f'{oauth_provider}_{oauth_id[:8]}@placeholder.local',
         'first_name': names[0] or first_name or 'User',
         'last_name': names[1] if len(names) > 1 else last_name or '',
-        'password_hash': bcrypt.hashpw(secrets.token_hex(32).encode('utf-8'), bcrypt.gensalt()).decode('utf-8'),
+        'password': bcrypt.hashpw(secrets.token_hex(32).encode('utf-8'), bcrypt.gensalt()).decode('utf-8'),
         'role': 'user',
         'phone': '',
-        'country_code': '',
+        'countryCode': '',
         'oauth_provider': oauth_provider,
         'oauth_id': oauth_id,
         'avatar_url': avatar_url,
-        'terms_accepted': True,
+        'termsAccepted': True,
         'email_verified': True,
         'created_at': datetime.utcnow(),
         'last_login': datetime.utcnow(),
@@ -236,6 +239,20 @@ def github_callback():
     return _oauth_callback_response(jwt_token, user)
 
 
+def _safe_user(user):
+    """Return a JSON-serializable copy of a user dict: drop the password hash
+    and coerce ObjectId/datetime values to strings so json.dumps won't crash."""
+    safe = {}
+    for k, v in user.items():
+        if k == 'password':
+            continue
+        if isinstance(v, datetime):
+            safe[k] = v.isoformat()
+        else:
+            safe[k] = str(v) if type(v).__name__ == 'ObjectId' else v
+    return safe
+
+
 def _oauth_callback_response(jwt_token, user):
     """Return an HTML page that posts the token back to the React app, then closes."""
     frontend_origin = request.args.get('state') or (ALLOWED_ORIGINS[0] if ALLOWED_ORIGINS else 'http://localhost:3000')
@@ -249,7 +266,7 @@ def _oauth_callback_response(jwt_token, user):
     <script>
         (function() {{
             var token = {json.dumps(jwt_token)};
-            var user = {json.dumps({k: v for k, v in user.items() if k != 'password_hash'})};
+            var user = {json.dumps(_safe_user(user))};
             try {{
                 if (window.opener && window.opener !== window) {{
                     window.opener.postMessage({{
