@@ -248,6 +248,21 @@
     display: inline-block;
 }
 
+/* Long model codes (e.g. multivariable_linear_regression) truncate with an
+   ellipsis inside the table cell; the full name is available via the title
+   tooltip on hover. */
+.model-cell {
+    max-width: 200px;
+}
+
+.model-cell .model-badge {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
 .status-badge {
     padding: 0.35rem 0.85rem;
     border-radius: 12px;
@@ -328,6 +343,9 @@
     flex: 1;
     display: flex;
     flex-direction: column;
+    /* Allow the flex child to shrink so .dataset-name's ellipsis can trigger
+       instead of overflowing the card with long Drive-id filenames. */
+    min-width: 0;
 }
 
 .dataset-name {

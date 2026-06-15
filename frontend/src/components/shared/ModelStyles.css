@@ -1,7 +1,14 @@
 /* Shared styles for the fine-tuning model pages (FinetuneBERT / FinetuneViT /
    FinetuneDistilBERT). Kept separate from ModelCss/ModelPage.css because the
    fine-tuning pages use a console-driven layout (live training logs) rather
-   than the classic results-card + carousel layout. */
+   than the classic results-card + carousel layout.
+
+   IMPORTANT: every rule is scoped under `.model-container` (the wrapper unique
+   to the fine-tuning pages). These pages reuse generic class names
+   (.model-form, .model-header, .metric-item, .download-section, …) that also
+   exist on the classical model pages and the Dashboard; without scoping, this
+   file's backgrounds leak globally and darken those pages. All colors use the
+   shared theme variables from index.css so the pages follow light/dark theme. */
 
 .model-container {
     max-width: 920px;
@@ -9,102 +16,103 @@
     padding: 24px 20px 48px;
 }
 
-.model-header {
+.model-container .model-header {
     margin-bottom: 24px;
 }
 
-.model-header h2 {
+.model-container .model-header h2 {
     margin: 0 0 6px;
     font-size: 1.6rem;
+    color: var(--text-primary);
 }
 
-.model-header p {
+.model-container .model-header p {
     margin: 0 0 10px;
-    color: var(--text-muted, #8a8f98);
+    color: var(--text-secondary);
 }
 
-.model-badge {
+.model-container .model-badge {
     display: inline-block;
     padding: 3px 10px;
     border-radius: 999px;
     font-size: 0.75rem;
     font-weight: 600;
-    background: #2b2f36;
-    color: #c7ccd4;
+    background: var(--bg-input);
+    color: var(--text-secondary);
 }
 
-.model-badge.fine-tuning {
-    background: linear-gradient(135deg, #6d3bf5, #9b5cff);
+.model-container .model-badge.fine-tuning {
+    background: linear-gradient(135deg, var(--accent), #a78bfa);
     color: #fff;
 }
 
 /* ---- Form ---- */
-.model-form {
-    background: var(--card-bg, #1c1f24);
-    border: 1px solid var(--border, #2b2f36);
+.model-container .model-form {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
     border-radius: 12px;
     padding: 20px;
     margin-bottom: 24px;
 }
 
-.form-section {
+.model-container .form-section {
     margin-bottom: 20px;
 }
 
-.form-section h4 {
+.model-container .form-section h4 {
     margin: 0 0 12px;
     font-size: 1rem;
-    color: var(--text, #e6e8eb);
+    color: var(--text-primary);
 }
 
-.form-row {
+.model-container .form-row {
     display: flex;
     flex-wrap: wrap;
     gap: 16px;
     margin-bottom: 12px;
 }
 
-.form-group {
+.model-container .form-group {
     display: flex;
     flex-direction: column;
     flex: 1 1 180px;
     min-width: 160px;
 }
 
-.form-group label {
+.model-container .form-group label {
     font-size: 0.82rem;
     margin-bottom: 5px;
-    color: var(--text-muted, #8a8f98);
+    color: var(--text-secondary);
 }
 
-.form-group input,
-.form-group select {
+.model-container .form-group input,
+.model-container .form-group select {
     padding: 8px 10px;
     border-radius: 8px;
-    border: 1px solid var(--border, #2b2f36);
-    background: var(--input-bg, #14171b);
-    color: var(--text, #e6e8eb);
+    border: 1px solid var(--border-color);
+    background: var(--bg-input);
+    color: var(--text-primary);
     font-size: 0.9rem;
 }
 
-.toggle-label {
+.model-container .toggle-label {
     display: flex;
     align-items: center;
     gap: 8px;
     font-size: 0.85rem;
-    color: var(--text-muted, #8a8f98);
+    color: var(--text-secondary);
 }
 
-.toggle-label input {
+.model-container .toggle-label input {
     width: auto;
 }
 
-.btn-train {
+.model-container .btn-train {
     width: 100%;
     padding: 12px;
     border: none;
     border-radius: 10px;
-    background: linear-gradient(135deg, #6d3bf5, #9b5cff);
+    background: linear-gradient(135deg, var(--accent), #a78bfa);
     color: #fff;
     font-size: 1rem;
     font-weight: 600;
@@ -112,26 +120,27 @@
     transition: opacity 0.15s ease;
 }
 
-.btn-train:disabled {
+.model-container .btn-train:disabled {
     opacity: 0.6;
     cursor: not-allowed;
 }
 
-/* ---- Live training console ---- */
-.training-console {
-    background: var(--card-bg, #1c1f24);
-    border: 1px solid var(--border, #2b2f36);
+/* ---- Live training console (intentionally a dark terminal in any theme) ---- */
+.model-container .training-console {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
     border-radius: 12px;
     padding: 16px 20px;
     margin-bottom: 20px;
 }
 
-.training-console h3 {
+.model-container .training-console h3 {
     margin: 0 0 10px;
     font-size: 1rem;
+    color: var(--text-primary);
 }
 
-.console-output {
+.model-container .console-output {
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 0.82rem;
     line-height: 1.5;
@@ -146,57 +155,58 @@
 }
 
 /* ---- Results ---- */
-.results-panel {
-    background: var(--card-bg, #1c1f24);
-    border: 1px solid var(--border, #2b2f36);
+.model-container .results-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
     border-radius: 12px;
     padding: 16px 20px;
     margin-bottom: 20px;
 }
 
-.results-panel h3 {
+.model-container .results-panel h3 {
     margin: 0 0 12px;
     font-size: 1rem;
+    color: var(--text-primary);
 }
 
-.metrics-grid {
+.model-container .metrics-grid {
     display: flex;
     flex-wrap: wrap;
     gap: 16px;
 }
 
-.metric-item {
+.model-container .metric-item {
     display: flex;
     flex-direction: column;
     gap: 4px;
-    background: #14171b;
-    border: 1px solid var(--border, #2b2f36);
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
     border-radius: 10px;
     padding: 12px 16px;
     min-width: 140px;
 }
 
-.metric-label {
+.model-container .metric-label {
     font-size: 0.78rem;
-    color: var(--text-muted, #8a8f98);
+    color: var(--text-secondary);
 }
 
-.metric-value {
+.model-container .metric-value {
     font-size: 1.25rem;
     font-weight: 700;
-    color: var(--text, #e6e8eb);
+    color: var(--text-primary);
 }
 
-.error-banner {
-    background: #3a1b1b;
-    border: 1px solid #6b2b2b;
-    color: #ff9b9b;
+.model-container .error-banner {
+    background: rgba(255, 59, 48, 0.1);
+    border: 1px solid rgba(255, 59, 48, 0.3);
+    color: var(--danger);
     border-radius: 10px;
     padding: 12px 16px;
     margin-bottom: 16px;
 }
 
-.download-section {
+.model-container .download-section {
     margin-top: 16px;
     display: flex;
     flex-wrap: wrap;

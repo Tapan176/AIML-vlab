@@ -237,7 +237,7 @@ const Dashboard = () => {
                                 {sessions.slice(0, 10).map((s) => (
                                     <tr key={s._id}>
                                         <td className="model-cell">
-                                            <span className="model-badge">{s.model_code}</span>
+                                            <span className="model-badge" title={s.model_code}>{s.model_code}</span>
                                         </td>
                                         <td>v{s.version}</td>
                                         <td>
@@ -308,7 +308,7 @@ const Dashboard = () => {
                             <div className="dataset-card" key={d._id}>
                                 <span className="dataset-icon">📄</span>
                                 <div className="dataset-info">
-                                    <span className="dataset-name">{d.filename}</span>
+                                    <span className="dataset-name" title={d.filename}>{d.filename}</span>
                                     <span className="dataset-date">{new Date(d.uploaded_at).toLocaleDateString()}</span>
                                 </div>
                                 <span className="dataset-type">{d.file_type}</span>
