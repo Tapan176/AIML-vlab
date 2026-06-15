@@ -151,6 +151,46 @@ VALIDATION_SCHEMAS = {
         'disc_lr': {'type': float, 'min': 0.000001, 'max': 0.1},
         'r1_penalty': {'type': float, 'min': 0.0, 'max': 100.0},
     },
+    # ── 🆕 Fine-Tuning Models ───────────────────────────────────
+    'bert_finetune': {
+        'model_name': {'type': str, 'options': [
+            'bert-base-uncased', 'bert-base-cased', 'distilbert-base-uncased',
+            'roberta-base', 'albert-base-v2'
+        ]},
+        'epochs': {'type': int, 'min': 1, 'max': 50},
+        'batch_size': {'type': int, 'min': 1, 'max': 128},
+        'learning_rate': {'type': float, 'min': 1e-7, 'max': 0.1},
+        'max_length': {'type': int, 'min': 32, 'max': 512},
+        'warmup_steps': {'type': int, 'min': 0, 'max': 1000},
+        'weight_decay': {'type': float, 'min': 0.0, 'max': 1.0},
+        'test_size': {'type': float, 'min': 0.05, 'max': 0.5},
+        'freeze_base': {'type': bool},
+    },
+    'vit_finetune': {
+        'model_name': {'type': str, 'options': [
+            'google/vit-base-patch16-224', 'google/vit-base-patch16-224-in21k',
+            'google/vit-large-patch16-224'
+        ]},
+        'epochs': {'type': int, 'min': 1, 'max': 50},
+        'batch_size': {'type': int, 'min': 1, 'max': 128},
+        'learning_rate': {'type': float, 'min': 1e-7, 'max': 0.1},
+        'weight_decay': {'type': float, 'min': 0.0, 'max': 1.0},
+        'test_size': {'type': float, 'min': 0.05, 'max': 0.5},
+        'freeze_base': {'type': bool},
+    },
+    'distilbert_finetune': {
+        'model_name': {'type': str, 'options': [
+            'distilbert-base-uncased', 'bert-base-uncased', 'roberta-base'
+        ]},
+        'epochs': {'type': int, 'min': 1, 'max': 50},
+        'batch_size': {'type': int, 'min': 1, 'max': 128},
+        'learning_rate': {'type': float, 'min': 1e-7, 'max': 0.1},
+        'max_length': {'type': int, 'min': 32, 'max': 512},
+        'warmup_steps': {'type': int, 'min': 0, 'max': 1000},
+        'weight_decay': {'type': float, 'min': 0.0, 'max': 1.0},
+        'test_size': {'type': float, 'min': 0.05, 'max': 0.5},
+        'freeze_base': {'type': bool},
+    },
 }
 
 

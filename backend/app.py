@@ -19,7 +19,9 @@ from mongoDb.connection import init_db, get_db
 from models.route import model_routes
 from utils.route import utils_routes
 from auth.auth_route import auth_routes
+from auth.oauth_route import oauth_routes
 from admin.admin_route import admin_routes
+from models.finetune_routes import finetune_routes
 
 app = Flask(__name__)
 # Apply CORS — allow credentials so Authorization header passes preflight
@@ -65,7 +67,9 @@ except Exception as e:
 app.register_blueprint(model_routes, url_prefix='/api')
 app.register_blueprint(utils_routes, url_prefix='/api')
 app.register_blueprint(auth_routes, url_prefix='/api')
+app.register_blueprint(oauth_routes, url_prefix='/api')
 app.register_blueprint(admin_routes, url_prefix='/api/admin')
+app.register_blueprint(finetune_routes, url_prefix='/api')
 
 @app.route('/api')
 def health_check():

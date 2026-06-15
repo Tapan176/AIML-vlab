@@ -17,6 +17,7 @@ export default function ImageAnnotation() {
     const [classes, setClasses] = useState(['object']);
     const [selectedClass, setSelectedClass] = useState('object');
     const [newClassName, setNewClassName] = useState('');
+    const [projectName, setProjectName] = useState('');
     const [drawing, setDrawing] = useState(false);
     const [startPos, setStartPos] = useState(null);
     const [currentRect, setCurrentRect] = useState(null);
@@ -180,6 +181,7 @@ export default function ImageAnnotation() {
 
     // --- YOLO export ---
     const [isSaving, setIsSaving] = useState(false);
+    const [zoom, setZoom] = useState(1);
 
     // Build YOLO annotation data
     const buildYoloData = () => {
@@ -203,6 +205,82 @@ export default function ImageAnnotation() {
         const yaml = `train: ./images/train\nval: ./images/val\nnc: ${classes.length}\nnames: [${classes.map(c => `'${c}'`).join(', ')}]`;
 
         return { yoloFiles, classesTxt, yaml };
+    };
+
+    // COCO format export
+    const buildCocoData = () => {
+        const cocoImages = [];
+        const cocoAnnotations = [];
+        const categories = classes.map((c, i) => ({ id: i + 1, name: c, supercategory: 'none' }));
+        let annId = 1;
+        images.forEach((img, imgIdx) => {
+            const boxes = annotations[img.name] || [];
+            cocoImages.push({ id: imgIdx + 1, file_name: img.name, width: naturalSize.w, height: naturalSize.h });
+            boxes.forEach(b => {
+                cocoAnnotations.push({
+                    id: annId++, image_id: imgIdx + 1, category_id: (classes.indexOf(b.label) + 1),
+                    bbox: [b.x, b.y, b.w, b.h], area: b.w * b.h, segmentation: [], iscrowd: 0
+                });
+            });
+        });
+        return { images: cocoImages, annotations: cocoAnnotations, categories };
+    };
+
+    const exportCoco = () => {
+        if (images.length === 0) { alert('No images to export.'); return; }
+        const coco = buildCocoData();
+        const blob = new Blob([JSON.stringify(coco, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = 'coco_annotations.json'; a.click();
+        URL.revokeObjectURL(url);
+    };
+
+    // Undo
+    const undoLastAnnotation = () => {
+        if (!currentImage) return;
+        setAnnotations(prev => {
+            const boxes = [...(prev[currentImage.name] || [])];
+            if (boxes.length === 0) return prev;
+            boxes.pop();
+            return { ...prev, [currentImage.name]: boxes };
+        });
+    };
+
+    // Zoom
+    const handleZoom = (delta) => setZoom(prev => Math.min(3, Math.max(0.25, prev + delta)));
+
+    // Keyboard shortcuts
+    useEffect(() => {
+        const handleKey = (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            if (e.ctrlKey && e.key === 'z') { e.preventDefault(); undoLastAnnotation(); }
+            if (e.ctrlKey && e.key === 's') { e.preventDefault(); saveToCloud(); }
+            if (e.key === 'ArrowLeft') setCurrentIdx(Math.max(0, currentIdx - 1));
+            if (e.key === 'ArrowRight') setCurrentIdx(Math.min(images.length - 1, currentIdx + 1));
+            if (e.key === 'Delete' && currentAnnotations.length > 0) setAnnotations(prev => ({ ...prev, [currentImage.name]: [] }));
+            if (e.key === '+' || e.key === '=') handleZoom(0.25);
+            if (e.key === '-') handleZoom(-0.25);
+        };
+        window.addEventListener('keydown', handleKey);
+        return () => window.removeEventListener('keydown', handleKey);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentIdx, images.length, currentImage, currentAnnotations]);
+
+    // Import annotations from JSON
+    const importAnnotations = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            try {
+                const data = JSON.parse(ev.target.result);
+                if (data.classes) setClasses(data.classes);
+                if (data.annotations) setAnnotations(data.annotations);
+                if (data.classes?.length > 0) setSelectedClass(data.classes[0]);
+                alert(`✅ Imported: ${data.classes?.length || 0} classes, ${Object.keys(data.annotations || {}).length} annotated images.`);
+            } catch { alert('Invalid annotation file.'); }
+        };
+        reader.readAsText(file);
     };
 
     const exportYolo = () => {
@@ -251,12 +329,15 @@ export default function ImageAnnotation() {
                 imageCount: images.length,
                 totalBoxes: Object.values(annotations).reduce((sum, arr) => sum + arr.length, 0)
             }, null, 2);
-            
+
+            // Use a STABLE filename so repeated saves create versioned records (v1,v2,...)
+            const baseName = projectName.trim() || 'annotation_project';
+            const filename = `${baseName.replace(/[^a-zA-Z0-9_-]/g, '_')}_annotated.json`;
             const blob = new Blob([annotationsJson], { type: 'application/json' });
-            const filename = `annotations_${Date.now()}.json`;
             formData.append('file', blob, filename);
             formData.append('label_classes', JSON.stringify(classes));
             formData.append('image_count', images.length.toString());
+            formData.append('dataset_name', baseName);
 
             const res = await fetch(`${constants.API_BASE_URL}/datasets/save-annotations`, {
                 method: 'POST',
@@ -266,7 +347,7 @@ export default function ImageAnnotation() {
 
             const data = await res.json();
             if (res.ok) {
-                alert(`✅ Annotations saved to cloud! Version: ${data.version}`);
+                alert(`✅ Annotations saved to cloud!\nProject: ${baseName}\nVersion: v${data.version}\nID: ${data.dataset_id}`);
             } else {
                 alert(`Error: ${data.error}`);
             }
@@ -397,11 +478,14 @@ export default function ImageAnnotation() {
 
                     {/* Stats + Export */}
                     <div style={s.card}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-                            <span>📸 Images: <strong>{images.length}</strong></span>
-                            <span>🔲 Total Boxes: <strong>{totalBoxes}</strong></span>
-                        </div>
-                        <div style={{ display: 'flex', gap: '8px', flexDirection: 'column' }}>
+                        <h3 style={{ marginBottom: '12px', fontSize: '15px' }}>💾 Save Project</h3>
+                        <input
+                            type="text"
+                            placeholder="Project name (stable across saves)..."
+                            value={projectName}
+                            onChange={(e) => setProjectName(e.target.value)}
+                            style={{ width: '100%', boxSizing: 'border-box', padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'transparent', color: 'inherit', marginBottom: '12px' }}
+                        />
                             <button
                                 onClick={exportYolo}
                                 disabled={totalBoxes === 0}
@@ -410,13 +494,25 @@ export default function ImageAnnotation() {
                                 📦 Export YOLOv8 Annotations
                             </button>
                             <button
+                                onClick={exportCoco}
+                                disabled={totalBoxes === 0}
+                                style={{ ...s.btn, background: '#ff9500', color: '#fff', width: '100%', opacity: totalBoxes === 0 ? 0.5 : 1 }}
+                            >
+                                📋 Export COCO JSON
+                            </button>
+                            <button
                                 onClick={saveToCloud}
                                 disabled={totalBoxes === 0 || isSaving}
                                 style={{ ...s.btn, ...s.btnPrimary, width: '100%', opacity: (totalBoxes === 0 || isSaving) ? 0.5 : 1 }}
                             >
                                 {isSaving ? '⏳ Saving...' : '☁️ Save to Cloud'}
                             </button>
-                        </div>
+                            <div style={{ marginTop: '8px', textAlign: 'center' }}>
+                                <label style={{ ...s.btn, background: 'var(--bg-primary)', border: '1px solid var(--border-color)', cursor: 'pointer', display: 'inline-block', fontSize: '12px', width: '100%', boxSizing: 'border-box' }}>
+                                    📥 Import Annotations
+                                    <input type="file" accept=".json" style={{ display: 'none' }} onChange={importAnnotations} />
+                                </label>
+                            </div>
                     </div>
                 </div>
 
@@ -444,7 +540,7 @@ export default function ImageAnnotation() {
                             </div>
                             <div style={{ ...s.card, textAlign: 'center' }}>
                                 <div style={{ fontWeight: '600', marginBottom: '8px' }}>
-                                    {currentImage?.name} — Image {currentIdx + 1} / {images.length}
+                                    {currentImage?.name} — Image {currentIdx + 1} / {images.length} — Zoom: {Math.round(zoom * 100)}%
                                 </div>
                                 <div style={s.nav}>
                                     <button
@@ -468,6 +564,9 @@ export default function ImageAnnotation() {
                                         disabled={currentIdx === images.length - 1}
                                         style={{ ...s.btn, ...s.btnPrimary, opacity: currentIdx === images.length - 1 ? 0.4 : 1 }}
                                     >Next ▶</button>
+                                </div>
+                                <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                                    <span>🖱️ Draw: click+drag</span><span>⌫ Del: clear boxes</span><span>Ctrl+Z: undo</span><span>Ctrl+S: save</span><span>←→: navigate</span><span>+/−: zoom</span>
                                 </div>
                             </div>
                         </>

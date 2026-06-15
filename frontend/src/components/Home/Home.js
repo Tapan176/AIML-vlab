@@ -2,48 +2,33 @@ import { useState, lazy, Suspense } from 'react';
 import Sidebar from '../Sidebar/Sidebar';
 import './Home.css';
 
-// Lazy load model components
-const SimpleLinearRegression = lazy(() => import('../Models/SimpleLinearRegression'));
-const KNN = lazy(() => import('../Models/KNN'));
-const DecisionTree = lazy(() => import('../Models/DecisionTree'));
-const RandomForest = lazy(() => import('../Models/RandomForest'));
-const SVM = lazy(() => import('../Models/SVM'));
-const LogisticRegression = lazy(() => import('../Models/LogisticRegression'));
-const NaiveBayes = lazy(() => import('../Models/NaiveBayes'));
-const KMeans = lazy(() => import('../Models/KMeans'));
-const DBSCAN = lazy(() => import('../Models/DBSCAN'));
-const ANN = lazy(() => import('../Models/ANN'));
-const CNN = lazy(() => import('../Models/CNN'));
-const MultivariableLinearRegression = lazy(() => import('../Models/MultivariableLinearRegression'));
-const GradientBoosting = lazy(() => import('../Models/GradientBoosting'));
-const XGBoost = lazy(() => import('../Models/XGBoost'));
-const SentimentAnalysis = lazy(() => import('../Models/SentimentAnalysis'));
-const TextClassification = lazy(() => import('../Models/TextClassification'));
-const ResNet = lazy(() => import('../Models/ResNet'));
-const LSTM = lazy(() => import('../Models/LSTM'));
-const ObjectDetection = lazy(() => import('../Models/ObjectDetection'));
-const StyleGAN = lazy(() => import('../Models/StyleGAN'));
+// Dynamic imports for all model components
+// Add new models here — they automatically appear everywhere
 const MODEL_COMPONENTS = {
-    simple_linear_regression: SimpleLinearRegression,
-    multivariable_linear_regression: MultivariableLinearRegression,
-    logistic_regression: LogisticRegression,
-    knn: KNN,
-    decision_tree: DecisionTree,
-    random_forest: RandomForest,
-    svm: SVM,
-    naive_bayes: NaiveBayes,
-    k_means: KMeans,
-    dbscan: DBSCAN,
-    ann: ANN,
-    cnn: CNN,
-    gradient_boosting: GradientBoosting,
-    xgboost: XGBoost,
-    sentiment_analysis: SentimentAnalysis,
-    text_classification: TextClassification,
-    resnet: ResNet,
-    lstm: LSTM,
-    yolo: ObjectDetection,
-    stylegan: StyleGAN,
+    simple_linear_regression: lazy(() => import('../Models/SimpleLinearRegression')),
+    multivariable_linear_regression: lazy(() => import('../Models/MultivariableLinearRegression')),
+    logistic_regression: lazy(() => import('../Models/LogisticRegression')),
+    knn: lazy(() => import('../Models/KNN')),
+    decision_tree: lazy(() => import('../Models/DecisionTree')),
+    random_forest: lazy(() => import('../Models/RandomForest')),
+    svm: lazy(() => import('../Models/SVM')),
+    naive_bayes: lazy(() => import('../Models/NaiveBayes')),
+    k_means: lazy(() => import('../Models/KMeans')),
+    dbscan: lazy(() => import('../Models/DBSCAN')),
+    ann: lazy(() => import('../Models/ANN')),
+    cnn: lazy(() => import('../Models/CNN')),
+    gradient_boosting: lazy(() => import('../Models/GradientBoosting')),
+    xgboost: lazy(() => import('../Models/XGBoost')),
+    sentiment_analysis: lazy(() => import('../Models/SentimentAnalysis')),
+    text_classification: lazy(() => import('../Models/TextClassification')),
+    resnet: lazy(() => import('../Models/ResNet')),
+    lstm: lazy(() => import('../Models/LSTM')),
+    yolo: lazy(() => import('../Models/ObjectDetection')),
+    stylegan: lazy(() => import('../Models/StyleGAN')),
+    // 🆕 Fine-Tuning models
+    bert_finetune: lazy(() => import('../Models/FinetuneBERT')),
+    vit_finetune: lazy(() => import('../Models/FinetuneViT')),
+    distilbert_finetune: lazy(() => import('../Models/FinetuneDistilBERT')),
 };
 
 const Home = () => {

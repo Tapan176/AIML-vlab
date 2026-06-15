@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import constants from '../../constants';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faTrash, faDatabase, faMagic, faTags } from '@fortawesome/free-solid-svg-icons';
+import { faTrash, faDatabase, faMagic, faTags, faChartBar, faCodeBranch, faSave, faFolderOpen } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../../context/AuthContext';
 import ShowDataset from '../Dataset/ShowDataset';
 import ImageAnnotation from './ImageAnnotation';
@@ -17,6 +17,20 @@ export default function DataStudio() {
     const [selectedPrepDataset, setSelectedPrepDataset] = useState('');
     const [prepOperations, setPrepOperations] = useState([]);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [templates, setTemplates] = useState({});
+    const [savedPipelines, setSavedPipelines] = useState([]);
+    const [pipelineName, setPipelineName] = useState('');
+
+    // Profiling State
+    const [profileDataset, setProfileDataset] = useState('');
+    const [profile, setProfile] = useState(null);
+    const [profiling, setProfiling] = useState(false);
+
+    // Diff State
+    const [diffA, setDiffA] = useState('');
+    const [diffB, setDiffB] = useState('');
+    const [diffResult, setDiffResult] = useState(null);
+    const [diffing, setDiffing] = useState(false);
 
     const fetchDatasets = async () => {
         setLoading(true);
@@ -37,10 +51,84 @@ export default function DataStudio() {
     useEffect(() => {
         if (isAuthenticated) {
             fetchDatasets();
+            fetchTemplates();
+            fetchPipelines();
         } else {
             setLoading(false);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isAuthenticated]);
+
+    const fetchTemplates = useCallback(async () => {
+        try {
+            const res = await fetch(`${constants.API_BASE_URL}/pipelines/templates`);
+            if (res.ok) setTemplates(await res.json());
+        } catch {}
+    }, []);
+
+    const fetchPipelines = useCallback(async () => {
+        const token = localStorage.getItem('aiml_token');
+        try {
+            const res = await fetch(`${constants.API_BASE_URL}/pipelines`, { headers: { 'Authorization': `Bearer ${token}` } });
+            if (res.ok) setSavedPipelines(await res.json());
+        } catch {}
+    }, []);
+
+    const handleSavePipeline = async () => {
+        if (!pipelineName.trim() || prepOperations.length === 0) { alert('Enter a name and add operations.'); return; }
+        const token = localStorage.getItem('aiml_token');
+        try {
+            const res = await fetch(`${constants.API_BASE_URL}/pipelines`, {
+                method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: pipelineName.trim(), operations: prepOperations })
+            });
+            if (res.ok) { alert(`Pipeline '${pipelineName}' saved!`); fetchPipelines(); }
+        } catch { alert('Failed to save pipeline.'); }
+    };
+
+    const handleLoadPipeline = async (name) => {
+        const token = localStorage.getItem('aiml_token');
+        try {
+            const res = await fetch(`${constants.API_BASE_URL}/pipelines/${encodeURIComponent(name)}`, { headers: { 'Authorization': `Bearer ${token}` } });
+            if (res.ok) {
+                const data = await res.json();
+                setPrepOperations(data.operations || []);
+                setPipelineName(name);
+                setActiveTab('preprocessing');
+                alert(`Loaded '${name}' (${data.operations.length} ops).`);
+            }
+        } catch { alert('Failed to load pipeline.'); }
+    };
+
+    const handleApplyTemplate = (key) => {
+        const tpl = templates[key];
+        if (tpl?.operations) { setPrepOperations(tpl.operations); setActiveTab('preprocessing'); }
+    };
+
+    const handleLoadProfile = async () => {
+        if (!profileDataset) return;
+        setProfiling(true); setProfile(null);
+        const token = localStorage.getItem('aiml_token');
+        try {
+            const res = await fetch(`${constants.API_BASE_URL}/datasets/${profileDataset}/profile`, { headers: { 'Authorization': `Bearer ${token}` } });
+            if (res.ok) setProfile(await res.json());
+        } catch { alert('Profiling failed.'); }
+        setProfiling(false);
+    };
+
+    const handleDiff = async () => {
+        if (!diffA || !diffB) return;
+        setDiffing(true); setDiffResult(null);
+        const token = localStorage.getItem('aiml_token');
+        try {
+            const res = await fetch(`${constants.API_BASE_URL}/datasets/diff`, {
+                method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ dataset_id_a: diffA, dataset_id_b: diffB })
+            });
+            if (res.ok) setDiffResult(await res.json());
+        } catch { alert('Diff failed.'); }
+        setDiffing(false);
+    };
 
     const handleDatasetUploadDirect = (data) => {
         if (data && data.filename) {
@@ -137,8 +225,17 @@ export default function DataStudio() {
                     <button className={activeTab === 'preprocessing' ? 'active' : ''} onClick={() => setActiveTab('preprocessing')}>
                         <FontAwesomeIcon icon={faMagic} /> Preprocessing Pipeline
                     </button>
+                    <button className={activeTab === 'profile' ? 'active' : ''} onClick={() => setActiveTab('profile')}>
+                        <FontAwesomeIcon icon={faChartBar} /> Data Profiling
+                    </button>
                     <button className={activeTab === 'annotation' ? 'active' : ''} onClick={() => setActiveTab('annotation')}>
                         <FontAwesomeIcon icon={faTags} /> Image Annotation
+                    </button>
+                    <button className={activeTab === 'pipelines' ? 'active' : ''} onClick={() => setActiveTab('pipelines')}>
+                        <FontAwesomeIcon icon={faFolderOpen} /> Pipelines
+                    </button>
+                    <button className={activeTab === 'diff' ? 'active' : ''} onClick={() => setActiveTab('diff')}>
+                        <FontAwesomeIcon icon={faCodeBranch} /> Version Diff
                     </button>
                 </div>
 
@@ -257,6 +354,206 @@ export default function DataStudio() {
                             >
                                 {isProcessing ? '⏳ Processing Dataset...' : '▶ Run Pipeline Generator'}
                             </button>
+                            
+                            {/* Pipeline Templates */}
+                            <div className="prep-actions" style={{ marginTop: '16px' }}>
+                                <h4>Quick Templates</h4>
+                                <div className="button-tray">
+                                    {Object.entries(templates).map(([k, v]) => (
+                                        <button key={k} onClick={() => handleApplyTemplate(k)} title={v.description}>
+                                            📋 {v.name}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Save/Load Pipeline */}
+                            <div className="prep-actions" style={{ marginTop: '16px', display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
+                                <div style={{ flex: 1 }}>
+                                    <input type="text" className="form-control" placeholder="Pipeline name..." value={pipelineName} onChange={e => setPipelineName(e.target.value)} style={{ width: '100%' }} />
+                                </div>
+                                <button onClick={handleSavePipeline} style={{ padding: '8px 16px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>
+                                    <FontAwesomeIcon icon={faSave} /> Save
+                                </button>
+                            </div>
+                            {savedPipelines.length > 0 && (
+                                <div className="prep-actions" style={{ marginTop: '8px' }}>
+                                    <h4>Saved Pipelines</h4>
+                                    <div className="button-tray">
+                                        {savedPipelines.map(p => (
+                                            <button key={p._id} onClick={() => handleLoadPipeline(p.name)}>
+                                                📂 {p.name} ({p.op_count} ops)
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* ── Profiling Tab ── */}
+                    {activeTab === 'profile' && (
+                        <div className="preprocessing-tab">
+                            <h2>📊 Data Profiling</h2>
+                            <p>Analyze column-level statistics: missing%, skew, cardinality, outliers, and quality score.</p>
+                            <div className="prep-form-group">
+                                <label>Select Dataset:</label>
+                                <select className="form-control" value={profileDataset} onChange={e => setProfileDataset(e.target.value)}>
+                                    <option value="">-- Choose a CSV dataset --</option>
+                                    {datasets.filter(d => d.file_type === 'csv').map(d => <option key={d._id} value={d._id}>{d.filename}</option>)}
+                                </select>
+                            </div>
+                            <button className="btn-run-prep" onClick={handleLoadProfile} disabled={profiling || !profileDataset}>
+                                {profiling ? '⏳ Profiling...' : '🔍 Run Profile'}
+                            </button>
+                            {profile && (
+                                <div style={{ marginTop: '20px' }}>
+                                    <div style={{ display: 'flex', gap: '20px', marginBottom: '20px', flexWrap: 'wrap' }}>
+                                        <div style={{ padding: '16px', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-color)', minWidth: '120px', textAlign: 'center' }}>
+                                            <div style={{ fontSize: '2rem', fontWeight: '800', color: profile.quality_score >= 70 ? '#34c759' : profile.quality_score >= 40 ? '#ff9500' : '#ff3b30' }}>{profile.quality_score}</div>
+                                            <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Quality Score</div>
+                                        </div>
+                                        <div style={{ padding: '16px', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-color)', minWidth: '100px', textAlign: 'center' }}>
+                                            <div style={{ fontSize: '1.5rem', fontWeight: '700' }}>{profile.total_rows}</div>
+                                            <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Rows</div>
+                                        </div>
+                                        <div style={{ padding: '16px', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-color)', minWidth: '100px', textAlign: 'center' }}>
+                                            <div style={{ fontSize: '1.5rem', fontWeight: '700' }}>{profile.total_columns}</div>
+                                            <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Columns</div>
+                                        </div>
+                                        <div style={{ padding: '16px', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-color)', minWidth: '100px', textAlign: 'center' }}>
+                                            <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#ff3b30' }}>{profile.total_missing}</div>
+                                            <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Missing</div>
+                                        </div>
+                                    </div>
+                                    {profile.suggestions?.length > 0 && (
+                                        <div style={{ marginBottom: '20px', padding: '12px', background: 'rgba(255,149,0,0.08)', border: '1px solid rgba(255,149,0,0.2)', borderRadius: '8px' }}>
+                                            <h4 style={{ marginBottom: '8px' }}>💡 Suggestions</h4>
+                                            {profile.suggestions.map((s, i) => <div key={i} style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '4px' }}>• {s}</div>)}
+                                        </div>
+                                    )}
+                                    <h4>Column Details</h4>
+                                    <div style={{ maxHeight: '400px', overflow: 'auto' }}>
+                                        <table className="dataset-table" style={{ fontSize: '12px' }}>
+                                            <thead><tr>
+                                                <th>Column</th><th>Dtype</th><th>Missing%</th><th>Cardinality</th><th>Mean</th><th>Std</th><th>Skew</th><th>Outliers%</th>
+                                            </tr></thead>
+                                            <tbody>
+                                                {Object.entries(profile.columns).map(([col, c]) => (
+                                                    <tr key={col}>
+                                                        <td><strong>{col}</strong></td>
+                                                        <td>{c.dtype}</td>
+                                                        <td style={{ color: c.missing_pct > 20 ? '#ff3b30' : 'inherit' }}>{c.missing_pct}%</td>
+                                                        <td>{c.cardinality}</td>
+                                                        <td>{c.mean?.toFixed(2) || '—'}</td>
+                                                        <td>{c.std?.toFixed(2) || '—'}</td>
+                                                        <td style={{ color: c.high_skew ? '#ff9500' : 'inherit' }}>{c.skew?.toFixed(2) || '—'}</td>
+                                                        <td style={{ color: c.outlier_pct > 10 ? '#ff3b30' : 'inherit' }}>{c.outlier_pct?.toFixed(1) || '0'}%</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* ── Pipelines Tab ── */}
+                    {activeTab === 'pipelines' && (
+                        <div className="preprocessing-tab">
+                            <h2>📂 Pipeline Library</h2>
+                            <p>Your saved preprocessing pipelines and built-in templates.</p>
+                            <h3 style={{ marginTop: '20px' }}>Templates</h3>
+                            <div className="button-tray" style={{ marginBottom: '20px' }}>
+                                {Object.entries(templates).map(([k, v]) => (
+                                    <button key={k} onClick={() => handleApplyTemplate(k)} title={v.description}>
+                                        📋 {v.name}
+                                    </button>
+                                ))}
+                            </div>
+                            <h3>Your Pipelines</h3>
+                            {savedPipelines.length === 0 ? (
+                                <p style={{ color: 'var(--text-secondary)' }}>No saved pipelines yet. Create one in the Preprocessing tab.</p>
+                            ) : (
+                                <table className="dataset-table">
+                                    <thead><tr><th>Name</th><th>Operations</th><th>Updated</th><th>Action</th></tr></thead>
+                                    <tbody>
+                                        {savedPipelines.map(p => (
+                                            <tr key={p._id}>
+                                                <td><strong>{p.name}</strong></td>
+                                                <td>{p.op_count}</td>
+                                                <td>{new Date(p.updated_at).toLocaleString()}</td>
+                                                <td><button className="btn-delete" onClick={() => handleLoadPipeline(p.name)}>Load</button></td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+                    )}
+
+                    {/* ── Version Diff Tab ── */}
+                    {activeTab === 'diff' && (
+                        <div className="preprocessing-tab">
+                            <h2>🔀 Version Diff</h2>
+                            <p>Compare two datasets side-by-side to see what changed after preprocessing.</p>
+                            <div className="prep-form-group">
+                                <label>Dataset A (Before):</label>
+                                <select className="form-control" value={diffA} onChange={e => setDiffA(e.target.value)}>
+                                    <option value="">-- Select dataset --</option>
+                                    {datasets.filter(d => d.file_type === 'csv').map(d => <option key={d._id} value={d._id}>{d.filename}</option>)}
+                                </select>
+                            </div>
+                            <div className="prep-form-group">
+                                <label>Dataset B (After):</label>
+                                <select className="form-control" value={diffB} onChange={e => setDiffB(e.target.value)}>
+                                    <option value="">-- Select dataset --</option>
+                                    {datasets.filter(d => d.file_type === 'csv').map(d => <option key={d._id} value={d._id}>{d.filename}</option>)}
+                                </select>
+                            </div>
+                            <button className="btn-run-prep" onClick={handleDiff} disabled={diffing || !diffA || !diffB}>
+                                {diffing ? '⏳ Comparing...' : '🔍 Compare'}
+                            </button>
+                            {diffResult && (
+                                <div style={{ marginTop: '20px' }}>
+                                    <div style={{ display: 'flex', gap: '20px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                                        <div style={{ padding: '12px', background: 'var(--bg-card)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                                            <strong>{diffResult.dataset_a.filename}</strong>: {diffResult.dataset_a.rows} rows, {diffResult.dataset_a.cols} cols
+                                        </div>
+                                        <div style={{ padding: '12px', background: 'var(--bg-card)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                                            <strong>{diffResult.dataset_b.filename}</strong>: {diffResult.dataset_b.rows} rows, {diffResult.dataset_b.cols} cols
+                                        </div>
+                                    </div>
+                                    <div style={{ padding: '12px', background: diffResult.rows_delta !== 0 ? 'rgba(255,149,0,0.08)' : 'rgba(52,199,89,0.08)', borderRadius: '8px', marginBottom: '12px' }}>
+                                        <strong>Rows Delta:</strong> {diffResult.rows_delta > 0 ? '+' : ''}{diffResult.rows_delta}
+                                    </div>
+                                    {diffResult.columns_added.length > 0 && (
+                                        <div style={{ marginBottom: '8px' }}><strong>➕ Added:</strong> {diffResult.columns_added.join(', ') || 'None'}</div>
+                                    )}
+                                    {diffResult.columns_removed.length > 0 && (
+                                        <div style={{ marginBottom: '8px' }}><strong>➖ Removed:</strong> {diffResult.columns_removed.join(', ') || 'None'}</div>
+                                    )}
+                                    {Object.keys(diffResult.numeric_drift).length > 0 && (
+                                        <div style={{ marginTop: '16px' }}>
+                                            <h4>Numeric Drift</h4>
+                                            <table className="dataset-table" style={{ fontSize: '12px' }}>
+                                                <thead><tr><th>Column</th><th>Mean Before</th><th>Mean After</th><th>Drift</th></tr></thead>
+                                                <tbody>
+                                                    {Object.entries(diffResult.numeric_drift).map(([col, d]) => (
+                                                        <tr key={col}>
+                                                            <td>{col}</td>
+                                                            <td>{d.mean_before.toFixed(4)}</td>
+                                                            <td>{d.mean_after.toFixed(4)}</td>
+                                                            <td style={{ color: Math.abs(d.drift) > 1 ? '#ff3b30' : '#ff9500' }}>{d.drift.toFixed(4)}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     )}
 

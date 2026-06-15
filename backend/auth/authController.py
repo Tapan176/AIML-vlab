@@ -22,6 +22,20 @@ def _generate_token(user_id, email, role="user"):
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 
+def generate_token(user):
+    """Public helper: issue a JWT for a user dict (used by OAuth routes).
+
+    Accepts a user document with `_id` (or `id`), `email`, and optional `role`,
+    and delegates to _generate_token so OAuth and password flows mint identical
+    tokens that token_required can validate the same way.
+    """
+    return _generate_token(
+        user.get('_id') or user.get('id'),
+        user.get('email'),
+        user.get('role', 'user'),
+    )
+
+
 def _sanitize_user(user):
     """Remove sensitive fields and convert ObjectId for JSON serialization."""
     user['_id'] = str(user['_id'])

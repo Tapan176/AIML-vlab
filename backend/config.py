@@ -52,6 +52,15 @@ FLASK_PORT = int(os.getenv('FLASK_PORT', '5050'))
 FLASK_DEBUG = os.getenv('FLASK_DEBUG', 'true').lower() == 'true'
 ALLOWED_ORIGINS = os.getenv('ALLOWED_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000,http://localhost:5050,http://127.0.0.1:5050').split(',')
 
+# --- HuggingFace ---
+HF_TOKEN = os.getenv('HF_TOKEN', None)  # Optional — needed for gated models
+
+# --- OAuth Providers ---
+GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID', None)
+GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET', None)
+GITHUB_CLIENT_ID = os.getenv('GITHUB_CLIENT_ID', None)
+GITHUB_CLIENT_SECRET = os.getenv('GITHUB_CLIENT_SECRET', None)
+
 # --- Upload Limits ---
 ALLOWED_CSV_EXTENSIONS = set(os.getenv('ALLOWED_CSV_EXTENSIONS', 'csv').split(','))
 ALLOWED_IMAGE_EXTENSIONS = set(os.getenv('ALLOWED_IMAGE_EXTENSIONS', 'jpg,jpeg,png').split(','))
@@ -81,6 +90,10 @@ MODEL_CODES = [
     'xgboost',
     'sentiment_analysis',
     'text_classification',
+    # 🆕 Fine-Tuning
+    'bert_finetune',
+    'vit_finetune',
+    'distilbert_finetune',
 ]
 
 # Default hyperparameter values per model  (optimised for best out-of-the-box accuracy)
@@ -228,6 +241,38 @@ DEFAULT_HYPERPARAMS = {
         'loss': 'categorical_crossentropy',
         'learning_rate': 0.001,
         'momentum': 0.0,
+    },
+    # ── 🆕 Fine-Tuning Defaults ─────────────────────────────────
+    'bert_finetune': {
+        'model_name': 'bert-base-uncased',
+        'epochs': 3,
+        'batch_size': 16,
+        'learning_rate': 2e-5,
+        'max_length': 256,
+        'warmup_steps': 0,
+        'weight_decay': 0.01,
+        'test_size': 0.2,
+        'freeze_base': False,
+    },
+    'vit_finetune': {
+        'model_name': 'google/vit-base-patch16-224',
+        'epochs': 3,
+        'batch_size': 16,
+        'learning_rate': 2e-5,
+        'weight_decay': 0.01,
+        'test_size': 0.2,
+        'freeze_base': False,
+    },
+    'distilbert_finetune': {
+        'model_name': 'distilbert-base-uncased',
+        'epochs': 3,
+        'batch_size': 16,
+        'learning_rate': 2e-5,
+        'max_length': 256,
+        'warmup_steps': 0,
+        'weight_decay': 0.01,
+        'test_size': 0.2,
+        'freeze_base': False,
     },
 }
 

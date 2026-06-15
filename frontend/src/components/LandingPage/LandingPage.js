@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useState, useEffect } from 'react';
+import { API_URL, MODEL_CATEGORIES } from '../../constants';
 import './LandingPage.css';
 
 const FEATURES = [
@@ -35,28 +37,16 @@ const FEATURES = [
     }
 ];
 
-const MODELS = [
-    { name: 'Linear Regression', category: 'Regression', color: '#6c63ff' },
-    { name: 'Multivariable Linear Regression', category: 'Regression', color: '#6c63ff' },
-    { name: 'Logistic Regression', category: 'Classification', color: '#34c759' },
-    { name: 'KNN', category: 'Classification', color: '#34c759' },
-    { name: 'Decision Tree', category: 'Classification', color: '#34c759' },
-    { name: 'Random Forest', category: 'Classification', color: '#34c759' },
-    { name: 'SVM', category: 'Classification', color: '#34c759' },
-    { name: 'Naive Bayes', category: 'Classification', color: '#34c759' },
-    { name: 'K-Means', category: 'Clustering', color: '#ff9500' },
-    { name: 'DBSCAN', category: 'Clustering', color: '#ff9500' },
-    { name: 'ANN', category: 'Neural Networks', color: '#ff3b30' },
-    { name: 'CNN', category: 'Neural Networks', color: '#ff3b30' },
-    { name: 'ResNet50', category: 'Deep Learning', color: '#f8b600ff' },
-    { name: 'LSTM', category: 'Deep Learning', color: '#f8b600ff' },
-    { name: 'YOLOv8', category: 'Deep Learning', color: '#f8b600ff' },
-    { name: 'XGBoost', category: 'Ensemble', color: '#c5fc00ff' },
-    { name: 'Gradient Boosting', category: 'Ensemble', color: '#c5fc00ff' },
-    { name: 'Sentiment Analysis', category: 'Natural Language Processing', color: '#00a8f7ff' },
-    { name: 'Text Classification', category: 'Natural Language Processing', color: '#00a8f7ff' },
-    { name: 'StyleGAN', category: 'Generative Adversarial Network', color: '#7000f0ff' },
-];
+const CATEGORY_COLORS = {
+    'Regression': '#6c63ff',
+    'Classification': '#34c759',
+    'Clustering': '#ff9500',
+    'Neural Networks': '#ff3b30',
+    'Ensemble': '#c5fc00ff',
+    'NLP': '#00a8f7ff',
+    'Generative AI': '#7000f0ff',
+    'Fine-Tuning': '#ff6b6b',
+};
 
 const STEPS = [
     { step: '01', title: 'Upload Dataset', desc: 'Upload your CSV or image dataset to get started.' },
@@ -64,8 +54,36 @@ const STEPS = [
     { step: '03', title: 'Analyze & Export', desc: 'View results, compare versions, and download your model.' },
 ];
 
+// Fallback shown until GET /api/models/registry resolves. Derived from the
+// canonical MODEL_CATEGORIES so adding a model never requires touching this file.
+const _prettify = (code) => code.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+const FALLBACK_MODELS = Object.entries(MODEL_CATEGORIES).flatMap(
+    ([category, codes]) => codes.map((code) => ({ name: _prettify(code), category }))
+);
+
 const LandingPage = () => {
     const { isAuthenticated } = useAuth();
+    const [models, setModels] = useState(FALLBACK_MODELS);
+    const [modelCount, setModelCount] = useState(20);
+
+    useEffect(() => {
+        fetch(`${API_URL}/models/registry`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.models) {
+                    const modelList = Object.values(data.models).map(m => ({
+                        name: m.name,
+                        category: m.category,
+                        color: CATEGORY_COLORS[m.category] || '#6c63ff',
+                    }));
+                    if (modelList.length > 0) {
+                        setModels(modelList);
+                        setModelCount(modelList.length);
+                    }
+                }
+            })
+            .catch(() => {});
+    }, []);
 
     return (
         <div className="landing">
@@ -88,7 +106,7 @@ const LandingPage = () => {
                         )}
                     </div>
                     <div className="hero-stats">
-                        <div className="stat"><span className="stat-value">20</span><span className="stat-label">ML Models</span></div>
+                        <div className="stat"><span className="stat-value">{modelCount}+</span><span className="stat-label">ML Models</span></div>
                         <div className="stat"><span className="stat-value">100%</span><span className="stat-label">Browser-Based</span></div>
                     </div>
                 </div>
@@ -113,7 +131,7 @@ const LandingPage = () => {
             <section className="models-section">
                 <h2 className="section-title">Supported Models</h2>
                 <div className="models-grid">
-                    {MODELS.map((m, i) => (
+                    {models.map((m, i) => (
                         <div className="model-chip" key={i} style={{ '--chip-color': m.color }}>
                             <span className="model-category">{m.category}</span>
                             <span className="model-name">{m.name}</span>

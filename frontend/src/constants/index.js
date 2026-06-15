@@ -23,6 +23,7 @@ export const MODEL_CATEGORIES = {
     'Ensemble': ['gradient_boosting', 'xgboost'],
     'NLP': ['sentiment_analysis', 'text_classification'],
     'Generative AI': ['stylegan'],
+    'Fine-Tuning': ['bert_finetune', 'vit_finetune', 'distilbert_finetune'],
 };
 
 // Model categories icons for display
@@ -34,6 +35,7 @@ export const CATEGORY_ICONS = {
     'Ensemble': '🌲',
     'NLP': '📝',
     'Generative AI': '✨',
+    'Fine-Tuning': '🧠',
 };
 
 // Country codes used in the Signup form

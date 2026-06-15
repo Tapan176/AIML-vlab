@@ -55,6 +55,11 @@ PARAM_LABELS = {
     "weight_decay": "Weight decay",
     "weights": "Neighbor weights",
     "z_dim": "Z latent dimension",
+    # Fine-tuning
+    "model_name": "Base Model",
+    "max_length": "Max Token Length",
+    "warmup_steps": "Warmup Steps",
+    "freeze_base": "Freeze Base Layers",
 }
 
 PARAM_NOTES = {

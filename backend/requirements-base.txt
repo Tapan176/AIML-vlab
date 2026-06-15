@@ -54,3 +54,10 @@ requests>=2.31,<3
 Pillow>=10.0,<11
 pyyaml>=6.0,<7
 Werkzeug>=3.0,<4
+
+# --- HuggingFace (fine-tuning models) ---------------------------------------
+transformers>=4.40,<5
+datasets>=2.19,<3
+accelerate>=0.30,<1
+tokenizers>=0.19,<1
+safetensors>=0.4,<1
