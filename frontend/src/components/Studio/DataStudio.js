@@ -273,7 +273,7 @@ export default function DataStudio() {
                                     <tbody>
                                         {datasets.map(d => (
                                             <tr key={d._id}>
-                                                <td>{d.filename}</td>
+                                                <td title={d.filename} style={{ maxWidth: '260px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.filename}</td>
                                                 <td><span className={`badge badge-${d.file_type}`}>{d.file_type.toUpperCase()}</span></td>
                                                 <td>{new Date(d.uploaded_at).toLocaleString()}</td>
                                                 <td>

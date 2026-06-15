@@ -30,7 +30,7 @@ export default function NaiveBayes() {
     return (
         <div className="model-page">
             <div className="model-header">
-                <h1>NaÃ¯ve Bayes</h1>
+                <h1>Naïve Bayes</h1>
                 <button className="btn-info-toggle" onClick={() => setInfoOpen(true)}>📖 Info</button>
             </div>
             <div className="dataset-section"><ShowDataset onDatasetUpload={handleDatasetSelect} allowedTypes={['csv']} />

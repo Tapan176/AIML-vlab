@@ -30,7 +30,7 @@ function fetchSchema(modelCode) {
  *   modelCode: string — e.g. 'simple_linear_regression'
  *   hyperparams: object — current hyperparam values from parent
  *   onChange: (paramName, value) => void
- *   schemaOverrides?: object â€” optional per-param schema overrides
+ *   schemaOverrides?: object — optional per-param schema overrides
  */
 export default function HyperparamPanel({ modelCode, hyperparams, onChange, schemaOverrides = {} }) {
     const [schema, setSchema] = useState(null);

@@ -81,7 +81,7 @@ export default function SimpleLinearRegression() {
                     <div className="metrics-grid">
                         <div className="metric-item"><div className="metric-label">MAE</div><div className="metric-value">{formatMetric(results.MAE)}</div></div>
                         <div className="metric-item"><div className="metric-label">MSE</div><div className="metric-value">{formatMetric(results.MSE)}</div></div>
-                        <div className="metric-item"><div className="metric-label">RÂ² Score</div><div className="metric-value">{formatMetric(results.R2)}</div></div>
+                        <div className="metric-item"><div className="metric-label">R² Score</div><div className="metric-value">{formatMetric(results.R2)}</div></div>
                     </div>
                 </div>
             )}

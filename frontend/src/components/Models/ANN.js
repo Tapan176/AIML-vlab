@@ -125,7 +125,7 @@ export default function ANN() {
                 {/* ANN Layer Builder */}
                 <div className="hidden-layers-section">
                     <div className="hidden-layers-header">
-                        <h3>ðŸ§  Dense Layers ({layers.length})</h3>
+                        <h3>🧠  Dense Layers ({layers.length})</h3>
                     </div>
                     <div className="hidden-layers-list">
                         {layers.map((layer, index) => (

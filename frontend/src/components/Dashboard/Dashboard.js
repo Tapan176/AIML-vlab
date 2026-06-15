@@ -229,8 +229,8 @@ const Dashboard = () => {
                                     <th>Key Metric</th>
                                     <th>Trained Model</th>
                                     <th>Training Results</th>
-                                    <th style={{ width: '50px' }}>Replay</th>
-                                    <th style={{ width: '50px' }}>Delete</th>
+                                    <th style={{ width: '50px', textAlign: 'center' }}>Replay</th>
+                                    <th style={{ width: '50px', textAlign: 'center' }}>Delete</th>
                                 </tr>
                             </thead>
                             <tbody>

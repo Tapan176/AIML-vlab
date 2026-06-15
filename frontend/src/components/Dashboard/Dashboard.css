@@ -377,9 +377,19 @@
 
 /* Action cell */
 .action-cell {
-    display: flex;
+    /* Keep this a normal table cell — display:flex on a <td> breaks the column
+       layout so the button no longer sits under its header. Center the single
+       button instead (header is centered to match, see Dashboard.js). */
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+.action-cell .btn-replay-session,
+.action-cell .btn-delete-session {
+    display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
+    justify-content: center;
 }
 
 .btn-delete-session {
@@ -391,9 +401,6 @@
     padding: 0.5rem 0.7rem;
     transition: all 0.2s ease;
     opacity: 0.7;
-    display: flex;
-    align-items: center;
-    justify-content: center;
 }
 
 .btn-delete-session:hover {
@@ -417,9 +424,6 @@
     transition: all 0.2s ease;
     opacity: 0.7;
     color: var(--accent);
-    display: flex;
-    align-items: center;
-    justify-content: center;
 }
 
 .btn-replay-session:hover {

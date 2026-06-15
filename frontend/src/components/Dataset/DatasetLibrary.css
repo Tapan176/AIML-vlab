@@ -120,13 +120,18 @@
 
 .dataset-info {
     flex-grow: 1;
+    min-width: 0;
 }
 
 .dataset-info h3 {
     font-size: 1.25rem;
     margin-bottom: 0.5rem;
     line-height: 1.4;
-    word-break: break-all;
+    /* Truncate long Drive-id filenames to a single line; full name on hover
+       via the title tooltip (see DatasetLibrary.js). */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .dataset-date {

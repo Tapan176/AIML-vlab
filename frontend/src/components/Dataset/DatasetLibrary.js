@@ -121,7 +121,7 @@ const DatasetLibrary = () => {
                                 {dataset.file_type === 'csv' ? '📊' : dataset.file_type === 'zip' ? '🗂️' : '📄'}
                             </div>
                             <div className="dataset-info">
-                                <h3>{dataset.filename}</h3>
+                                <h3 title={dataset.filename}>{dataset.filename}</h3>
                                 <p className="dataset-date">Added {new Date(dataset.uploaded_at).toLocaleDateString()}</p>
                                 <div className="dataset-badges">
                                     <span className="badge type-badge">{dataset.file_type?.toUpperCase()}</span>
