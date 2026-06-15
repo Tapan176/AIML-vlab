@@ -1,14 +1,17 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlayCircle, faFileAlt, faRobot, faBullseye } from '@fortawesome/free-solid-svg-icons';
+import { faPlayCircle, faFileAlt, faRobot, faBullseye, faRedo } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
 import DownloadResultsZip from '../DownloadResultsZip/DownloadResultsZip';
+import { useModelRegistry, getModelExtension } from '../../hooks/useModelRegistry';
 import './Dashboard.css';
 
 const Dashboard = () => {
     const { user } = useAuth();
+    const navigate = useNavigate();
     const [sessions, setSessions] = useState([]);
     const [datasets, setDatasets] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -17,6 +20,7 @@ const Dashboard = () => {
     const [feedbackType, setFeedbackType] = useState('general');
     const [toast, setToast] = useState(null); // { type: 'success' | 'error', message: string }
     const [confirmDelete, setConfirmDelete] = useState(null); // { sessionId, modelCode } or null
+    const registry = useModelRegistry();
 
     useEffect(() => {
         const fetchData = async () => {
@@ -73,6 +77,27 @@ const Dashboard = () => {
             console.error('Failed to delete session:', err);
             setToast({ type: 'error', message: 'Failed to delete session. Please try again.' });
         }
+    };
+
+    const handleReplaySession = (session) => {
+        // Store session data for the target model component to pick up
+        sessionStorage.setItem('replay_session', JSON.stringify({
+            hyperparams: session.hyperparams,
+            model_code: session.model_code,
+            dataset_info: session.dataset_info,
+        }));
+        // Also store the dataset selection in localStorage using the model's cache key
+        if (session.dataset_info?.filename) {
+            localStorage.setItem(`${session.model_code}_dataset`, JSON.stringify({
+                filename: session.dataset_info.filename,
+                file_type: session.dataset_info.file_type || 'csv',
+            }));
+        }
+        // Navigate to Lab — the model needs to be selected from sidebar
+        navigate('/lab');
+        // Store the model code for the sidebar to auto-select
+        sessionStorage.setItem('auto_select_model', session.model_code);
+        setToast({ type: 'success', message: `Loading ${session.model_code} with previous configuration...` });
     };
 
     const handleFeedbackSubmit = async (e) => {
@@ -204,7 +229,8 @@ const Dashboard = () => {
                                     <th>Key Metric</th>
                                     <th>Trained Model</th>
                                     <th>Training Results</th>
-                                    <th style={{ width: '50px' }}>Action</th>
+                                    <th style={{ width: '50px' }}>Replay</th>
+                                    <th style={{ width: '50px' }}>Delete</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -230,10 +256,10 @@ const Dashboard = () => {
                                         </td>
                                         <td>
                                             {s.status === 'completed' && (
-                                                <DownloadTrainedModel 
-                                                    selectedModel={s.model_code} 
-                                                    extension={['cnn', 'ann', 'lstm', 'resnet', 'stylegan'].includes(s.model_code) ? '.h5' : s.model_code === 'object_detection' ? '.pt' : '.pkl'} 
-                                                    sessionId={s._id} 
+                                                <DownloadTrainedModel
+                                                    selectedModel={s.model_code}
+                                                    extension={getModelExtension(registry, s.model_code)}
+                                                    sessionId={s._id}
                                                     label="Download"
                                                 />
                                             )}
@@ -242,6 +268,15 @@ const Dashboard = () => {
                                             {s.status === 'completed' && s.results_zip_drive_id && (
                                                 <DownloadResultsZip sessionId={s._id} label="Download" />
                                             )}
+                                        </td>
+                                        <td className="action-cell">
+                                            <button 
+                                                className="btn-replay-session"
+                                                onClick={() => handleReplaySession(s)}
+                                                title="Reload this configuration"
+                                            >
+                                                <FontAwesomeIcon icon={faRedo} />
+                                            </button>
                                         </td>
                                         <td className="action-cell">
                                             <button 

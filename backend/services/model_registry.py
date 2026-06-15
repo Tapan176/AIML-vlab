@@ -1,0 +1,367 @@
+"""
+Dynamic Model Registry — the single source of truth for all model metadata.
+Drives the frontend sidebar, Home.js, LandingPage, and Dashboard.
+Add a model HERE and it automatically appears everywhere.
+
+To add a new model, add an entry to MODELS below and create the corresponding
+training module under backend/models/<model_name>/.
+"""
+
+from config import MODEL_CODES
+
+MODELS = {
+    # ── Regression ──────────────────────────────────────────────
+    'simple_linear_regression': {
+        'code': 'simple_linear_regression',
+        'name': 'Simple Linear Regression',
+        'category': 'Regression',
+        'icon': '📈',
+        'endpoint': '/linear-regression',
+        'streaming': False,
+        'file_extension': '.pkl',
+        'framework': 'scikit-learn',
+        'requires_image_dataset': False,
+        'requires_text_column': False,
+        'description': 'Fit a straight line through your data to predict continuous values.',
+    },
+    'multivariable_linear_regression': {
+        'code': 'multivariable_linear_regression',
+        'name': 'Multivariable Linear Regression',
+        'category': 'Regression',
+        'icon': '📈',
+        'endpoint': '/multivariable-linear-regression',
+        'streaming': False,
+        'file_extension': '.pkl',
+        'framework': 'scikit-learn',
+        'requires_image_dataset': False,
+        'requires_text_column': False,
+        'description': 'Predict continuous values using multiple input features simultaneously.',
+    },
+    # ── Classification ──────────────────────────────────────────
+    'logistic_regression': {
+        'code': 'logistic_regression',
+        'name': 'Logistic Regression',
+        'category': 'Classification',
+        'icon': '🎯',
+        'endpoint': '/logistic-regression',
+        'streaming': False,
+        'file_extension': '.pkl',
+        'framework': 'scikit-learn',
+        'requires_image_dataset': False,
+        'requires_text_column': False,
+        'description': 'Classify data into two or more categories using a probabilistic approach.',
+    },
+    'knn': {
+        'code': 'knn',
+        'name': 'K-Nearest Neighbors (KNN)',
+        'category': 'Classification',
+        'icon': '🎯',
+        'endpoint': '/knn',
+        'streaming': False,
+        'file_extension': '.pkl',
+        'framework': 'scikit-learn',
+        'requires_image_dataset': False,
+        'requires_text_column': False,
+        'description': 'Classify points based on the majority vote of their k nearest neighbors.',
+    },
+    'decision_tree': {
+        'code': 'decision_tree',
+        'name': 'Decision Tree',
+        'category': 'Classification',
+        'icon': '🎯',
+        'endpoint': '/decision-tree',
+        'streaming': False,
+        'file_extension': '.pkl',
+        'framework': 'scikit-learn',
+        'requires_image_dataset': False,
+        'requires_text_column': False,
+        'description': 'Build a tree of decision rules to split and classify data.',
+    },
+    'random_forest': {
+        'code': 'random_forest',
+        'name': 'Random Forest',
+        'category': 'Classification',
+        'icon': '🎯',
+        'endpoint': '/random-forest',
+        'streaming': False,
+        'file_extension': '.pkl',
+        'framework': 'scikit-learn',
+        'requires_image_dataset': False,
+        'requires_text_column': False,
+        'description': 'Ensemble of decision trees that vote together for robust predictions.',
+    },
+    'svm': {
+        'code': 'svm',
+        'name': 'Support Vector Machine (SVM)',
+        'category': 'Classification',
+        'icon': '🎯',
+        'endpoint': '/support-vector-machine',
+        'streaming': False,
+        'file_extension': '.pkl',
+        'framework': 'scikit-learn',
+        'requires_image_dataset': False,
+        'requires_text_column': False,
+        'description': 'Find the optimal boundary that best separates different classes.',
+    },
+    'naive_bayes': {
+        'code': 'naive_bayes',
+        'name': 'Naive Bayes',
+        'category': 'Classification',
+        'icon': '🎯',
+        'endpoint': '/naive-bayes',
+        'streaming': False,
+        'file_extension': '.pkl',
+        'framework': 'scikit-learn',
+        'requires_image_dataset': False,
+        'requires_text_column': False,
+        'description': 'Fast probabilistic classifier based on Bayes theorem.',
+    },
+    # ── Clustering ──────────────────────────────────────────────
+    'k_means': {
+        'code': 'k_means',
+        'name': 'K-Means Clustering',
+        'category': 'Clustering',
+        'icon': '🔮',
+        'endpoint': '/k-means',
+        'streaming': False,
+        'file_extension': '.pkl',
+        'framework': 'scikit-learn',
+        'requires_image_dataset': False,
+        'requires_text_column': False,
+        'description': 'Group unlabeled data into k clusters based on similarity.',
+    },
+    'dbscan': {
+        'code': 'dbscan',
+        'name': 'DBSCAN',
+        'category': 'Clustering',
+        'icon': '🔮',
+        'endpoint': '/dbscan',
+        'streaming': False,
+        'file_extension': '.pkl',
+        'framework': 'scikit-learn',
+        'requires_image_dataset': False,
+        'requires_text_column': False,
+        'description': 'Density-based clustering that finds arbitrarily shaped groups and outliers.',
+    },
+    # ── Neural Networks ─────────────────────────────────────────
+    'ann': {
+        'code': 'ann',
+        'name': 'Artificial Neural Network (ANN)',
+        'category': 'Neural Networks',
+        'icon': '🕸️',
+        'endpoint': '/ann',
+        'streaming': True,
+        'file_extension': '.h5',
+        'framework': 'TensorFlow/Keras',
+        'requires_image_dataset': False,
+        'requires_text_column': False,
+        'description': 'Multi-layer perceptron for deep learning on tabular data.',
+    },
+    'cnn': {
+        'code': 'cnn',
+        'name': 'Convolutional Neural Network (CNN)',
+        'category': 'Neural Networks',
+        'icon': '🕸️',
+        'endpoint': '/cnn',
+        'streaming': True,
+        'file_extension': '.h5',
+        'framework': 'TensorFlow/Keras',
+        'requires_image_dataset': True,
+        'requires_text_column': False,
+        'description': 'Deep learning for image classification with convolutional layers.',
+    },
+    'resnet': {
+        'code': 'resnet',
+        'name': 'ResNet (Transfer Learning)',
+        'category': 'Neural Networks',
+        'icon': '🕸️',
+        'endpoint': '/resnet',
+        'streaming': True,
+        'file_extension': '.h5',
+        'framework': 'TensorFlow/Keras',
+        'requires_image_dataset': True,
+        'requires_text_column': False,
+        'description': 'Transfer learning with ResNet50 for state-of-the-art image classification.',
+    },
+    'lstm': {
+        'code': 'lstm',
+        'name': 'LSTM (Long Short-Term Memory)',
+        'category': 'Neural Networks',
+        'icon': '🕸️',
+        'endpoint': '/lstm',
+        'streaming': True,
+        'file_extension': '.h5',
+        'framework': 'TensorFlow/Keras',
+        'requires_image_dataset': False,
+        'requires_text_column': False,
+        'description': 'Recurrent neural network for sequence and time-series data.',
+    },
+    'yolo': {
+        'code': 'yolo',
+        'name': 'YOLOv8 (Object Detection)',
+        'category': 'Neural Networks',
+        'icon': '🕸️',
+        'endpoint': '/yolo',
+        'streaming': True,
+        'file_extension': '.pt',
+        'framework': 'PyTorch/Ultralytics',
+        'requires_image_dataset': True,
+        'requires_text_column': False,
+        'description': 'Real-time object detection using state-of-the-art YOLOv8 architecture.',
+    },
+    # ── Ensemble ────────────────────────────────────────────────
+    'gradient_boosting': {
+        'code': 'gradient_boosting',
+        'name': 'Gradient Boosting',
+        'category': 'Ensemble',
+        'icon': '🌲',
+        'endpoint': '/gradient-boosting',
+        'streaming': False,
+        'file_extension': '.pkl',
+        'framework': 'scikit-learn',
+        'requires_image_dataset': False,
+        'requires_text_column': False,
+        'description': 'Build trees sequentially, each correcting the errors of the previous one.',
+    },
+    'xgboost': {
+        'code': 'xgboost',
+        'name': 'XGBoost',
+        'category': 'Ensemble',
+        'icon': '🌲',
+        'endpoint': '/xgboost',
+        'streaming': False,
+        'file_extension': '.pkl',
+        'framework': 'XGBoost',
+        'requires_image_dataset': False,
+        'requires_text_column': False,
+        'description': 'Extreme gradient boosting — fast, scalable, and competition-winning.',
+    },
+    # ── NLP ─────────────────────────────────────────────────────
+    'sentiment_analysis': {
+        'code': 'sentiment_analysis',
+        'name': 'Sentiment Analysis',
+        'category': 'NLP',
+        'icon': '📝',
+        'endpoint': '/sentiment-analysis',
+        'streaming': False,
+        'file_extension': '.pkl',
+        'framework': 'scikit-learn',
+        'requires_image_dataset': False,
+        'requires_text_column': True,
+        'description': 'Classify text as positive or negative using TF-IDF + Logistic Regression.',
+    },
+    'text_classification': {
+        'code': 'text_classification',
+        'name': 'Text Classification',
+        'category': 'NLP',
+        'icon': '📝',
+        'endpoint': '/text-classification',
+        'streaming': False,
+        'file_extension': '.pkl',
+        'framework': 'scikit-learn',
+        'requires_image_dataset': False,
+        'requires_text_column': True,
+        'description': 'Multi-class text categorization using Naive Bayes with CountVectorizer.',
+    },
+    # ── Generative AI ───────────────────────────────────────────
+    'stylegan': {
+        'code': 'stylegan',
+        'name': 'StyleGAN',
+        'category': 'Generative AI',
+        'icon': '✨',
+        'endpoint': '/stylegan',
+        'streaming': True,
+        'file_extension': '.pth',
+        'framework': 'PyTorch',
+        'requires_image_dataset': True,
+        'requires_text_column': False,
+        'description': 'Generate high-quality synthetic images with style-based GAN architecture.',
+    },
+    # ── 🆕 Fine-Tuning ──────────────────────────────────────────
+    'bert_finetune': {
+        'code': 'bert_finetune',
+        'name': 'BERT Fine-Tuning (Text)',
+        'category': 'Fine-Tuning',
+        'icon': '🧠',
+        'endpoint': '/finetune/bert',
+        'streaming': True,
+        'file_extension': '.zip',
+        'framework': 'HuggingFace Transformers',
+        'requires_image_dataset': False,
+        'requires_text_column': True,
+        'description': 'Fine-tune a pre-trained BERT model on your text classification dataset.',
+    },
+    'vit_finetune': {
+        'code': 'vit_finetune',
+        'name': 'ViT Fine-Tuning (Vision)',
+        'category': 'Fine-Tuning',
+        'icon': '🧠',
+        'endpoint': '/finetune/vit',
+        'streaming': True,
+        'file_extension': '.zip',
+        'framework': 'HuggingFace Transformers',
+        'requires_image_dataset': True,
+        'requires_text_column': False,
+        'description': 'Fine-tune Vision Transformer on your image classification dataset.',
+    },
+    'distilbert_finetune': {
+        'code': 'distilbert_finetune',
+        'name': 'DistilBERT Fine-Tuning (NLP)',
+        'category': 'Fine-Tuning',
+        'icon': '🧠',
+        'endpoint': '/finetune/distilbert',
+        'streaming': True,
+        'file_extension': '.zip',
+        'framework': 'HuggingFace Transformers',
+        'requires_image_dataset': False,
+        'requires_text_column': True,
+        'description': 'Fine-tune a lightweight DistilBERT on text data (sentiment, classification, QA).',
+    },
+}
+
+
+def get_model_registry():
+    """Return the full registry as a dict, ready for JSON serialization."""
+    return {
+        'models': MODELS,
+        'categories': _get_categories(),
+        'total': len(MODELS),
+    }
+
+
+def _get_categories():
+    """Build category list from MODELS."""
+    cats = {}
+    for model in MODELS.values():
+        cat = model['category']
+        if cat not in cats:
+            cats[cat] = {
+                'name': cat,
+                'icon': model['icon'],
+                'models': [],
+            }
+        cats[cat]['models'].append(model['code'])
+    return cats
+
+
+def get_model_meta(model_code):
+    """Get metadata for a single model. Returns None if not found."""
+    return MODELS.get(model_code)
+
+
+def get_model_component_name(model_code):
+    """Maps model_code to the React component name expected by the frontend."""
+    # Most codes match 1:1; outliers are listed here
+    OVERRIDES = {
+        'yolo': 'ObjectDetection',
+    }
+    if model_code in OVERRIDES:
+        return OVERRIDES[model_code]
+    # Convert snake_case to PascalCase: 'simple_linear_regression' → 'SimpleLinearRegression'
+    return ''.join(word.capitalize() for word in model_code.split('_'))
+
+
+def get_model_import_path(model_code):
+    """Returns the dynamic import path for the React component."""
+    component_name = get_model_component_name(model_code)
+    return f"../Models/{component_name}"

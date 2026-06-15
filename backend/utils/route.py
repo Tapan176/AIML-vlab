@@ -114,23 +114,32 @@ def submit_feedback(current_user):
 
 @utils_routes.route('/models/info', methods=['GET'])
 def get_models_info():
+    """Legacy endpoint — delegates to the dynamic model registry."""
     try:
-        from mongoDb.connection import get_db
-        db = get_db()
-        models = list(db.models.find({}, {'_id': 0}))
-
-        if not models:
-            return jsonify(get_model_catalog()), 200
-
-        if any(model.get('metadata_version') != MODEL_CATALOG_VERSION for model in models):
-            return jsonify(get_model_catalog()), 200
-
-        return jsonify(models), 200
-    except Exception as e:
+        from services.model_registry import get_model_registry
+        registry = get_model_registry()
+        return jsonify(list(registry['models'].values())), 200
+    except Exception:
         try:
             return jsonify(get_model_catalog()), 200
         except Exception:
-            return jsonify({"error": str(e)}), 500
+            return jsonify({"error": "Failed to load model info"}), 500
+
+
+@utils_routes.route('/models/registry', methods=['GET'])
+def get_model_registry_route():
+    """
+    Dynamic model registry endpoint.
+    Returns complete metadata for all models including categories,
+    endpoints, streaming info, file extensions, and component import paths.
+    This is the single source of truth for the frontend — add a model to
+    services/model_registry.py and it automatically appears everywhere.
+    """
+    try:
+        from services.model_registry import get_model_registry
+        return jsonify(get_model_registry()), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @utils_routes.route('/datasets/default', methods=['GET'])
 def list_default_datasets_public():

@@ -14,7 +14,12 @@ export const ROUTES = {
     DASHBOARD: '/dashboard',
 };
 
-// Model categories for display
+// Model categories for display.
+// NOTE: the live source of truth is the backend model registry
+// (GET /models/registry, see hooks/useModelRegistry.js). These constants are a
+// static FALLBACK used only when that fetch fails (offline / cold start) and by
+// the LandingPage's pre-fetch placeholder. Keep them roughly in sync, but adding
+// a model only *requires* updating backend/services/model_registry.py.
 export const MODEL_CATEGORIES = {
     'Regression': ['simple_linear_regression', 'multivariable_linear_regression'],
     'Classification': ['logistic_regression', 'knn', 'decision_tree', 'random_forest', 'svm', 'naive_bayes'],

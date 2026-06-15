@@ -1,41 +1,37 @@
 import { useState, useEffect } from 'react';
-import { API_URL, MODEL_CATEGORIES, CATEGORY_ICONS } from '../../constants';
+import { useModelRegistry } from '../../hooks/useModelRegistry';
 import './styles.css';
 
 const Sidebar = ({ loadComponent, activeModel }) => {
     const [collapsed, setCollapsed] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
-    const [expandedCategories, setExpandedCategories] = useState(
-        Object.keys(MODEL_CATEGORIES).reduce((acc, cat) => ({ ...acc, [cat]: true }), {})
-    );
-    const [models, setModels] = useState([]);
+    const [collapsedCategories, setCollapsedCategories] = useState({});
+    const registry = useModelRegistry();
 
+    // Auto-select a model when redirected from a Dashboard replay, once the
+    // registry confirms the code exists.
     useEffect(() => {
-        const fetchModels = async () => {
-            try {
-                const res = await fetch(`${API_URL}/models/info`);
-                if (res.ok) {
-                    const data = await res.json();
-                    setModels(data);
-                }
-            } catch (err) {
-                console.error("Failed to fetch model master data:", err);
-            }
-        };
-        fetchModels();
-    }, []);
+        if (!registry) return;
+        const autoSelect = sessionStorage.getItem('auto_select_model');
+        if (autoSelect && registry.models[autoSelect]) {
+            loadComponent(autoSelect);
+            sessionStorage.removeItem('auto_select_model');
+        }
+    }, [registry, loadComponent]);
 
     const toggleCategory = (cat) => {
-        setExpandedCategories(prev => ({ ...prev, [cat]: !prev[cat] }));
+        setCollapsedCategories(prev => ({ ...prev, [cat]: !prev[cat] }));
     };
 
-    const filteredModels = models.filter(m =>
-        m.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const term = searchTerm.toLowerCase();
+    // categories preserve the backend's display order (Regression → … → Fine-Tuning)
+    const categories = registry ? Object.values(registry.categories) : [];
 
-    const getModelsInCategory = (codes) => {
-        return filteredModels.filter(m => codes.includes(m.code));
-    };
+    const modelsForCategory = (cat) =>
+        cat.models
+            .map(code => registry.models[code])
+            .filter(Boolean)
+            .filter(m => m.name.toLowerCase().includes(term));
 
     return (
         <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
@@ -58,17 +54,18 @@ const Sidebar = ({ loadComponent, activeModel }) => {
                     </div>
 
                     <div className="sidebar-categories">
-                        {Object.entries(MODEL_CATEGORIES).map(([category, codes]) => {
-                            const categoryModels = getModelsInCategory(codes);
+                        {categories.map((cat) => {
+                            const categoryModels = modelsForCategory(cat);
                             if (categoryModels.length === 0) return null;
+                            const isOpen = !collapsedCategories[cat.name];
 
                             return (
-                                <div className="category" key={category}>
-                                    <button className="category-header" onClick={() => toggleCategory(category)}>
-                                        <span>{CATEGORY_ICONS[category]} {category}</span>
-                                        <span className={`chevron ${expandedCategories[category] ? 'open' : ''}`}>▸</span>
+                                <div className="category" key={cat.name}>
+                                    <button className="category-header" onClick={() => toggleCategory(cat.name)}>
+                                        <span>{cat.icon} {cat.name}</span>
+                                        <span className={`chevron ${isOpen ? 'open' : ''}`}>▸</span>
                                     </button>
-                                    {expandedCategories[category] && (
+                                    {isOpen && (
                                         <div className="category-items">
                                             {categoryModels.map((model) => (
                                                 <button
