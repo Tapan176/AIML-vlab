@@ -225,3 +225,60 @@
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
 }
+
+/* ── OAuth Buttons ─────────────────────── */
+.oauth-section {
+    margin-top: 1.5rem;
+}
+
+.oauth-divider {
+    display: flex;
+    align-items: center;
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    margin-bottom: 1rem;
+}
+
+.oauth-divider::before,
+.oauth-divider::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.oauth-divider span {
+    padding: 0 1rem;
+}
+
+.oauth-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.oauth-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 0.75rem;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.oauth-btn:hover {
+    background: var(--bg-card);
+    border-color: var(--accent);
+}
+
+.oauth-icon {
+    font-size: 1.2rem;
+}
