@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { consumeReplayHyperparams } from '../../utils/replaySession';
 import constants from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
 import CnnHiddenLayer from '../HiddenLayers/CnnHiddenLayer';
@@ -24,7 +25,7 @@ const DEFAULT_LAYERS = [
 export default function CNN() {
     const [layers, setLayers] = useState(DEFAULT_LAYERS.map(l => ({ ...l })));
     const [classMode, setClassMode] = useState('categorical');
-    const [hyperparams, setHyperparams] = useState({});
+    const [hyperparams, setHyperparams] = useState(() => consumeReplayHyperparams(MODEL_CODE));
     const [results, setResults] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { consumeReplayHyperparams } from '../../utils/replaySession';
 import ShowDataset from '../Dataset/ShowDataset';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
 import DownloadResultsZip from '../DownloadResultsZip/DownloadResultsZip';
@@ -12,7 +13,7 @@ import '../ModelCss/ModelPage.css';
 const MODEL_CODE = 'xgboost';
 
 export default function XGBoost() {
-    const [hyperparams, setHyperparams] = useState({});
+    const [hyperparams, setHyperparams] = useState(() => consumeReplayHyperparams(MODEL_CODE));
     const [infoOpen, setInfoOpen] = useState(false);
     const { datasetData, handleDatasetSelect } = useDatasetCache(MODEL_CODE);
     const { train, loading, error, results } = useModelTrain('/xgboost');

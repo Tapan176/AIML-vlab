@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { consumeReplayHyperparams } from '../../utils/replaySession';
 import constants from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
@@ -12,7 +13,7 @@ import '../ModelCss/ModelPage.css';
 const MODEL_CODE = 'stylegan';
 
 export default function StyleGAN() {
-    const [hyperparams, setHyperparams] = useState({});
+    const [hyperparams, setHyperparams] = useState(() => consumeReplayHyperparams(MODEL_CODE));
     const [results, setResults] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');

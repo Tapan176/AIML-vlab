@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { consumeReplayHyperparams } from '../../utils/replaySession';
 import constants from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
@@ -19,7 +20,7 @@ export default function LSTM() {
         { type: 'dense', units: 32, activation: 'relu', dropout: 0 },
     ]);
     const [classMode, setClassMode] = useState('categorical');
-    const [hyperparams, setHyperparams] = useState({});
+    const [hyperparams, setHyperparams] = useState(() => consumeReplayHyperparams(MODEL_CODE));
     const [results, setResults] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');

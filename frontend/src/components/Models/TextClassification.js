@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { consumeReplayHyperparams } from '../../utils/replaySession';
 import ShowDataset from '../Dataset/ShowDataset';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
 import DownloadResultsZip from '../DownloadResultsZip/DownloadResultsZip';
@@ -14,7 +15,7 @@ const MODEL_CODE = 'text_classification';
 export default function TextClassification() {
     const [textColumn, setTextColumn] = useState('');
     const [labelColumn, setLabelColumn] = useState('');
-    const [hyperparams, setHyperparams] = useState({});
+    const [hyperparams, setHyperparams] = useState(() => consumeReplayHyperparams(MODEL_CODE));
     const [infoOpen, setInfoOpen] = useState(false);
     const { datasetData, handleDatasetSelect } = useDatasetCache('textclassification');
     const { train, loading, error, results } = useModelTrain('/text-classification');

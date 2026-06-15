@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
+import { consumeReplayHyperparams } from '../../utils/replaySession';
 import '../shared/ModelStyles.css';
 
 /**
@@ -122,7 +123,7 @@ const BERTForm = ({ onSubmit, disabled }) => {
     const [filename, setFilename] = useState('');
     const [textColumn, setTextColumn] = useState('text');
     const [labelColumn, setLabelColumn] = useState('label');
-    const [hyperparams, setHyperparams] = useState({
+    const [hyperparams, setHyperparams] = useState(() => ({
         model_name: 'bert-base-uncased',
         epochs: 3,
         batch_size: 16,
@@ -130,7 +131,8 @@ const BERTForm = ({ onSubmit, disabled }) => {
         max_length: 256,
         test_size: 0.2,
         freeze_base: false,
-    });
+        ...consumeReplayHyperparams('bert_finetune'),
+    }));
 
     const handleChange = (name, value) => {
         setHyperparams(prev => ({ ...prev, [name]: value }));

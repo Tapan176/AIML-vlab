@@ -1,5 +1,6 @@
 /* eslint-disable jsx-a11y/img-redundant-alt */
 import { useState } from 'react';
+import { consumeReplayHyperparams } from '../../utils/replaySession';
 import ShowDataset from '../Dataset/ShowDataset';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
 import DownloadResultsZip from '../DownloadResultsZip/DownloadResultsZip';
@@ -16,7 +17,7 @@ const MODEL_CODE = 'multivariable_linear_regression';
 
 export default function MultivariableLinearRegression() {
     const [inputData, setInputData] = useState({ X: [], y: [] });
-    const [hyperparams, setHyperparams] = useState({});
+    const [hyperparams, setHyperparams] = useState(() => consumeReplayHyperparams(MODEL_CODE));
     const [infoOpen, setInfoOpen] = useState(false);
     const { datasetData, handleDatasetSelect } = useDatasetCache(MODEL_CODE);
     const { train, loading, error, results } = useModelTrain('/multivariable-linear-regression');

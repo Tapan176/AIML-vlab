@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
+import { consumeReplayHyperparams } from '../../utils/replaySession';
 import '../shared/ModelStyles.css';
 
 const FinetuneViT = () => {
@@ -121,7 +122,7 @@ const FinetuneViT = () => {
 
 const ViTForm = ({ onSubmit, disabled }) => {
     const [filename, setFilename] = useState('');
-    const [hyperparams, setHyperparams] = useState({
+    const [hyperparams, setHyperparams] = useState(() => ({
         model_name: 'google/vit-base-patch16-224',
         epochs: 3,
         batch_size: 16,
@@ -129,7 +130,8 @@ const ViTForm = ({ onSubmit, disabled }) => {
         weight_decay: 0.01,
         test_size: 0.2,
         freeze_base: false,
-    });
+        ...consumeReplayHyperparams('vit_finetune'),
+    }));
 
     const handleChange = (name, value) => setHyperparams(prev => ({ ...prev, [name]: value }));
 
