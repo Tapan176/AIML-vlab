@@ -53,9 +53,14 @@ def train_vit_finetune(request, validated_params=None, user_id=None, session_ver
 
     yield f"data: {json.dumps({'log': '🔧 Loading ViT model and image processor...'})}\n\n"
 
+    # Source the base model into the shared cache once; reuse across users.
+    # Returns a local path, or the original id if sourcing fails (safe fallback).
+    from services.base_model_cache import get_cached_model_path
+    base_model = get_cached_model_path(model_name, hf_token)
+
     # Load image processor
     processor = AutoImageProcessor.from_pretrained(
-        model_name,
+        base_model,
         token=hf_token if hf_token else None,
     )
 
@@ -115,7 +120,7 @@ def train_vit_finetune(request, validated_params=None, user_id=None, session_ver
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = AutoModelForImageClassification.from_pretrained(
-        model_name,
+        base_model,
         num_labels=num_labels,
         ignore_mismatched_sizes=True,
         token=hf_token if hf_token else None,

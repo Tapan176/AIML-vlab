@@ -34,11 +34,10 @@ const Login = () => {
             .catch(() => {});
     }, []);
 
-    // Listen for OAuth callback messages
+    // Listen for OAuth callback messages (popup flow: backend postMessages the token)
     const handleOAuthMessage = useCallback((event) => {
-        if (event.data && event.data.type === 'OAUTH_LOGIN') {
-            const { token } = event.data;
-            localStorage.setItem('aiml_token', token);
+        if (event.data && event.data.type === 'OAUTH_LOGIN' && event.data.token) {
+            localStorage.setItem('aiml_token', event.data.token);
             window.location.href = '/dashboard';
         }
     }, []);
@@ -47,6 +46,17 @@ const Login = () => {
         window.addEventListener('message', handleOAuthMessage);
         return () => window.removeEventListener('message', handleOAuthMessage);
     }, [handleOAuthMessage]);
+
+    // Redirect fallback (popup blocked): backend lands us on /login#oauth_token=...
+    useEffect(() => {
+        const hash = window.location.hash || '';
+        const match = hash.match(/oauth_token=([^&]+)/);
+        if (match) {
+            localStorage.setItem('aiml_token', decodeURIComponent(match[1]));
+            window.history.replaceState(null, '', window.location.pathname); // scrub token from URL
+            window.location.href = '/dashboard';
+        }
+    }, []);
 
     const handleOAuthLogin = (provider) => {
         fetch(`${API_URL}/auth/${provider.id}/login`)

@@ -54,12 +54,23 @@ ALLOWED_ORIGINS = os.getenv('ALLOWED_ORIGINS', 'http://localhost:3000,http://127
 
 # --- HuggingFace ---
 HF_TOKEN = os.getenv('HF_TOKEN', None)  # Optional — needed for gated models
+# Shared on-disk cache for base models pulled from the HF Hub, so a given base
+# model is downloaded once and reused across users/sessions on the instance.
+HF_CACHE_DIR = os.getenv('HF_CACHE_DIR', os.path.join(BASE_DIR, '.hf_cache'))
 
 # --- OAuth Providers ---
 GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID', None)
 GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET', None)
 GITHUB_CLIENT_ID = os.getenv('GITHUB_CLIENT_ID', None)
 GITHUB_CLIENT_SECRET = os.getenv('GITHUB_CLIENT_SECRET', None)
+# Public base URL of THIS backend, e.g. https://aiml-backend-xxx.run.app — used to
+# build the OAuth redirect_uri. Must match the redirect URI registered with the
+# provider. Required in production (split frontend/backend domains); in local dev
+# the OAuth route falls back to request.host_url. No trailing /api.
+OAUTH_REDIRECT_BASE = os.getenv('OAUTH_REDIRECT_BASE', None)
+# Public URL of the frontend SPA, e.g. https://your-app.web.app — the popup posts
+# the token back here. Falls back to the request Origin, then ALLOWED_ORIGINS[0].
+FRONTEND_URL = os.getenv('FRONTEND_URL', None)
 
 # --- Upload Limits ---
 ALLOWED_CSV_EXTENSIONS = set(os.getenv('ALLOWED_CSV_EXTENSIONS', 'csv').split(','))

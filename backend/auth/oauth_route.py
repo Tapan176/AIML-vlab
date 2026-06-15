@@ -9,21 +9,38 @@ from datetime import datetime
 
 oauth_routes = Blueprint('oauth_routes', __name__)
 
+from urllib.parse import urlencode
 from config import (
     GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
     GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET,
     ALLOWED_ORIGINS, BASE_DIR,
+    OAUTH_REDIRECT_BASE, FRONTEND_URL,
 )
 from auth.authController import generate_token
 
 
 def _get_redirect_uri(provider):
-    """Get the OAuth redirect URI based on the request origin."""
-    # Use the first allowed origin as base, or the request's origin
-    origin = request.headers.get('Origin', ALLOWED_ORIGINS[0] if ALLOWED_ORIGINS else 'http://localhost:3000')
-    # For local dev, the API is on a different port
-    api_base = origin.replace('3000', '5050')
-    return f"{api_base}/api/auth/{provider}/callback"
+    """Build the OAuth callback URL for `provider`.
+
+    This URL must be IDENTICAL in the auth request and the token exchange, and
+    must match what's registered with the provider. The callback is a top-level
+    redirect from the provider (no Origin header), so we cannot derive it from
+    the frontend origin. Order of truth:
+      1. OAUTH_REDIRECT_BASE — explicit public backend URL (required in prod).
+      2. request.host_url — this backend's own base; consistent between the
+         /login and /callback requests since both hit the backend (dev fallback).
+    """
+    base = OAUTH_REDIRECT_BASE or request.host_url
+    return f"{base.rstrip('/')}/api/auth/{provider}/callback"
+
+
+def _frontend_origin():
+    """Where the popup should post the token back to."""
+    return (
+        request.headers.get('Origin')
+        or FRONTEND_URL
+        or (ALLOWED_ORIGINS[0] if ALLOWED_ORIGINS else 'http://localhost:3000')
+    )
 
 
 def _find_or_create_user(email, first_name='', last_name='', oauth_provider='', oauth_id='', avatar_url=''):
@@ -102,15 +119,16 @@ def google_login():
         return jsonify({"error": "Google OAuth is not configured. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env"}), 501
 
     redirect_uri = _get_redirect_uri('google')
-    auth_url = (
-        'https://accounts.google.com/o/oauth2/v2/auth'
-        f'?client_id={GOOGLE_CLIENT_ID}'
-        f'&redirect_uri={redirect_uri}'
-        '&response_type=code'
-        '&scope=openid%20email%20profile'
-        '&access_type=offline'
-        '&prompt=consent'
-    )
+    params = {
+        'client_id': GOOGLE_CLIENT_ID,
+        'redirect_uri': redirect_uri,
+        'response_type': 'code',
+        'scope': 'openid email profile',
+        'access_type': 'offline',
+        'prompt': 'consent',
+        'state': _frontend_origin(),  # echoed back to the callback for postMessage targeting
+    }
+    auth_url = 'https://accounts.google.com/o/oauth2/v2/auth?' + urlencode(params)
     return jsonify({"url": auth_url}), 200
 
 
@@ -168,12 +186,13 @@ def github_login():
         return jsonify({"error": "GitHub OAuth is not configured. Set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET in .env"}), 501
 
     redirect_uri = _get_redirect_uri('github')
-    auth_url = (
-        'https://github.com/login/oauth/authorize'
-        f'?client_id={GITHUB_CLIENT_ID}'
-        f'&redirect_uri={redirect_uri}'
-        '&scope=user:email'
-    )
+    params = {
+        'client_id': GITHUB_CLIENT_ID,
+        'redirect_uri': redirect_uri,
+        'scope': 'user:email',
+        'state': _frontend_origin(),  # echoed back to the callback for postMessage targeting
+    }
+    auth_url = 'https://github.com/login/oauth/authorize?' + urlencode(params)
     return jsonify({"url": auth_url}), 200
 
 
@@ -254,10 +273,17 @@ def _safe_user(user):
 
 
 def _oauth_callback_response(jwt_token, user):
-    """Return an HTML page that posts the token back to the React app, then closes."""
-    frontend_origin = request.args.get('state') or (ALLOWED_ORIGINS[0] if ALLOWED_ORIGINS else 'http://localhost:3000')
-    # Strip /api from any state if accidentally included
-    frontend_origin = frontend_origin.replace('/api', '')
+    """Return an HTML page that posts the token back to the React app, then closes.
+
+    The popup is opened from the frontend, so window.opener is the SPA. We post
+    the token to the frontend origin (from the `state` we set at login) and, if
+    that origin is unavailable, fall back to '*'. If there's no opener at all
+    (popup blocked / opened as a full redirect), we navigate to the frontend
+    with the token in the URL hash so the SPA can still recover it.
+    """
+    frontend_origin = (request.args.get('state') or FRONTEND_URL
+                       or (ALLOWED_ORIGINS[0] if ALLOWED_ORIGINS else 'http://localhost:3000'))
+    frontend_origin = frontend_origin.replace('/api', '').rstrip('/')
 
     return f"""<!DOCTYPE html>
 <html>
@@ -267,17 +293,18 @@ def _oauth_callback_response(jwt_token, user):
         (function() {{
             var token = {json.dumps(jwt_token)};
             var user = {json.dumps(_safe_user(user))};
+            var target = {json.dumps(frontend_origin)};
+            var msg = {{ type: 'OAUTH_LOGIN', token: token, user: user }};
             try {{
                 if (window.opener && window.opener !== window) {{
-                    window.opener.postMessage({{
-                        type: 'OAUTH_LOGIN',
-                        token: token,
-                        user: user
-                    }}, '*');
+                    try {{ window.opener.postMessage(msg, target); }}
+                    catch (e) {{ window.opener.postMessage(msg, '*'); }}
+                    window.close();
+                    return;
                 }}
-            }} catch(e) {{}}
-            localStorage.setItem('aiml_token', token);
-            window.close();
+            }} catch (e) {{}}
+            // No opener: hand the token to the SPA via the URL hash.
+            window.location.href = target + '/login#oauth_token=' + encodeURIComponent(token);
         }})();
     </script>
     <p>Login successful! This window will close automatically.</p>

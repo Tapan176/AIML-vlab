@@ -181,16 +181,22 @@ the DL service needs no special steps.)
 1. Go to https://console.cloud.google.com/apis/credentials
 2. Create OAuth 2.0 Client ID (Web application)
 3. Add redirect URI: `https://YOUR_BACKEND_URL/api/auth/google/callback`
-4. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` env vars
+4. Set these env vars on the backend:
+   - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`
+   - **`OAUTH_REDIRECT_BASE`** = the backend's public URL, e.g.
+     `https://aiml-backend-xxxxx-uc.a.run.app` (no trailing `/api`). The callback
+     `redirect_uri` is built from this and must EXACTLY match the URI registered
+     in step 3.
+   - **`FRONTEND_URL`** = the SPA's public URL, e.g. `https://your-app.web.app`.
+     The login popup posts the token back here.
 
-> ⚠️ **Known limitation (not yet production-verified):** `auth/oauth_route.py`
-> currently derives the callback URL from the request `Origin` by swapping port
-> `3000`→`5050` — a local-dev assumption. In a split prod deploy (Firebase
-> frontend + Cloud Run backend on different domains) that produces the wrong
-> `redirect_uri` and Google will reject it. Before enabling OAuth in prod, pin
-> the callback to an explicit env var (e.g. `OAUTH_REDIRECT_BASE`) instead of
-> rewriting the origin. Tracked as a separate task; OAuth can stay disabled
-> (omit the client-id env vars) and password login works unaffected.
+> Why these are required: the OAuth callback is a top-level redirect from Google
+> (no `Origin` header), so the backend can't derive its own URL from the request
+> reliably in a split deploy. `OAUTH_REDIRECT_BASE` pins it so the login-time and
+> callback-time `redirect_uri` always agree. In **local dev** you can omit both —
+> the route falls back to `request.host_url` (the backend's own base), which is
+> consistent across both requests. OAuth is optional: omit the client-id vars and
+> password login is unaffected.
 
 ## Environment Variables Checklist
 
@@ -201,8 +207,11 @@ ALLOWED_ORIGINS=              # Comma-separated frontend URLs
 GOOGLE_CREDENTIALS_JSON=      # credentials.json content (JSON string)
 GOOGLE_TOKEN_JSON=            # token.json content (JSON string)
 HF_TOKEN=                     # (optional) HuggingFace API token
+HF_CACHE_DIR=                 # (optional) shared base-model cache dir (default backend/.hf_cache)
 GOOGLE_CLIENT_ID=             # (optional) Google OAuth client ID
 GOOGLE_CLIENT_SECRET=         # (optional) Google OAuth secret
+OAUTH_REDIRECT_BASE=          # (required if OAuth on) backend public URL, no /api
+FRONTEND_URL=                 # (required if OAuth on) SPA public URL for token postback
 GITHUB_CLIENT_ID=             # (optional) GitHub OAuth client ID
 GITHUB_CLIENT_SECRET=         # (optional) GitHub OAuth secret
 ```
