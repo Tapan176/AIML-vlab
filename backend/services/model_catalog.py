@@ -340,6 +340,56 @@ OPTION_NOTES.update(
     }
 )
 
+# ── 🆕 Fine-Tuning notes ─────────────────────────────────────────
+_FINETUNE_TEXT_NOTES = {
+    "model_name": "Which pretrained checkpoint to start from. Larger checkpoints can be more accurate but train slower and need more memory.",
+    "epochs": "How many full passes over your text the model fine-tunes for. 2–4 is usually enough; more can overfit small datasets.",
+    "batch_size": "How many text examples are processed per optimizer step. Lower it if you hit out-of-memory errors.",
+    "learning_rate": "Step size for fine-tuning. Transformers like very small rates (around 2e-5); larger values often destabilize training.",
+    "max_length": "Maximum number of tokens kept per text sample. Longer captures more context but costs more memory and time; shorter truncates long inputs.",
+    "warmup_steps": "Number of initial steps where the learning rate ramps up from zero, which can stabilize the start of fine-tuning.",
+    "weight_decay": "L2-style regularization on the weights. A small value (around 0.01) helps reduce overfitting.",
+    "test_size": "Fraction of rows held out to validate accuracy after fine-tuning.",
+    "freeze_base": "When enabled, only the new classification head trains and the transformer backbone stays frozen — faster and safer for small datasets.",
+}
+PARAM_NOTES.update(
+    {
+        "bert_finetune": dict(_FINETUNE_TEXT_NOTES),
+        "distilbert_finetune": dict(_FINETUNE_TEXT_NOTES),
+        "vit_finetune": {
+            "model_name": "Which pretrained Vision Transformer checkpoint to start from. Larger variants can be more accurate but train slower.",
+            "epochs": "How many full passes over your images the model fine-tunes for. A few epochs is usually enough for transfer learning.",
+            "batch_size": "How many images are processed per optimizer step. Lower it if you run out of GPU/CPU memory.",
+            "learning_rate": "Step size for fine-tuning. ViT fine-tuning uses very small rates (around 2e-5).",
+            "weight_decay": "L2-style regularization on the weights to reduce overfitting.",
+            "test_size": "Fraction of images held out to validate accuracy after fine-tuning.",
+            "freeze_base": "When enabled, only the new classification head trains and the ViT encoder stays frozen — recommended for small datasets.",
+        },
+    }
+)
+
+OPTION_NOTES.update(
+    {
+        ("bert_finetune", "model_name"): {
+            "bert-base-uncased": "Standard BERT, lowercased text. Strong general-purpose default.",
+            "bert-base-cased": "BERT that keeps capitalization — useful when case carries meaning (e.g. names).",
+            "distilbert-base-uncased": "Smaller, faster distilled BERT with slightly lower accuracy.",
+            "roberta-base": "Robustly optimized BERT variant that is often more accurate.",
+            "albert-base-v2": "Parameter-efficient BERT variant with a smaller memory footprint.",
+        },
+        ("distilbert_finetune", "model_name"): {
+            "distilbert-base-uncased": "Smaller, faster distilled BERT — the recommended lightweight default.",
+            "bert-base-uncased": "Full BERT base if you want maximum accuracy over speed.",
+            "roberta-base": "Robustly optimized BERT variant that is often more accurate but heavier.",
+        },
+        ("vit_finetune", "model_name"): {
+            "google/vit-base-patch16-224": "Base ViT pretrained at 224px — a solid general default.",
+            "google/vit-base-patch16-224-in21k": "Base ViT pretrained on the larger ImageNet-21k, good for transfer to many classes.",
+            "google/vit-large-patch16-224": "Large ViT — more accurate but markedly slower and heavier.",
+        },
+    }
+)
+
 MODEL_BASE = {
     "simple_linear_regression": {"name": "Simple Linear Regression", "url": "simple-linear-regression", "useCases": ["Trend prediction from one main input feature", "Baseline regression for numeric forecasting", "Interpretable slope and intercept analysis"]},
     "multivariable_linear_regression": {"name": "Multivariable Linear Regression", "url": "multivariable-linear-regression", "useCases": ["Tabular regression with multiple input columns", "Interpretable coefficient-based forecasting", "Baseline model for multi-feature numeric targets"]},
@@ -361,6 +411,9 @@ MODEL_BASE = {
     "lstm": {"name": "LSTM", "url": "lstm", "useCases": ["Sequence forecasting from CSV data", "Sequence classification and regression", "Sliding-window recurrent experiments"]},
     "yolo": {"name": "YOLOv8", "url": "object-detection", "useCases": ["Object detection on labeled image datasets", "Bounding-box training with Ultralytics", "Real-time detector fine-tuning"]},
     "stylegan": {"name": "StyleGAN", "url": "stylegan", "useCases": ["Image generation from unlabeled image collections", "Latent-space generative experiments", "Adversarial image synthesis"]},
+    "bert_finetune": {"name": "BERT Fine-Tuning", "url": "finetune/bert", "useCases": ["Adapt a pretrained BERT to your own labeled text", "High-accuracy text and sentiment classification", "Transfer learning when labeled text is limited"]},
+    "distilbert_finetune": {"name": "DistilBERT Fine-Tuning", "url": "finetune/distilbert", "useCases": ["Lightweight, faster transformer fine-tuning", "Text classification on modest hardware", "A distilled baseline before committing to full BERT"]},
+    "vit_finetune": {"name": "ViT Fine-Tuning", "url": "finetune/vit", "useCases": ["Fine-tune a Vision Transformer on your own image classes", "Transfer learning for image classification", "When you want attention-based vision instead of CNNs"]},
 }
 
 MODEL_SUMMARIES = {
@@ -463,6 +516,21 @@ MODEL_SUMMARIES = {
         "brief": "Generates new images that resemble the images in the training set.",
         "detailed": "StyleGAN is a generative model rather than a classifier. It learns a latent space that can create new samples with similar style and structure, but GAN training is much more sensitive to batch size, learning rate balance, and dataset quality than ordinary supervised models.",
         "examples": ["Generating face-like images from a face dataset.", "Learning a visual style from an art collection."],
+    },
+    "bert_finetune": {
+        "brief": "Fine-tunes a pretrained BERT transformer on your labeled text.",
+        "detailed": "Instead of training a language model from scratch, this starts from a pretrained BERT checkpoint that already understands English and only adapts it to your labels. Fine-tuning usually reaches high accuracy with far less data than classical text models, but it is heavier to run: pick a smaller checkpoint, freeze the base, or lower the epoch count if training is slow.",
+        "examples": ["Classifying product reviews as positive or negative.", "Routing support tickets into topic categories."],
+    },
+    "distilbert_finetune": {
+        "brief": "Fine-tunes a smaller, faster distilled BERT on your labeled text.",
+        "detailed": "DistilBERT keeps most of BERT's accuracy while being about 40% smaller and noticeably faster, which makes it a good fine-tuning choice on limited hardware. The workflow is identical to BERT fine-tuning — choose text and label columns, then train — but each epoch costs less.",
+        "examples": ["Fast sentiment classification on a laptop GPU/CPU.", "A quick fine-tuned baseline before trying full BERT."],
+    },
+    "vit_finetune": {
+        "brief": "Fine-tunes a pretrained Vision Transformer on your image classes.",
+        "detailed": "ViT treats an image as a sequence of patches and uses attention instead of convolutions. Fine-tuning a pretrained ViT often gives strong image classification with modest data, especially when objects depend on global structure. Provide a ZIP whose sub-folders are the class names; freeze the encoder for small datasets.",
+        "examples": ["Classifying images into your own categories from a folder-per-class ZIP.", "Transfer learning when a CNN underperforms on global layout."],
     },
 }
 
@@ -1260,6 +1328,27 @@ def _build_description(model_code):
             _section("Fixed GAN architecture", "StyleGAN training uses a fixed generator, discriminator, and mapping network implementation rather than a user-built layer editor.", sub_parameters=[_sub("Generator", "Built from a mapping network, style blocks, progressive upsampling blocks, and ToRGB layers."), _sub("Discriminator", "Built from EqualizedConv2d blocks plus a minibatch standard-deviation head."), _sub("Resolution", "The generated image size is 2**log_resolution. For example, 7 means 128x128 and 10 means 1024x1024."), _sub("Dataset loading", "The backend first loads images from any flat directory structure. If none are found, it falls back to torchvision ImageFolder for class-subfolder layouts."), _sub("Regularization", "R1 gradient penalty is applied to real images when r1_penalty is greater than zero.")]),
             [("Generator loss", "Average adversarial generator loss from the last completed epoch."), ("Discriminator loss", "Average adversarial discriminator loss from the last completed epoch."), ("Epochs trained", "Total completed GAN epochs."), ("Saved generator", "The trained generator is stored for download.")],
         )
+    if model_code == "bert_finetune":
+        return _classical_description(
+            model_code,
+            "Fine-tunes a pretrained HuggingFace BERT checkpoint with a classification head on your labeled CSV text. Training streams live epoch-by-epoch progress and the best validation weights are kept.",
+            "Requires a CSV with a text column and a label column (select them in the form, or they are auto-detected). Text is tokenized to max_length with the chosen checkpoint's tokenizer, labels are encoded automatically, and the data is split by test_size.",
+            [("Validation accuracy", "Best accuracy on the held-out split."), ("Validation loss", "Cross-entropy on the held-out split."), ("Detected classes", "The label set discovered in your data."), ("Saved model", "The fine-tuned model + tokenizer, zipped for download.")],
+        )
+    if model_code == "distilbert_finetune":
+        return _classical_description(
+            model_code,
+            "Fine-tunes a pretrained DistilBERT checkpoint (a smaller, faster BERT) with a classification head on your labeled CSV text. Streams live progress and keeps the best validation weights.",
+            "Requires a CSV with a text column and a label column (selectable or auto-detected). Text is tokenized to max_length, labels are encoded automatically, and the data is split by test_size. Lighter than full BERT, so each epoch is faster.",
+            [("Validation accuracy", "Best accuracy on the held-out split."), ("Validation loss", "Cross-entropy on the held-out split."), ("Detected classes", "The label set discovered in your data."), ("Saved model", "The fine-tuned model + tokenizer, zipped for download.")],
+        )
+    if model_code == "vit_finetune":
+        return _classical_description(
+            model_code,
+            "Fine-tunes a pretrained Vision Transformer (ViT) with a classification head on your image dataset. Streams live epoch-by-epoch progress and keeps the best validation weights.",
+            "Requires a ZIP image dataset whose sub-folders are the class names (one folder per class). Images are resized and normalized with the checkpoint's image processor, then split by test_size for validation.",
+            [("Validation accuracy", "Best accuracy on the held-out split."), ("Validation loss", "Cross-entropy on the held-out split."), ("Detected classes", "The class folders discovered in your ZIP."), ("Saved model", "The fine-tuned model + image processor, zipped for download.")],
+        )
     raise KeyError(f"Unsupported model code: {model_code}")
 
 
@@ -1288,3 +1377,25 @@ def get_model_catalog():
         model["description"] = description
         models.append(model)
     return models
+
+
+def get_catalog_from_db():
+    """Return the model catalog from the MongoDB `models` collection.
+
+    The DB is the runtime source of truth for model info (seeded by migration
+    004 from get_model_catalog()). This reads from there and strips Mongo's
+    internal `_id` so the payload is JSON-serialisable and matches the shape the
+    frontend already expects.
+
+    Falls back to the in-code catalog when the DB is unavailable or the
+    collection hasn't been seeded yet, so the API never returns nothing.
+    """
+    try:
+        from mongoDb.connection import get_db
+        db = get_db()
+        docs = list(db.models.find({}, {'_id': 0}))
+        if docs:
+            return docs
+    except Exception as e:
+        print(f"get_catalog_from_db: falling back to code catalog ({e})")
+    return get_model_catalog()

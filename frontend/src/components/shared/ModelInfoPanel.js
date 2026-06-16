@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { API_URL } from '../../constants';
+import api from '../../services/api';
 import '../ModelCss/ModelPage.css';
 
 /**
@@ -14,12 +14,9 @@ export default function ModelInfoPanel({ modelCode, isOpen, onClose }) {
         
         const fetchModelInfo = async () => {
             try {
-                const res = await fetch(`${API_URL}/models/info`);
-                if (res.ok) {
-                    const data = await res.json();
-                    const found = data.find(m => m.code === modelCode);
-                    setModelData(found || null);
-                }
+                const data = await api.get('/models/info');
+                const found = data.find(m => m.code === modelCode);
+                setModelData(found || null);
             } catch (err) {
                 console.error("Failed to fetch model info:", err);
             }
@@ -28,6 +25,15 @@ export default function ModelInfoPanel({ modelCode, isOpen, onClose }) {
     }, [modelCode, isOpen]);
 
     if (!modelData) return null;
+
+    // The catalog endpoint returns `description` as an ARRAY of sections, but
+    // older/seeded records (or the flat registry fallback) may store it as a
+    // plain string. Normalise to an array so `.map` never blows up the page.
+    const sections = Array.isArray(modelData.description)
+        ? modelData.description
+        : (typeof modelData.description === 'string' && modelData.description.trim()
+            ? [{ parameter: 'Overview', description: modelData.description }]
+            : []);
 
     return (
         <>
@@ -43,11 +49,11 @@ export default function ModelInfoPanel({ modelCode, isOpen, onClose }) {
                     <button className="btn-close-drawer" onClick={onClose}>✕</button>
                 </div>
                 <div className="drawer-body">
-                    {modelData.description?.map((item, idx) => (
+                    {sections.map((item, idx) => (
                         <div className="info-item" key={idx}>
                             <h4>{item.parameter}</h4>
                             <p>{item.description}</p>
-                            {item.sub_parameters && (
+                            {Array.isArray(item.sub_parameters) && (
                                 <div className="info-sub-params">
                                     {item.sub_parameters.map((sub, sIdx) => (
                                         <div key={sIdx}>

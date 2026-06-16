@@ -2,7 +2,7 @@ from flask import Blueprint, request, send_file, jsonify
 from utils.downloadFiles import get_model_path
 from utils.uploadFiles import handle_upload_file
 from utils.downloadPrediction import get_model_predictions
-from services.model_catalog import get_model_catalog, MODEL_CATALOG_VERSION
+from services.model_catalog import get_model_catalog, get_catalog_from_db, MODEL_CATALOG_VERSION
 
 utils_routes = Blueprint('utils_routes', __name__)
 
@@ -114,16 +114,35 @@ def submit_feedback(current_user):
 
 @utils_routes.route('/models/info', methods=['GET'])
 def get_models_info():
-    """Legacy endpoint — delegates to the dynamic model registry."""
+    """Rich model info for the in-app info drawer (ModelInfoPanel).
+
+    Reads the structured catalog from the MongoDB `models` collection (the
+    runtime source of truth, seeded by migration 004). Each document's
+    `description` is an ARRAY of sections — which is what the drawer renders.
+    get_catalog_from_db() transparently falls back to the in-code catalog if the
+    DB is empty/unavailable; the flat registry is a last-resort fallback.
+    """
     try:
-        from services.model_registry import get_model_registry
-        registry = get_model_registry()
-        return jsonify(list(registry['models'].values())), 200
+        return jsonify(get_catalog_from_db()), 200
     except Exception:
         try:
-            return jsonify(get_model_catalog()), 200
+            from services.model_registry import get_model_registry
+            registry = get_model_registry()
+            return jsonify(list(registry['models'].values())), 200
         except Exception:
             return jsonify({"error": "Failed to load model info"}), 500
+
+
+@utils_routes.route('/config', methods=['GET'])
+def public_config():
+    """Public runtime config the SPA reads on startup (no auth).
+
+    Exposes feature flags that must be toggleable without rebuilding the
+    frontend bundle (CRA bakes process.env at build time, so flags can't ride
+    in there). Currently just the subscription master switch.
+    """
+    from config import SUBSCRIPTION_ENABLED
+    return jsonify({"subscription_enabled": SUBSCRIPTION_ENABLED}), 200
 
 
 @utils_routes.route('/models/registry', methods=['GET'])
