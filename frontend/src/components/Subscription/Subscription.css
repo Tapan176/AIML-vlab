@@ -1,0 +1,302 @@
+/* ===========================================================================
+   Subscription UI — upgrade modal, usage widget, pricing page.
+   Uses global theme vars so it reads cleanly on both light and dark themes.
+   =========================================================================== */
+
+/* --- Upgrade modal ------------------------------------------------------- */
+.upgrade-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.25rem;
+    z-index: 1000;
+}
+
+.upgrade-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    box-shadow: var(--shadow-md);
+    padding: 1.75rem;
+    width: 100%;
+    max-width: 420px;
+    color: var(--text-primary);
+}
+
+.upgrade-title {
+    margin: 0 0 0.75rem;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.upgrade-message {
+    margin: 0 0 0.5rem;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    color: var(--text-secondary);
+}
+
+.upgrade-reset {
+    margin: 0 0 1.25rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.upgrade-actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+}
+
+.upgrade-btn {
+    padding: 0.55rem 1.1rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid var(--border-color);
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.upgrade-btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    box-shadow: 0 0 0 0 var(--accent-glow);
+}
+
+.upgrade-btn-primary:hover {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+    box-shadow: 0 0 14px var(--accent-glow);
+}
+
+.upgrade-btn-secondary {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+.upgrade-btn-secondary:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+/* --- Usage widget -------------------------------------------------------- */
+.usage-widget {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    box-shadow: var(--shadow-md);
+    padding: 1.25rem 1.4rem;
+}
+
+.usage-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.usage-title {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.usage-upgrade {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.usage-upgrade:hover {
+    color: var(--accent-hover);
+    text-decoration: underline;
+}
+
+.usage-reset {
+    margin: 0.25rem 0 1rem;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.usage-row {
+    margin-bottom: 0.9rem;
+}
+
+.usage-row:last-child {
+    margin-bottom: 0;
+}
+
+.usage-row-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.4rem;
+}
+
+.usage-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.usage-count {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+}
+
+.usage-bar {
+    height: 8px;
+    border-radius: 999px;
+    background: var(--bg-secondary);
+    overflow: hidden;
+}
+
+.usage-bar-fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.3s ease, background 0.3s ease;
+}
+
+/* --- Pricing page -------------------------------------------------------- */
+.pricing-page {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 2rem 1.25rem 3rem;
+    color: var(--text-primary);
+}
+
+.pricing-heading {
+    text-align: center;
+    margin: 0 0 2rem;
+    font-size: 1.85rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.pricing-loading {
+    text-align: center;
+    color: var(--text-secondary);
+}
+
+.pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.5rem;
+    align-items: stretch;
+}
+
+.plan-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    box-shadow: var(--shadow-md);
+    padding: 1.75rem 1.5rem;
+}
+
+.plan-card.popular {
+    border: 2px solid var(--accent);
+    box-shadow: 0 0 18px var(--accent-glow);
+}
+
+.plan-badge {
+    position: absolute;
+    top: -0.75rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--accent);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 0.25rem 0.7rem;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+.plan-name {
+    margin: 0 0 0.5rem;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.plan-price {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: var(--accent);
+    margin-bottom: 0.75rem;
+}
+
+.plan-blurb {
+    margin: 0 0 1rem;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: var(--text-secondary);
+}
+
+.plan-limits {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 1rem;
+    border-top: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
+    padding: 0.9rem 0;
+}
+
+.plan-limits li {
+    font-size: 0.88rem;
+    color: var(--text-primary);
+    padding: 0.2rem 0;
+}
+
+.plan-features {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 1.25rem;
+    flex: 1;
+}
+
+.plan-features li {
+    position: relative;
+    padding: 0.3rem 0 0.3rem 1.4rem;
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+}
+
+.plan-features li::before {
+    content: '✓';
+    position: absolute;
+    left: 0;
+    color: var(--success);
+    font-weight: 700;
+}
+
+.plan-cta {
+    margin-top: auto;
+    width: 100%;
+    padding: 0.65rem 1rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: not-allowed;
+    opacity: 0.75;
+}
