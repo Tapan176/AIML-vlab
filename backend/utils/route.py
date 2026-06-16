@@ -130,8 +130,25 @@ def download_model_predictions(current_user):
 @utils_routes.route('/upload', methods=['POST'])
 @token_required
 def upload_file(current_user):
-    results = handle_upload_file(request, current_user['_id'])
+    from config import MAX_UPLOAD_SIZE_BYTES, MAX_UPLOAD_SIZE_MB
 
+    # Reject oversized uploads early (Content-Length is set by the browser for
+    # multipart bodies). This is a cheap guard before we stream to Drive.
+    try:
+        if request.content_length and request.content_length > MAX_UPLOAD_SIZE_BYTES:
+            return jsonify({
+                "error": f"File too large. Max upload size is {MAX_UPLOAD_SIZE_MB} MB."
+            }), 413
+    except Exception:
+        pass
+
+    # Enforce per-plan storage cap (no-op unless SUBSCRIPTION_ENABLED).
+    from services.subscription_service import check_storage_quota
+    ok, info = check_storage_quota(current_user, additional=1)
+    if not ok:
+        return jsonify(info), 429
+
+    results = handle_upload_file(request, current_user['_id'])
     return jsonify(results)
 
 @utils_routes.route('/feedback', methods=['POST'])
@@ -253,10 +270,14 @@ def preprocess_cloud_dataset(current_user):
 
         # Enforce Data Studio quota (no-op unless SUBSCRIPTION_ENABLED). Data
         # Studio runs are metered under the 'datastudio' class.
-        from services.subscription_service import check_quota, record_usage
+        from services.subscription_service import check_quota, record_usage, check_storage_quota
         ok, info = check_quota(current_user, 'datastudio')
         if not ok:
             return jsonify(info), 429
+        # Preprocessing creates a NEW dataset — make sure there's room.
+        ok_store, store_info = check_storage_quota(current_user, additional=1)
+        if not ok_store:
+            return jsonify(store_info), 429
 
         from services.preprocessing_service import perform_preprocessing
         new_dataset = perform_preprocessing(current_user, dataset_id, operations)
