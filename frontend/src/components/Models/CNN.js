@@ -1,11 +1,12 @@
-import { useState } from 'react';
-import { consumeReplayHyperparams } from '../../utils/replaySession';
+import { useState, useEffect } from 'react';
+import useReplaySession from '../../hooks/useReplaySession';
 import constants from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
 import CnnHiddenLayer from '../HiddenLayers/CnnHiddenLayer';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
 import DownloadResultsZip from '../DownloadResultsZip/DownloadResultsZip';
 import HyperparamPanel from '../shared/HyperparamPanel';
+import CachedDatasetBadge from '../shared/CachedDatasetBadge';
 import ModelInfoPanel from '../shared/ModelInfoPanel';
 import useDatasetCache from '../../hooks/useDatasetCache';
 import { formatMetric } from '../../utils/formatMetric';
@@ -23,15 +24,28 @@ const DEFAULT_LAYERS = [
 ];
 
 export default function CNN() {
+    const { hyperparams: replayHyperparams, restoredResults, liveStatus, liveLogs } = useReplaySession(MODEL_CODE);
     const [layers, setLayers] = useState(DEFAULT_LAYERS.map(l => ({ ...l })));
     const [classMode, setClassMode] = useState('categorical');
-    const [hyperparams, setHyperparams] = useState(() => consumeReplayHyperparams(MODEL_CODE));
+    const [hyperparams, setHyperparams] = useState(replayHyperparams);
     const [results, setResults] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [infoOpen, setInfoOpen] = useState(false);
     const [logs, setLogs] = useState([]);
     const { datasetData, handleDatasetSelect } = useDatasetCache(MODEL_CODE);
+
+    // Replay restore: a completed session's results, or the live progress of a
+    // session still training (re-opened from the Dashboard).
+    const replayActive = liveStatus === 'running' || liveStatus === 'pending';
+    useEffect(() => {
+        if (restoredResults) setResults(restoredResults);
+    }, [restoredResults]);
+    useEffect(() => {
+        // Mirror persisted progress lines into the live console while the
+        // replayed session is still training and we have no fresh logs yet.
+        if (replayActive && liveLogs.length > 0) setLogs(liveLogs);
+    }, [replayActive, liveLogs]);
 
     const lossOptions = classMode === 'binary'
         ? ['binary_crossentropy']
@@ -100,7 +114,10 @@ export default function CNN() {
 
             if (!response.ok) {
                 const errData = await response.json();
-                throw new Error(errData.error || 'Training failed');
+                if (response.status === 429 && errData && errData.error === 'quota_exceeded') {
+                    window.dispatchEvent(new CustomEvent('aiml:quota', { detail: errData }));
+                }
+                throw new Error(errData.message || errData.error || 'Training failed');
             }
 
             const reader = response.body.getReader();
@@ -141,12 +158,8 @@ export default function CNN() {
             </div>
 
             <div className="dataset-section">
-                <ShowDataset onDatasetUpload={handleDatasetSelect} allowedTypes={['zip']} />
-                {datasetData && datasetData.filename && (
-                    <div style={{ marginTop: '10px', color: '#34c759' }}>
-                        ✓ Cached image directory: <strong>{datasetData.filename}</strong>
-                    </div>
-                )}
+                <ShowDataset onDatasetUpload={handleDatasetSelect} allowedTypes={['zip']} initialFilename={datasetData?.filename} />
+                <CachedDatasetBadge filename={datasetData?.filename} label="Cached image directory" />
             </div>
 
             <form className="model-form" onSubmit={handleSubmit}>
@@ -184,7 +197,13 @@ export default function CNN() {
 
             {error && <div className="model-error">❌ {error}</div>}
 
-            {logs.length > 0 && (
+            {replayActive && !loading && (
+                <div className="model-info-banner" style={{ marginTop: '16px', padding: '12px 16px', borderRadius: '8px', background: 'rgba(255,149,0,0.1)', border: '1px solid rgba(255,149,0,0.3)', color: '#ff9500' }}>
+                    ⏳ This training session is still in progress — showing live progress below. Results will appear automatically when it finishes.
+                </div>
+            )}
+
+            {(logs.length > 0 || replayActive) && (
                 <div className="terminal-container" style={{ marginTop: '20px', background: '#1e1e1e', color: '#00ff00', padding: '15px', borderRadius: '8px', fontFamily: 'monospace', height: '300px', overflowY: 'auto' }}>
                     <div style={{ borderBottom: '1px solid #333', paddingBottom: '10px', marginBottom: '10px', color: '#888' }}>
                         🖥️ Live Training Console
@@ -192,7 +211,7 @@ export default function CNN() {
                     {logs.map((log, index) => (
                         <div key={index}>{log}</div>
                     ))}
-                    {loading && <div className="cursor-blink" style={{ marginTop: '10px' }}>_</div>}
+                    {(loading || replayActive) && <div className="cursor-blink" style={{ marginTop: '10px' }}>_</div>}
                 </div>
             )}
 

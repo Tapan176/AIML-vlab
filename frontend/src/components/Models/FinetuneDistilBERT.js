@@ -1,15 +1,65 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
-import { consumeReplayHyperparams } from '../../utils/replaySession';
+import ShowDataset from '../Dataset/ShowDataset';
+import CachedDatasetBadge from '../shared/CachedDatasetBadge';
+import useReplaySession from '../../hooks/useReplaySession';
+import ModelInfoPanel from '../shared/ModelInfoPanel';
+import useDatasetCache from '../../hooks/useDatasetCache';
+import ColumnSelect from '../shared/ColumnSelect';
 import '../shared/ModelStyles.css';
 
+const MODEL_CODE = 'distilbert_finetune';
+
+const DEFAULT_HYPERPARAMS = {
+    model_name: 'distilbert-base-uncased',
+    epochs: 3,
+    batch_size: 16,
+    learning_rate: 2e-5,
+    max_length: 256,
+    test_size: 0.2,
+    freeze_base: false,
+};
+
 const FinetuneDistilBERT = () => {
+    const { hyperparams: replayHyperparams, datasetConfig, restoredResults, liveStatus, liveLogs } = useReplaySession(MODEL_CODE);
+    const { datasetData, handleDatasetSelect } = useDatasetCache(MODEL_CODE);
+    const [availableColumns, setAvailableColumns] = useState([]);
+    const [textColumn, setTextColumn] = useState(datasetConfig?.text_column || 'text');
+    const [labelColumn, setLabelColumn] = useState(datasetConfig?.label_column || 'label');
+    const [hyperparams, setHyperparams] = useState(() => ({ ...DEFAULT_HYPERPARAMS, ...(replayHyperparams || {}) }));
+
     const [logs, setLogs] = useState([]);
     const [results, setResults] = useState(null);
     const [training, setTraining] = useState(false);
     const [error, setError] = useState(null);
+    const [infoOpen, setInfoOpen] = useState(false);
 
-    const startTraining = async (formData) => {
+    const replayActive = liveStatus === 'running' || liveStatus === 'pending';
+    useEffect(() => {
+        if (restoredResults) setResults(restoredResults);
+    }, [restoredResults]);
+    useEffect(() => {
+        if (replayActive && liveLogs.length > 0) setLogs(liveLogs);
+    }, [replayActive, liveLogs]);
+
+    useEffect(() => {
+        if (availableColumns.length === 0) return;
+        setTextColumn(prev => availableColumns.includes(prev)
+            ? prev
+            : (availableColumns.find(c => /text|review|comment|sentence|message|body/i.test(c)) || availableColumns[0]));
+        setLabelColumn(prev => availableColumns.includes(prev)
+            ? prev
+            : (availableColumns.find(c => /label|target|class|sentiment|category|rating/i.test(c)) || availableColumns[availableColumns.length - 1]));
+    }, [availableColumns]);
+
+    const handleChange = (name, value) => setHyperparams(prev => ({ ...prev, [name]: value }));
+
+    const startTraining = async (e) => {
+        e.preventDefault();
+        if (!datasetData?.filename) {
+            setError('Please select or upload a CSV dataset first.');
+            return;
+        }
         setTraining(true);
         setError(null);
         setResults(null);
@@ -25,12 +75,21 @@ const FinetuneDistilBERT = () => {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`,
                 },
-                body: JSON.stringify(formData),
+                body: JSON.stringify({
+                    filename: datasetData.filename,
+                    dataset_id: datasetData.dataset_id || null,
+                    text_column: textColumn,
+                    label_column: labelColumn,
+                    hyperparams,
+                }),
             });
 
             if (!response.ok) {
                 const err = await response.json();
-                throw new Error(err.error || 'Training failed');
+                if (response.status === 429 && err && err.error === 'quota_exceeded') {
+                    window.dispatchEvent(new CustomEvent('aiml:quota', { detail: err }));
+                }
+                throw new Error(err.message || err.error || 'Training failed');
             }
 
             const reader = response.body.getReader();
@@ -58,6 +117,7 @@ const FinetuneDistilBERT = () => {
             }
         } catch (err) {
             setError(err.message);
+            setLogs(prev => [...prev, `❌ Error: ${err.message}`]);
         }
         setTraining(false);
     };
@@ -68,12 +128,92 @@ const FinetuneDistilBERT = () => {
                 <h2>⚡ DistilBERT Fine-Tuning (NLP)</h2>
                 <p>Lightweight, fast text fine-tuning with DistilBERT — 40% smaller than BERT.</p>
                 <div className="model-badge fine-tuning">HuggingFace Transformers</div>
+                <button className="btn-info-toggle" onClick={() => setInfoOpen(true)}>📖 Info</button>
             </div>
-            <DistilBertForm onSubmit={startTraining} disabled={training} />
+
+            <ShowDataset
+                onDatasetUpload={handleDatasetSelect}
+                allowedTypes={['csv']}
+                initialFilename={datasetData?.filename}
+                onColumnsDetected={setAvailableColumns}
+            />
+            <CachedDatasetBadge filename={datasetData?.filename} />
+
+            <form className="model-form" onSubmit={startTraining}>
+                <div className="form-section">
+                    <h4>Column Mapping</h4>
+                    <div className="form-row">
+                        <ColumnSelect
+                            label="Text Column"
+                            value={textColumn}
+                            columns={availableColumns}
+                            onChange={setTextColumn}
+                            placeholder="Column with text"
+                        />
+                        <ColumnSelect
+                            label="Label Column"
+                            value={labelColumn}
+                            columns={availableColumns}
+                            onChange={setLabelColumn}
+                            placeholder="Column with labels"
+                        />
+                    </div>
+                </div>
+
+                <div className="form-section">
+                    <h4>Hyperparameters</h4>
+                    <div className="form-row">
+                        <div className="form-group">
+                            <label>Base Model</label>
+                            <select value={hyperparams.model_name} onChange={e => handleChange('model_name', e.target.value)}>
+                                <option value="distilbert-base-uncased">DistilBERT Base</option>
+                                <option value="bert-base-uncased">BERT Base</option>
+                                <option value="roberta-base">RoBERTa Base</option>
+                            </select>
+                        </div>
+                        <div className="form-group">
+                            <label>Epochs</label>
+                            <input type="number" value={hyperparams.epochs} onChange={e => handleChange('epochs', parseInt(e.target.value))} min={1} max={50} />
+                        </div>
+                        <div className="form-group">
+                            <label>Batch Size</label>
+                            <input type="number" value={hyperparams.batch_size} onChange={e => handleChange('batch_size', parseInt(e.target.value))} />
+                        </div>
+                    </div>
+                    <div className="form-row">
+                        <div className="form-group">
+                            <label>Learning Rate</label>
+                            <input type="number" step="0.0000001" value={hyperparams.learning_rate} onChange={e => handleChange('learning_rate', parseFloat(e.target.value))} />
+                        </div>
+                        <div className="form-group">
+                            <label>Max Length</label>
+                            <input type="number" value={hyperparams.max_length} onChange={e => handleChange('max_length', parseInt(e.target.value))} />
+                        </div>
+                        <div className="form-group">
+                            <label>Test Split</label>
+                            <input type="number" step="0.05" value={hyperparams.test_size} onChange={e => handleChange('test_size', parseFloat(e.target.value))} />
+                        </div>
+                    </div>
+                    <label className="toggle-label">
+                        <input type="checkbox" checked={hyperparams.freeze_base} onChange={e => handleChange('freeze_base', e.target.checked)} />
+                        Freeze Base Layers
+                    </label>
+                </div>
+
+                <button type="submit" className="btn-train" disabled={training}>
+                    {training ? '⏳ Fine-Tuning...' : '🚀 Start Fine-Tuning'}
+                </button>
+            </form>
 
             {error && <div className="error-banner">{error}</div>}
 
-            {logs.length > 0 && (
+            {replayActive && !training && (
+                <div className="error-banner" style={{ background: 'rgba(255,149,0,0.1)', borderColor: 'rgba(255,149,0,0.3)', color: '#ff9500' }}>
+                    ⏳ This fine-tuning session is still in progress — showing live progress below. Results will appear automatically when it finishes.
+                </div>
+            )}
+
+            {(logs.length > 0 || replayActive) && (
                 <div className="training-console">
                     <h3>Training Logs</h3>
                     <div className="console-output">
@@ -106,94 +246,9 @@ const FinetuneDistilBERT = () => {
                     )}
                 </div>
             )}
+
+            <ModelInfoPanel modelCode={MODEL_CODE} isOpen={infoOpen} onClose={() => setInfoOpen(false)} />
         </div>
-    );
-};
-
-const DistilBertForm = ({ onSubmit, disabled }) => {
-    const [filename, setFilename] = useState('');
-    const [textColumn, setTextColumn] = useState('text');
-    const [labelColumn, setLabelColumn] = useState('label');
-    const [hyperparams, setHyperparams] = useState(() => ({
-        model_name: 'distilbert-base-uncased',
-        epochs: 3,
-        batch_size: 16,
-        learning_rate: 2e-5,
-        max_length: 256,
-        test_size: 0.2,
-        freeze_base: false,
-        ...consumeReplayHyperparams('distilbert_finetune'),
-    }));
-
-    const handleChange = (name, value) => setHyperparams(prev => ({ ...prev, [name]: value }));
-
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        onSubmit({ filename, text_column: textColumn, label_column: labelColumn, hyperparams });
-    };
-
-    return (
-        <form className="model-form" onSubmit={handleSubmit}>
-            <div className="form-section">
-                <h4>Dataset</h4>
-                <div className="form-row">
-                    <div className="form-group">
-                        <label>CSV Filename</label>
-                        <input type="text" value={filename} onChange={e => setFilename(e.target.value)} required />
-                    </div>
-                    <div className="form-group">
-                        <label>Text Column</label>
-                        <input type="text" value={textColumn} onChange={e => setTextColumn(e.target.value)} />
-                    </div>
-                    <div className="form-group">
-                        <label>Label Column</label>
-                        <input type="text" value={labelColumn} onChange={e => setLabelColumn(e.target.value)} />
-                    </div>
-                </div>
-            </div>
-            <div className="form-section">
-                <h4>Hyperparameters</h4>
-                <div className="form-row">
-                    <div className="form-group">
-                        <label>Base Model</label>
-                        <select value={hyperparams.model_name} onChange={e => handleChange('model_name', e.target.value)}>
-                            <option value="distilbert-base-uncased">DistilBERT Base</option>
-                            <option value="bert-base-uncased">BERT Base</option>
-                            <option value="roberta-base">RoBERTa Base</option>
-                        </select>
-                    </div>
-                    <div className="form-group">
-                        <label>Epochs</label>
-                        <input type="number" value={hyperparams.epochs} onChange={e => handleChange('epochs', parseInt(e.target.value))} min={1} max={50} />
-                    </div>
-                    <div className="form-group">
-                        <label>Batch Size</label>
-                        <input type="number" value={hyperparams.batch_size} onChange={e => handleChange('batch_size', parseInt(e.target.value))} />
-                    </div>
-                </div>
-                <div className="form-row">
-                    <div className="form-group">
-                        <label>Learning Rate</label>
-                        <input type="number" step="0.0000001" value={hyperparams.learning_rate} onChange={e => handleChange('learning_rate', parseFloat(e.target.value))} />
-                    </div>
-                    <div className="form-group">
-                        <label>Max Length</label>
-                        <input type="number" value={hyperparams.max_length} onChange={e => handleChange('max_length', parseInt(e.target.value))} />
-                    </div>
-                    <div className="form-group">
-                        <label>Test Split</label>
-                        <input type="number" step="0.05" value={hyperparams.test_size} onChange={e => handleChange('test_size', parseFloat(e.target.value))} />
-                    </div>
-                </div>
-                <label className="toggle-label">
-                    <input type="checkbox" checked={hyperparams.freeze_base} onChange={e => handleChange('freeze_base', e.target.checked)} />
-                    Freeze Base Layers
-                </label>
-            </div>
-            <button type="submit" className="btn-train" disabled={disabled}>
-                {disabled ? '⏳ Fine-Tuning...' : '🚀 Start Fine-Tuning'}
-            </button>
-        </form>
     );
 };
 

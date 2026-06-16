@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { consumeReplayHyperparams } from '../../utils/replaySession';
+import useReplaySession from '../../hooks/useReplaySession';
 import ShowDataset from '../Dataset/ShowDataset';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
 import DownloadResultsZip from '../DownloadResultsZip/DownloadResultsZip';
 import HyperparamPanel from '../shared/HyperparamPanel';
+import CachedDatasetBadge from '../shared/CachedDatasetBadge';
 import ModelInfoPanel from '../shared/ModelInfoPanel';
 import useDatasetCache from '../../hooks/useDatasetCache';
 import useModelTrain from '../../hooks/useModelTrain';
@@ -13,10 +14,14 @@ import '../ModelCss/ModelPage.css';
 const MODEL_CODE = 'gradient_boosting';
 
 export default function GradientBoosting() {
-    const [hyperparams, setHyperparams] = useState(() => consumeReplayHyperparams(MODEL_CODE));
+    const { hyperparams: replayHyperparams, restoredResults } = useReplaySession(MODEL_CODE);
+    const [hyperparams, setHyperparams] = useState(replayHyperparams);
     const [infoOpen, setInfoOpen] = useState(false);
     const { datasetData, handleDatasetSelect } = useDatasetCache('gradientboosting');
-    const { train, loading, error, results } = useModelTrain('/gradient-boosting');
+    const { train, loading, error, results: freshResults } = useModelTrain('/gradient-boosting');
+    // Prefer a fresh run's results; otherwise fall back to the replayed
+    // (previously completed) session's restored results.
+    const results = freshResults || restoredResults;
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -31,12 +36,8 @@ export default function GradientBoosting() {
                 <h1>Gradient Boosting Classifier</h1>
                 <button className="btn-info-toggle" onClick={() => setInfoOpen(true)}>📖 Info</button>
             </div>
-            <div className="dataset-section"><ShowDataset onDatasetUpload={handleDatasetSelect} allowedTypes={['csv']} />
-                {datasetData && datasetData.filename && (
-                    <div style={{ marginTop: '10px', color: '#34c759' }}>
-                        ✓ Cached dataset: <strong>{datasetData.filename}</strong>
-                    </div>
-                )}</div>
+            <div className="dataset-section"><ShowDataset onDatasetUpload={handleDatasetSelect} allowedTypes={['csv']} initialFilename={datasetData?.filename} />
+                <CachedDatasetBadge filename={datasetData?.filename} /></div>
             <form className="model-form" onSubmit={handleSubmit}>
                 <HyperparamPanel
                     modelCode={MODEL_CODE}

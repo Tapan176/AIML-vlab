@@ -1,11 +1,12 @@
 /* eslint-disable jsx-a11y/img-redundant-alt */
 import { useState } from 'react';
-import { consumeReplayHyperparams } from '../../utils/replaySession';
+import useReplaySession from '../../hooks/useReplaySession';
 import ShowDataset from '../Dataset/ShowDataset';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
 import DownloadResultsZip from '../DownloadResultsZip/DownloadResultsZip';
 import DownloadModelPredictions from '../DownloadModelPredictions/DownloadModelPredictions';
 import HyperparamPanel from '../shared/HyperparamPanel';
+import CachedDatasetBadge from '../shared/CachedDatasetBadge';
 import ModelInfoPanel from '../shared/ModelInfoPanel';
 import ImageCarousel from '../shared/ImageCarousel';
 import useDatasetCache from '../../hooks/useDatasetCache';
@@ -17,10 +18,14 @@ const MODEL_CODE = 'multivariable_linear_regression';
 
 export default function MultivariableLinearRegression() {
     const [inputData, setInputData] = useState({ X: [], y: [] });
-    const [hyperparams, setHyperparams] = useState(() => consumeReplayHyperparams(MODEL_CODE));
+    const { hyperparams: replayHyperparams, restoredResults } = useReplaySession(MODEL_CODE);
+    const [hyperparams, setHyperparams] = useState(replayHyperparams);
     const [infoOpen, setInfoOpen] = useState(false);
     const { datasetData, handleDatasetSelect } = useDatasetCache(MODEL_CODE);
-    const { train, loading, error, results } = useModelTrain('/multivariable-linear-regression');
+    const { train, loading, error, results: freshResults } = useModelTrain('/multivariable-linear-regression');
+    // Prefer a fresh run's results; otherwise fall back to the replayed
+    // (previously completed) session's restored results.
+    const results = freshResults || restoredResults;
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -48,12 +53,8 @@ export default function MultivariableLinearRegression() {
             </div>
 
             <div className="dataset-section">
-                <ShowDataset onDatasetUpload={handleDatasetSelect} allowedTypes={['csv']} />
-                {datasetData && datasetData.filename && (
-                    <div style={{ marginTop: '10px', color: '#34c759' }}>
-                        ✓ Cached dataset: <strong>{datasetData.filename}</strong>
-                    </div>
-                )}
+                <ShowDataset onDatasetUpload={handleDatasetSelect} allowedTypes={['csv']} initialFilename={datasetData?.filename} />
+                <CachedDatasetBadge filename={datasetData?.filename} />
             </div>
 
             <form className="model-form" onSubmit={handleSubmit}>

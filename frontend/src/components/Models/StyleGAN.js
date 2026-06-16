@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { consumeReplayHyperparams } from '../../utils/replaySession';
+import useReplaySession from '../../hooks/useReplaySession';
 import constants from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
@@ -13,7 +13,8 @@ import '../ModelCss/ModelPage.css';
 const MODEL_CODE = 'stylegan';
 
 export default function StyleGAN() {
-    const [hyperparams, setHyperparams] = useState(() => consumeReplayHyperparams(MODEL_CODE));
+    const { hyperparams: replayHyperparams, restoredResults, liveStatus, liveLogs } = useReplaySession(MODEL_CODE);
+    const [hyperparams, setHyperparams] = useState(replayHyperparams);
     const [results, setResults] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -21,6 +22,16 @@ export default function StyleGAN() {
     const [logs, setLogs] = useState([]);
     const logsEndRef = useRef(null);
     const { datasetData, handleDatasetSelect } = useDatasetCache(MODEL_CODE);
+
+    // Replay restore: completed session results, or live progress of a run
+    // still training (re-opened from the Dashboard).
+    const replayActive = liveStatus === 'running' || liveStatus === 'pending';
+    useEffect(() => {
+        if (restoredResults) setResults(restoredResults);
+    }, [restoredResults]);
+    useEffect(() => {
+        if (replayActive && liveLogs.length > 0) setLogs(liveLogs);
+    }, [replayActive, liveLogs]);
 
     useEffect(() => {
         if (logsEndRef.current) {
@@ -54,7 +65,10 @@ export default function StyleGAN() {
 
             if (!response.ok) {
                 const errData = await response.json();
-                throw new Error(errData.error || 'Failed to start generative process');
+                if (response.status === 429 && errData && errData.error === 'quota_exceeded') {
+                    window.dispatchEvent(new CustomEvent('aiml:quota', { detail: errData }));
+                }
+                throw new Error(errData.message || errData.error || 'Failed to start generative process');
             }
 
             const reader = response.body.getReader();
@@ -102,7 +116,7 @@ export default function StyleGAN() {
             </div>
 
             <div className="dataset-section">
-                <ShowDataset onDatasetUpload={handleDatasetSelect} allowedTypes={['zip']} />
+                <ShowDataset onDatasetUpload={handleDatasetSelect} allowedTypes={['zip']} initialFilename={datasetData?.filename} />
                 {datasetData && datasetData.filename && (
                     <div style={{ marginTop: '10px', color: '#34c759' }}>
                         ✓ Cached Image ZIP Dataset: <strong>{datasetData.filename}</strong>
@@ -124,7 +138,13 @@ export default function StyleGAN() {
 
             {error && <div className="model-error">❌ {error}</div>}
 
-            {logs.length > 0 && (
+            {replayActive && !loading && (
+                <div className="model-info-banner" style={{ marginTop: '16px', padding: '12px 16px', borderRadius: '8px', background: 'rgba(255,149,0,0.1)', border: '1px solid rgba(255,149,0,0.3)', color: '#ff9500' }}>
+                    ⏳ This training session is still in progress — showing live progress below. Results will appear automatically when it finishes.
+                </div>
+            )}
+
+            {(logs.length > 0 || replayActive) && (
                 <div className="terminal-log-container" style={{
                     backgroundColor: '#1e1e1e', color: '#00ff00', padding: '15px',
                     borderRadius: '8px', fontFamily: 'monospace', marginTop: '20px',

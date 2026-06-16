@@ -1,15 +1,51 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
-import { consumeReplayHyperparams } from '../../utils/replaySession';
+import ShowDataset from '../Dataset/ShowDataset';
+import CachedDatasetBadge from '../shared/CachedDatasetBadge';
+import useReplaySession from '../../hooks/useReplaySession';
+import ModelInfoPanel from '../shared/ModelInfoPanel';
+import useDatasetCache from '../../hooks/useDatasetCache';
 import '../shared/ModelStyles.css';
 
+const MODEL_CODE = 'vit_finetune';
+
+const DEFAULT_HYPERPARAMS = {
+    model_name: 'google/vit-base-patch16-224',
+    epochs: 3,
+    batch_size: 16,
+    learning_rate: 2e-5,
+    weight_decay: 0.01,
+    test_size: 0.2,
+    freeze_base: false,
+};
+
 const FinetuneViT = () => {
+    const { hyperparams: replayHyperparams, restoredResults, liveStatus, liveLogs } = useReplaySession(MODEL_CODE);
+    const { datasetData, handleDatasetSelect } = useDatasetCache(MODEL_CODE);
+    const [hyperparams, setHyperparams] = useState(() => ({ ...DEFAULT_HYPERPARAMS, ...(replayHyperparams || {}) }));
+
     const [logs, setLogs] = useState([]);
     const [results, setResults] = useState(null);
     const [training, setTraining] = useState(false);
     const [error, setError] = useState(null);
+    const [infoOpen, setInfoOpen] = useState(false);
 
-    const startTraining = async (formData) => {
+    const replayActive = liveStatus === 'running' || liveStatus === 'pending';
+    useEffect(() => {
+        if (restoredResults) setResults(restoredResults);
+    }, [restoredResults]);
+    useEffect(() => {
+        if (replayActive && liveLogs.length > 0) setLogs(liveLogs);
+    }, [replayActive, liveLogs]);
+
+    const handleChange = (name, value) => setHyperparams(prev => ({ ...prev, [name]: value }));
+
+    const startTraining = async (e) => {
+        e.preventDefault();
+        if (!datasetData?.filename) {
+            setError('Please select or upload a ZIP image dataset first.');
+            return;
+        }
         setTraining(true);
         setError(null);
         setResults(null);
@@ -25,12 +61,19 @@ const FinetuneViT = () => {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`,
                 },
-                body: JSON.stringify(formData),
+                body: JSON.stringify({
+                    filename: datasetData.filename,
+                    dataset_id: datasetData.dataset_id || null,
+                    hyperparams,
+                }),
             });
 
             if (!response.ok) {
                 const err = await response.json();
-                throw new Error(err.error || 'Training failed');
+                if (response.status === 429 && err && err.error === 'quota_exceeded') {
+                    window.dispatchEvent(new CustomEvent('aiml:quota', { detail: err }));
+                }
+                throw new Error(err.message || err.error || 'Training failed');
             }
 
             const reader = response.body.getReader();
@@ -69,15 +112,73 @@ const FinetuneViT = () => {
         <div className="model-container">
             <div className="model-header">
                 <h2>🖼️ ViT Fine-Tuning (Image Classification)</h2>
-                <p>Fine-tune Vision Transformer on your image dataset.</p>
+                <p>Fine-tune Vision Transformer on your image dataset (a ZIP with one sub-folder per class).</p>
                 <div className="model-badge fine-tuning">HuggingFace Transformers</div>
+                <button className="btn-info-toggle" onClick={() => setInfoOpen(true)}>📖 Info</button>
             </div>
 
-            <ViTForm onSubmit={startTraining} disabled={training} />
+            <ShowDataset
+                onDatasetUpload={handleDatasetSelect}
+                allowedTypes={['zip']}
+                initialFilename={datasetData?.filename}
+            />
+            <CachedDatasetBadge filename={datasetData?.filename} />
+
+            <form className="model-form" onSubmit={startTraining}>
+                <div className="form-section">
+                    <h4>Hyperparameters</h4>
+                    <div className="form-row">
+                        <div className="form-group">
+                            <label>Base Model</label>
+                            <select value={hyperparams.model_name} onChange={e => handleChange('model_name', e.target.value)}>
+                                <option value="google/vit-base-patch16-224">ViT Base (224px)</option>
+                                <option value="google/vit-base-patch16-224-in21k">ViT Base (ImageNet-21k)</option>
+                                <option value="google/vit-large-patch16-224">ViT Large (224px)</option>
+                            </select>
+                        </div>
+                        <div className="form-group">
+                            <label>Epochs</label>
+                            <input type="number" value={hyperparams.epochs} onChange={e => handleChange('epochs', parseInt(e.target.value))} min={1} max={50} />
+                        </div>
+                        <div className="form-group">
+                            <label>Batch Size</label>
+                            <input type="number" value={hyperparams.batch_size} onChange={e => handleChange('batch_size', parseInt(e.target.value))} min={1} max={128} />
+                        </div>
+                    </div>
+                    <div className="form-row">
+                        <div className="form-group">
+                            <label>Learning Rate</label>
+                            <input type="number" step="0.0000001" value={hyperparams.learning_rate} onChange={e => handleChange('learning_rate', parseFloat(e.target.value))} />
+                        </div>
+                        <div className="form-group">
+                            <label>Weight Decay</label>
+                            <input type="number" step="0.001" value={hyperparams.weight_decay} onChange={e => handleChange('weight_decay', parseFloat(e.target.value))} />
+                        </div>
+                        <div className="form-group">
+                            <label>Test Split</label>
+                            <input type="number" step="0.05" value={hyperparams.test_size} onChange={e => handleChange('test_size', parseFloat(e.target.value))} />
+                        </div>
+                    </div>
+                    <label className="toggle-label">
+                        <input type="checkbox" checked={hyperparams.freeze_base} onChange={e => handleChange('freeze_base', e.target.checked)} />
+                        Freeze ViT Encoder (recommended for small datasets)
+                    </label>
+                </div>
+
+                <button type="submit" className="btn-train" disabled={training}>
+                    {training ? '⏳ Fine-Tuning...' : '🚀 Start Fine-Tuning'}
+                </button>
+            </form>
 
             {error && <div className="error-banner">{error}</div>}
 
-            {logs.length > 0 && (
+            {replayActive && !training && (
+                <div className="error-banner" style={{ background: 'rgba(255,149,0,0.1)', borderColor: 'rgba(255,149,0,0.3)', color: '#ff9500' }}>
+                    ⏳ This fine-tuning session is still in progress — showing live progress below. Results will appear automatically when it finishes.
+                </div>
+            )}
+
+            {(logs.length > 0 || replayActive) && (
                 <div className="training-console">
                     <h3>Training Logs</h3>
                     <div className="console-output">
@@ -116,82 +217,9 @@ const FinetuneViT = () => {
                     )}
                 </div>
             )}
+
+            <ModelInfoPanel modelCode={MODEL_CODE} isOpen={infoOpen} onClose={() => setInfoOpen(false)} />
         </div>
-    );
-};
-
-const ViTForm = ({ onSubmit, disabled }) => {
-    const [filename, setFilename] = useState('');
-    const [hyperparams, setHyperparams] = useState(() => ({
-        model_name: 'google/vit-base-patch16-224',
-        epochs: 3,
-        batch_size: 16,
-        learning_rate: 2e-5,
-        weight_decay: 0.01,
-        test_size: 0.2,
-        freeze_base: false,
-        ...consumeReplayHyperparams('vit_finetune'),
-    }));
-
-    const handleChange = (name, value) => setHyperparams(prev => ({ ...prev, [name]: value }));
-
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        onSubmit({ filename, hyperparams });
-    };
-
-    return (
-        <form className="model-form" onSubmit={handleSubmit}>
-            <div className="form-section">
-                <h4>Dataset</h4>
-                <div className="form-group">
-                    <label>ZIP Dataset Filename</label>
-                    <input type="text" value={filename} onChange={e => setFilename(e.target.value)} placeholder="e.g. cats_dogs.zip (class-labeled subdirectories)" required />
-                </div>
-            </div>
-            <div className="form-section">
-                <h4>Hyperparameters</h4>
-                <div className="form-row">
-                    <div className="form-group">
-                        <label>Base Model</label>
-                        <select value={hyperparams.model_name} onChange={e => handleChange('model_name', e.target.value)}>
-                            <option value="google/vit-base-patch16-224">ViT Base (224px)</option>
-                            <option value="google/vit-base-patch16-224-in21k">ViT Base (ImageNet-21k)</option>
-                            <option value="google/vit-large-patch16-224">ViT Large (224px)</option>
-                        </select>
-                    </div>
-                    <div className="form-group">
-                        <label>Epochs</label>
-                        <input type="number" value={hyperparams.epochs} onChange={e => handleChange('epochs', parseInt(e.target.value))} min={1} max={50} />
-                    </div>
-                    <div className="form-group">
-                        <label>Batch Size</label>
-                        <input type="number" value={hyperparams.batch_size} onChange={e => handleChange('batch_size', parseInt(e.target.value))} min={1} max={128} />
-                    </div>
-                </div>
-                <div className="form-row">
-                    <div className="form-group">
-                        <label>Learning Rate</label>
-                        <input type="number" step="0.0000001" value={hyperparams.learning_rate} onChange={e => handleChange('learning_rate', parseFloat(e.target.value))} />
-                    </div>
-                    <div className="form-group">
-                        <label>Weight Decay</label>
-                        <input type="number" step="0.001" value={hyperparams.weight_decay} onChange={e => handleChange('weight_decay', parseFloat(e.target.value))} />
-                    </div>
-                    <div className="form-group">
-                        <label>Test Split</label>
-                        <input type="number" step="0.05" value={hyperparams.test_size} onChange={e => handleChange('test_size', parseFloat(e.target.value))} />
-                    </div>
-                </div>
-                <label className="toggle-label">
-                    <input type="checkbox" checked={hyperparams.freeze_base} onChange={e => handleChange('freeze_base', e.target.checked)} />
-                    Freeze ViT Encoder (recommended for small datasets)
-                </label>
-            </div>
-            <button type="submit" className="btn-train" disabled={disabled}>
-                {disabled ? '⏳ Fine-Tuning...' : '🚀 Start Fine-Tuning'}
-            </button>
-        </form>
     );
 };
 
