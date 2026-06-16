@@ -59,6 +59,50 @@ def download_results_zip_session(current_user, session_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 404
 
+@utils_routes.route('/training-sessions/<session_id>/result-images', methods=['GET'])
+@token_required
+def get_result_images(current_user, session_id):
+    """Return a completed session's output plots as base64 data URIs.
+
+    The trainer's local PNGs are deleted right after a run (they only survive
+    inside the Drive results.zip), so on a Dashboard "Replay" the model page has
+    no images to show. This streams the results.zip back from Drive, extracts
+    the image files, and returns them base64-encoded — the SAME plots the user
+    saw live — without bloating the session document in MongoDB.
+    """
+    try:
+        session = get_session(session_id)
+        if session['user_id'] != current_user['_id']:
+            return jsonify({"error": "Unauthorized"}), 403
+
+        drive_id = session.get('results_zip_drive_id')
+        if not drive_id:
+            return jsonify({"images": []}), 200
+
+        import os
+        import zipfile
+        import base64
+        from services.google_drive_service import stream_file_from_drive
+
+        IMG_EXTS = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp'}
+        MAX_IMAGES = 20
+        images = []
+        fh, _ = stream_file_from_drive(drive_id)
+        with zipfile.ZipFile(fh) as zf:
+            for name in zf.namelist():
+                ext = os.path.splitext(name)[1].lower()
+                if ext not in IMG_EXTS:
+                    continue
+                raw = zf.read(name)
+                mime = 'image/jpeg' if ext in ('.jpg', '.jpeg') else f"image/{ext.lstrip('.')}"
+                images.append(f"data:{mime};base64,{base64.b64encode(raw).decode('utf-8')}")
+                if len(images) >= MAX_IMAGES:
+                    break
+        return jsonify({"images": images}), 200
+    except Exception as e:
+        return jsonify({"error": str(e), "images": []}), 200
+
+
 @utils_routes.route('/download-trained-model', methods=['GET'])
 @token_required(optional=True)
 def download_model(current_user):
@@ -206,9 +250,17 @@ def preprocess_cloud_dataset(current_user):
         
         if not dataset_id or not operations or not isinstance(operations, list):
             return jsonify({"error": "dataset_id and an array of operations are required"}), 400
-            
+
+        # Enforce Data Studio quota (no-op unless SUBSCRIPTION_ENABLED). Data
+        # Studio runs are metered under the 'datastudio' class.
+        from services.subscription_service import check_quota, record_usage
+        ok, info = check_quota(current_user, 'datastudio')
+        if not ok:
+            return jsonify(info), 429
+
         from services.preprocessing_service import perform_preprocessing
         new_dataset = perform_preprocessing(current_user, dataset_id, operations)
+        record_usage(current_user['_id'], 'datastudio')
         
         # ensure _id is stringified for JSON compatibility
         new_dataset['_id'] = str(new_dataset['_id'])

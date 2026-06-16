@@ -21,10 +21,13 @@ from config import (
     FREE_TIER_CLASSICAL_RUNS,
     FREE_TIER_DEEP_RUNS,
     FREE_TIER_FINETUNE_RUNS,
+    FREE_TIER_DATASTUDIO_OPS,
 )
 from mongoDb.connection import get_db
 
-RUN_CLASSES = ("classical", "deep", "finetune")
+# Metered classes. classical/deep/finetune are training runs; datastudio covers
+# Data Studio operations (profiling / preprocessing / diff).
+RUN_CLASSES = ("classical", "deep", "finetune", "datastudio")
 
 # None means "unlimited" (still subject to the global flask_limiter rate limit).
 PLANS = {
@@ -36,6 +39,7 @@ PLANS = {
             "classical": FREE_TIER_CLASSICAL_RUNS,
             "deep": FREE_TIER_DEEP_RUNS,
             "finetune": FREE_TIER_FINETUNE_RUNS,
+            "datastudio": FREE_TIER_DATASTUDIO_OPS,
         },
         "features": ["data_profiling", "dataset_versions", "replay"],
         "blurb": "For learning and light experimentation.",
@@ -44,7 +48,7 @@ PLANS = {
         "id": "pro",
         "name": "Pro",
         "price": 9,
-        "limits": {"classical": None, "deep": 100, "finetune": 20},
+        "limits": {"classical": None, "deep": 100, "finetune": 20, "datastudio": None},
         "features": [
             "data_profiling", "dataset_versions", "replay",
             "priority_queue", "gpu", "all_models",
@@ -55,7 +59,7 @@ PLANS = {
         "id": "team",
         "name": "Team",
         "price": 29,
-        "limits": {"classical": None, "deep": 400, "finetune": 100},
+        "limits": {"classical": None, "deep": 400, "finetune": 100, "datastudio": None},
         "features": [
             "data_profiling", "dataset_versions", "replay",
             "priority_queue", "gpu", "all_models",
@@ -71,8 +75,11 @@ def is_enabled():
 
 
 def run_class(model_code):
-    """Classify a model_code as 'classical' | 'deep' | 'finetune' using the
-    model registry as the single source of truth (category + streaming flag)."""
+    """Classify a model_code as 'classical' | 'deep' | 'finetune' | 'datastudio'
+    using the model registry as the single source of truth (category + streaming
+    flag). The sentinel 'datastudio' maps to the Data Studio class directly."""
+    if model_code == "datastudio":
+        return "datastudio"
     from services.model_registry import get_model_meta
     meta = get_model_meta(model_code) or {}
     if meta.get("category") == "Fine-Tuning" or str(model_code).endswith("_finetune"):
@@ -132,7 +139,12 @@ def check_quota(user, model_code):
         return True, None  # unlimited for this class on this plan
     used = int(get_usage(user["_id"]).get(cls, 0))
     if used >= limit:
-        pretty = {"classical": "classical ML", "deep": "deep-learning", "finetune": "fine-tuning"}[cls]
+        pretty = {
+            "classical": "classical ML",
+            "deep": "deep-learning",
+            "finetune": "fine-tuning",
+            "datastudio": "Data Studio",
+        }[cls]
         return False, {
             "error": "quota_exceeded",
             "run_class": cls,
@@ -142,7 +154,8 @@ def check_quota(user, model_code):
             "plan_name": plan["name"],
             "reset_at": _period_reset_iso(),
             "message": (
-                f"You've used all {limit} {pretty} training runs on the "
+                f"You've used all {limit} {pretty} "
+                f"{'operations' if cls == 'datastudio' else 'training runs'} on the "
                 f"{plan['name']} plan this month. Upgrade for more, or wait for the monthly reset."
             ),
         }
@@ -168,17 +181,32 @@ def record_usage(user_id, model_code, n=1):
     )
 
 
+def _dataset_count(user_id):
+    """Total datasets owned by the user (Data Studio outputs land here too)."""
+    try:
+        return get_db().datasets.count_documents({"user_id": str(user_id)})
+    except Exception:
+        return 0
+
+
 def get_entitlements(user):
-    """Full snapshot for the frontend: plan, limits, current usage, reset time."""
+    """Full snapshot for the frontend: plan, limits, current usage, reset time.
+
+    `usage` carries the per-class monthly run counts plus an informational
+    `datasets` total (not currently capped — it surfaces storage/Data-Studio
+    activity so users can see it; enforcing a storage limit is a future step)."""
     plan = get_user_plan(user)
     usage = get_usage(user["_id"]) if user else {}
+    out = {c: int(usage.get(c, 0)) for c in RUN_CLASSES}
+    if user:
+        out["datasets"] = _dataset_count(user["_id"])
     return {
         "subscription_enabled": SUBSCRIPTION_ENABLED,
         "plan": plan["id"],
         "plan_name": plan["name"],
         "limits": plan["limits"],
         "features": plan.get("features", []),
-        "usage": {c: int(usage.get(c, 0)) for c in RUN_CLASSES},
+        "usage": out,
         "period": current_period(),
         "reset_at": _period_reset_iso(),
     }

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useSubscription } from '../../context/SubscriptionContext';
 import './Subscription.css';
@@ -5,7 +6,8 @@ import './Subscription.css';
 const RUN_CLASSES = [
     { key: 'classical', label: 'Classical ML' },
     { key: 'deep', label: 'Deep Learning' },
-    { key: 'finetune', label: 'Fine-Tuning' }
+    { key: 'finetune', label: 'Fine-Tuning' },
+    { key: 'datastudio', label: 'Data Studio' }
 ];
 
 function formatDate(value) {
@@ -20,7 +22,14 @@ function formatDate(value) {
 }
 
 export default function UsageWidget() {
-    const { enabled, entitlements } = useSubscription();
+    const { enabled, entitlements, refresh } = useSubscription();
+
+    // Pull fresh usage every time the widget mounts (e.g. landing on the
+    // Dashboard right after a training run on a model page) so the counts are
+    // current. Hooks must run before any early return.
+    useEffect(() => {
+        if (enabled && refresh) refresh();
+    }, [enabled, refresh]);
 
     if (!enabled || !entitlements) return null;
 
@@ -28,6 +37,7 @@ export default function UsageWidget() {
     const usage = entitlements.usage || {};
     const planName = entitlements.plan_name || entitlements.plan || 'Free';
     const resetDate = formatDate(entitlements.reset_at);
+    const datasetsUsed = usage.datasets;
 
     return (
         <div className="usage-widget">
@@ -74,6 +84,15 @@ export default function UsageWidget() {
                     </div>
                 );
             })}
+
+            {datasetsUsed != null && (
+                <div className="usage-row">
+                    <div className="usage-row-head">
+                        <span className="usage-label">Datasets stored</span>
+                        <span className="usage-count">{datasetsUsed}</span>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

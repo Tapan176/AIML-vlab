@@ -141,6 +141,9 @@ export default function DataStudio() {
                 operations: prepOperations
             });
             alert(`Success! Generated new dataset: ${data.dataset?.filename}`);
+            // Tell the subscription context to refresh usage (Data Studio runs
+            // are metered under the 'datastudio' class).
+            try { window.dispatchEvent(new CustomEvent('aiml:usage')); } catch (e) {}
             setDatasets([data.dataset, ...datasets]);
             setSelectedPrepDataset('');
             setPrepOperations([]);

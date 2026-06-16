@@ -64,6 +64,10 @@ SUBSCRIPTION_ENABLED = os.getenv('SUBSCRIPTION_ENABLED', 'false').lower() == 'tr
 FREE_TIER_CLASSICAL_RUNS = int(os.getenv('FREE_TIER_CLASSICAL_RUNS', '50'))
 FREE_TIER_DEEP_RUNS = int(os.getenv('FREE_TIER_DEEP_RUNS', '5'))
 FREE_TIER_FINETUNE_RUNS = int(os.getenv('FREE_TIER_FINETUNE_RUNS', '0'))
+# Data Studio operations (profiling/preprocessing/diff) are cheap CPU work but
+# still metered so the free tier can't be abused. 0 would disable Data Studio
+# on free; default is a generous monthly allowance.
+FREE_TIER_DATASTUDIO_OPS = int(os.getenv('FREE_TIER_DATASTUDIO_OPS', '100'))
 
 # --- HuggingFace ---
 HF_TOKEN = os.getenv('HF_TOKEN', None)  # Optional — needed for gated models
