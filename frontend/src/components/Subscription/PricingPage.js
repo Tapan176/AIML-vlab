@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
+import { useSubscription } from '../../context/SubscriptionContext';
 import './Subscription.css';
 
 function formatLimit(value) {
@@ -8,21 +10,49 @@ function formatLimit(value) {
     return value;
 }
 
-function formatPrice(price) {
-    if (price === 0) return 'Free';
-    return `$${price}/mo`;
+// Display the canonical USD price formatted in the visitor's local currency.
+// The CHARGE is still the canonical Stripe Price (Adaptive Pricing localizes
+// the hosted checkout); this is purely cosmetic so the number shown matches the
+// user's region. Price value is identical worldwide.
+function makePriceFormatter(currency) {
+    return (price) => {
+        if (price === 0) return 'Free';
+        try {
+            const f = new Intl.NumberFormat(undefined, {
+                style: 'currency', currency: currency || 'USD',
+                maximumFractionDigits: 0,
+            });
+            return `${f.format(price)}/mo`;
+        } catch (e) {
+            return `$${price}/mo`;
+        }
+    };
 }
 
 export default function PricingPage() {
     const [plans, setPlans] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [paymentsEnabled, setPaymentsEnabled] = useState(false);
+    const [currency, setCurrency] = useState('USD');
+    const [busyPlan, setBusyPlan] = useState(null);
+    const [error, setError] = useState(null);
+    const { isAuthenticated } = useAuth();
+    const { entitlements } = useSubscription();
+    const currentPlan = entitlements?.plan || 'free';
+    const formatPrice = makePriceFormatter(currency);
 
     useEffect(() => {
         let active = true;
         (async () => {
             try {
-                const data = await api.get('/subscription/plans');
-                if (active) setPlans((data && data.plans) || []);
+                const [data, locale] = await Promise.all([
+                    api.get('/subscription/plans'),
+                    api.get('/billing/locale').catch(() => null),
+                ]);
+                if (!active) return;
+                setPlans((data && data.plans) || []);
+                setPaymentsEnabled(!!(data && data.payments_enabled));
+                if (locale && locale.currency) setCurrency(locale.currency);
             } catch (e) {
                 if (active) setPlans([]);
             } finally {
@@ -32,9 +62,47 @@ export default function PricingPage() {
         return () => { active = false; };
     }, []);
 
+    const handleSelectPlan = async (planId) => {
+        setError(null);
+        if (planId === 'free' || planId === currentPlan) return;
+        if (!isAuthenticated) {
+            window.location.href = '/login';
+            return;
+        }
+        setBusyPlan(planId);
+        try {
+            const res = await api.post('/billing/checkout', { plan: planId });
+            if (res && res.url) {
+                window.location.href = res.url; // redirect to Stripe Checkout
+            } else {
+                setError('Could not start checkout. Please try again.');
+            }
+        } catch (e) {
+            setError(e?.data?.error === 'payments_not_configured'
+                ? 'Payments are not configured yet.'
+                : (e?.message || 'Checkout failed.'));
+        } finally {
+            setBusyPlan(null);
+        }
+    };
+
+    const handleManageBilling = async () => {
+        setError(null);
+        try {
+            const res = await api.post('/billing/portal', {});
+            if (res && res.url) window.location.href = res.url;
+        } catch (e) {
+            setError(e?.message || 'Could not open billing portal.');
+        }
+    };
+
     return (
         <div className="pricing-page">
             <h1 className="pricing-heading">Plans &amp; Pricing</h1>
+            <p className="pricing-subhead">
+                Same price worldwide — shown in your local currency, billed securely via Stripe.
+            </p>
+            {error && <p className="pricing-error">{error}</p>}
 
             {loading ? (
                 <p className="pricing-loading">Loading plans…</p>
@@ -44,10 +112,12 @@ export default function PricingPage() {
                         const limits = plan.limits || {};
                         const popular = plan.id === 'pro';
                         const features = plan.features || [];
+                        const isCurrent = plan.id === currentPlan;
+                        const isPaid = plan.price > 0;
                         return (
                             <div
                                 key={plan.id}
-                                className={`plan-card${popular ? ' popular' : ''}`}
+                                className={`plan-card${popular ? ' popular' : ''}${isCurrent ? ' current' : ''}`}
                             >
                                 {popular && (
                                     <span className="plan-badge">Most popular</span>
@@ -64,26 +134,53 @@ export default function PricingPage() {
                                     <li>Classical: {formatLimit(limits.classical)}/mo</li>
                                     <li>Deep learning: {formatLimit(limits.deep)}/mo</li>
                                     <li>Fine-tuning: {formatLimit(limits.finetune)}/mo</li>
+                                    <li>Data Studio: {formatLimit(limits.datastudio)}/mo</li>
+                                    {plan.max_datasets != null && (
+                                        <li>Datasets stored: {formatLimit(plan.max_datasets)}</li>
+                                    )}
                                 </ul>
 
                                 {features.length > 0 && (
                                     <ul className="plan-features">
                                         {features.map((feature, idx) => (
-                                            <li key={idx}>{feature}</li>
+                                            <li key={idx}>{feature.replace(/_/g, ' ')}</li>
                                         ))}
                                     </ul>
                                 )}
 
-                                <button
-                                    type="button"
-                                    className="plan-cta"
-                                    disabled
-                                >
-                                    Coming soon
-                                </button>
+                                {isCurrent ? (
+                                    <button type="button" className="plan-cta current-cta" disabled>
+                                        Current plan
+                                    </button>
+                                ) : isPaid ? (
+                                    <button
+                                        type="button"
+                                        className="plan-cta"
+                                        disabled={!paymentsEnabled || busyPlan === plan.id}
+                                        onClick={() => handleSelectPlan(plan.id)}
+                                    >
+                                        {!paymentsEnabled
+                                            ? 'Coming soon'
+                                            : busyPlan === plan.id
+                                                ? 'Redirecting…'
+                                                : `Upgrade to ${plan.name}`}
+                                    </button>
+                                ) : (
+                                    <button type="button" className="plan-cta" disabled>
+                                        {currentPlan === 'free' ? 'Current plan' : 'Free'}
+                                    </button>
+                                )}
                             </div>
                         );
                     })}
+                </div>
+            )}
+
+            {paymentsEnabled && currentPlan !== 'free' && (
+                <div className="pricing-manage">
+                    <button type="button" className="plan-cta secondary" onClick={handleManageBilling}>
+                        Manage billing &amp; invoices
+                    </button>
                 </div>
             )}
         </div>
