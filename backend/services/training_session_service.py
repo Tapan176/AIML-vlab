@@ -6,11 +6,16 @@ from mongoDb.connection import get_db
 from bson import ObjectId
 
 
-def create_session(user_id, model_code, hyperparams, dataset_id=None):
+def create_session(user_id, model_code, hyperparams, dataset_id=None, dataset_config=None):
     """Create a new training session for a user. Auto-increments version number.
-    
+
     Also looks up and stores dataset metadata (filename, type, drive_id) so
     the session record is self-contained.
+
+    dataset_config holds extra per-dataset selections that aren't hyperparams
+    and so can't survive hyperparam validation (e.g. the text_column /
+    label_column a fine-tuning run was configured with). Storing it lets the
+    Dashboard "Replay" action restore those selections exactly.
     """
     db = get_db()
 
@@ -44,6 +49,7 @@ def create_session(user_id, model_code, hyperparams, dataset_id=None):
         'hyperparams': hyperparams,
         'dataset_id': str(dataset_id) if dataset_id else None,
         'dataset_info': dataset_info,
+        'dataset_config': dataset_config or {},
         'results': None,
         'output_images': [],
         'trained_model_path': None,
@@ -286,6 +292,78 @@ def update_session_error(session_id, error_message):
             'completed_at': datetime.utcnow(),
         }}
     )
+
+
+# Cap stored progress logs so a long/verbose training run can't bloat the
+# session document. We keep the most recent lines (a tail), which is what the
+# user wants to see when they re-open an in-progress training page.
+MAX_PROGRESS_LOGS = 500
+
+
+def mark_session_running(session_id):
+    """Flip a session into the 'running' state and reset its progress log.
+
+    Called once at the start of an SSE training stream so that a user who
+    navigates away and back (replay) can tell training is live and fetch the
+    accumulated logs via get_session_progress().
+    """
+    db = get_db()
+    db.training_sessions.update_one(
+        {'_id': ObjectId(session_id)},
+        {'$set': {
+            'status': 'running',
+            'progress_logs': [],
+            'started_at': datetime.utcnow(),
+        }}
+    )
+
+
+def append_session_progress(session_id, log_line):
+    """Append a single streamed log/progress line to the session record.
+
+    Uses $push with $slice to keep only the last MAX_PROGRESS_LOGS entries so
+    the document stays bounded regardless of how chatty the trainer is.
+    """
+    if not log_line:
+        return
+    db = get_db()
+    db.training_sessions.update_one(
+        {'_id': ObjectId(session_id)},
+        {'$push': {
+            'progress_logs': {
+                '$each': [str(log_line)],
+                '$slice': -MAX_PROGRESS_LOGS,
+            }
+        }}
+    )
+
+
+def get_session_progress(session_id):
+    """Return a lightweight progress snapshot for polling/reconnect.
+
+    Shape: { status, logs, results, error, model_code, version }.
+    Results are only meaningful once status == 'completed'.
+    """
+    db = get_db()
+    try:
+        session = db.training_sessions.find_one({'_id': ObjectId(session_id)})
+    except Exception:
+        session = None
+    if not session:
+        return None
+    return {
+        'session_id': str(session['_id']),
+        'user_id': session.get('user_id'),
+        'model_code': session.get('model_code'),
+        'version': session.get('version'),
+        'status': session.get('status'),
+        'logs': session.get('progress_logs', []),
+        'results': session.get('results'),
+        'error': session.get('error'),
+        'trained_model_drive_id': session.get('trained_model_drive_id'),
+        'results_zip_drive_id': session.get('results_zip_drive_id'),
+        'output_images': session.get('output_images', []),
+    }
 
 
 def get_user_sessions(user_id, model_code=None):

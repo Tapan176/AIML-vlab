@@ -6,7 +6,7 @@ from flask import Blueprint, request, jsonify
 import math
 from auth.auth_middleware import token_required
 from services.hyperparam_validator import validate_hyperparams, get_model_schema
-from services.training_session_service import create_session, update_session_results, update_session_error, get_user_sessions, get_session, delete_session
+from services.training_session_service import create_session, update_session_results, update_session_error, get_user_sessions, get_session, delete_session, get_session_progress
 from services.dataset_service import get_user_datasets
 from utils.sse_helpers import run_sse_training
 
@@ -112,9 +112,16 @@ def _train_model(model_code, request_obj, current_user=None):
     user_id = current_user['_id'] if current_user else None
 
     if user_id:
+        # Enforce subscription quota (no-op unless SUBSCRIPTION_ENABLED).
+        from services.subscription_service import check_quota, record_usage
+        ok, info = check_quota(current_user, model_code)
+        if not ok:
+            return jsonify(info), 429
+
         dataset_id = data.get('dataset_id')
         session = create_session(user_id, model_code, validated_params, dataset_id)
         session_id = session['_id']
+        record_usage(user_id, model_code)
         data['user_id'] = user_id
         data['session_id'] = session_id
         data['session_version'] = session['version']
@@ -298,9 +305,14 @@ def xgboost(current_user):
     session_id = None
 
     if user_id:
+        from services.subscription_service import check_quota, record_usage
+        ok, info = check_quota(current_user, 'xgboost')
+        if not ok:
+            return jsonify(info), 429
         dataset_id = data.get('dataset_id')
         session = create_session(user_id, 'xgboost', validated_params, dataset_id)
         session_id = session['_id']
+        record_usage(user_id, 'xgboost')
 
     try:
         results = _train_xgboost(request, validated_params=validated_params, user_id=user_id, session_version=session.get('version') if user_id else None)
@@ -436,6 +448,72 @@ def get_session_detail(current_user, session_id):
         return jsonify({"session": safe_session}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 404
+
+
+@model_routes.route('/training-sessions/<session_id>/progress', methods=['GET'])
+@token_required
+def get_session_progress_route(current_user, session_id):
+    """Lightweight progress snapshot for replay/reconnect polling.
+
+    Returns { status, logs, results, error, ... } so a model page re-opened
+    from the Dashboard can show either the completed results or the live
+    training progress accumulated so far.
+    """
+    progress = get_session_progress(session_id)
+    if not progress:
+        return jsonify({"error": "Session not found"}), 404
+    if progress.get('user_id') != current_user['_id']:
+        return jsonify({"error": "Unauthorized"}), 403
+    return jsonify(_sanitize_for_json(progress)), 200
+
+
+@model_routes.route('/training-sessions/<session_id>/result-images', methods=['GET'])
+@token_required
+def get_session_result_images(current_user, session_id):
+    """Return a completed session's output images as base64 data URLs.
+
+    On a fresh run the trainer's local PNGs are base64-encoded into the
+    response (`outputImageBase64`) before being deleted — they live only inside
+    the results.zip on Google Drive afterwards. On replay the stored
+    `output_images` paths no longer exist locally, so this endpoint rebuilds the
+    images by streaming the session's results.zip from Drive and extracting the
+    PNG/JPG entries. The shape ({ images: [dataUrl, ...] }) lets the replay hook
+    reuse the same <ImageCarousel> code path as a fresh run.
+    """
+    try:
+        session = get_session(session_id)
+    except Exception:
+        return jsonify({"error": "Session not found"}), 404
+    if session.get('user_id') != current_user['_id']:
+        return jsonify({"error": "Unauthorized"}), 403
+
+    # The zip drive id lives at the top level on newer sessions but only inside
+    # `results` on some older ones — check both so replay works either way.
+    drive_id = session.get('results_zip_drive_id') or (session.get('results') or {}).get('results_zip_drive_id')
+    if not drive_id:
+        return jsonify({"images": []}), 200
+
+    import base64
+    import os
+    import zipfile
+
+    images = []
+    try:
+        from services.google_drive_service import stream_file_from_drive
+        fh, _ = stream_file_from_drive(drive_id)
+        with zipfile.ZipFile(fh) as zf:
+            # Sort entries so the carousel order is stable across reloads.
+            for name in sorted(zf.namelist()):
+                ext = os.path.splitext(name)[1].lower()
+                if ext not in ('.png', '.jpg', '.jpeg'):
+                    continue
+                mime_type = 'image/jpeg' if ext in ('.jpg', '.jpeg') else 'image/png'
+                b64 = base64.b64encode(zf.read(name)).decode('utf-8')
+                images.append(f"data:{mime_type};base64,{b64}")
+    except Exception as e:
+        return jsonify({"error": f"Failed to load result images: {e}"}), 502
+
+    return jsonify({"images": images}), 200
 
 
 @model_routes.route('/training-sessions/<session_id>', methods=['DELETE'])

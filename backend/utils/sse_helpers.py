@@ -20,7 +20,28 @@ from services.training_session_service import (
     create_session,
     update_session_results,
     update_session_error,
+    mark_session_running,
+    append_session_progress,
 )
+
+
+def _extract_log_line(chunk):
+    """Best-effort pull of a human-readable progress line out of an SSE chunk.
+
+    SSE chunks look like `data: {json}\n\n`. We persist either the `log`
+    field (training progress messages) so a reconnecting client can replay
+    the history. Returns None for chunks with nothing log-worthy.
+    """
+    try:
+        payload = chunk.replace('data: ', '').strip()
+        if not payload:
+            return None
+        parsed = json.loads(payload)
+        if isinstance(parsed, dict) and parsed.get('log'):
+            return parsed['log']
+    except Exception:
+        pass
+    return None
 
 
 def run_sse_training(
@@ -60,10 +81,28 @@ def run_sse_training(
         return jsonify({"error": str(e)}), 400
 
     user_id = current_user['_id']
+
+    # Enforce subscription quota before doing any heavy work (no-op unless
+    # SUBSCRIPTION_ENABLED). Returning a plain JSON 429 is consistent with the
+    # validation-failure 400 return above; callers handle a non-stream return.
+    from services.subscription_service import check_quota, record_usage
+    ok, info = check_quota(current_user, model_code)
+    if not ok:
+        return jsonify(info), 429
+
     dataset_id = data.get('dataset_id')
-    session = create_session(user_id, model_code, validated_params, dataset_id)
+    # Capture per-dataset selections that aren't hyperparams (so they survive
+    # validation and can be restored on Dashboard "Replay"). Only keys actually
+    # present are stored, so non-finetune SSE models simply store nothing here.
+    _DATASET_CONFIG_KEYS = ('text_column', 'label_column', 'filename')
+    dataset_config = {k: data[k] for k in _DATASET_CONFIG_KEYS if data.get(k)}
+    session = create_session(user_id, model_code, validated_params, dataset_id, dataset_config)
     session_id = session['_id']
     session_version = session['version']
+    record_usage(user_id, model_code)
+    # Mark running + reset progress log so a reconnecting client (Dashboard
+    # replay) can detect the live session and fetch accumulated logs.
+    mark_session_running(session_id)
 
     def generate():
         try:
@@ -75,6 +114,14 @@ def run_sse_training(
                     try:
                         data_part = chunk.replace('data: ', '').strip()
                         results_data = json.loads(data_part)
+                    except Exception:
+                        pass
+                # Persist progress lines so the run can be re-attached after a
+                # page navigation. Cheap best-effort; never block the stream.
+                log_line = _extract_log_line(chunk)
+                if log_line:
+                    try:
+                        append_session_progress(session_id, log_line)
                     except Exception:
                         pass
                 yield chunk
