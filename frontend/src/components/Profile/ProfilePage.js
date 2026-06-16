@@ -3,7 +3,9 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlayCircle, faRobot, faFileAlt } from '@fortawesome/free-solid-svg-icons';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import constants, { API_URL } from '../../constants';
+import { API_URL } from '../../constants';
+import api from '../../services/api';
+import UsageWidget from '../Subscription/UsageWidget';
 import './ProfilePage.css';
 
 const ProfilePage = () => {
@@ -21,13 +23,10 @@ const ProfilePage = () => {
 
     const fetchStats = async () => {
         try {
-            const token = localStorage.getItem('aiml_token');
-            const [sessionsRes, datasetsRes] = await Promise.all([
-                fetch(`${constants.API_BASE_URL}/training-sessions`, { headers: { Authorization: `Bearer ${token}` } }),
-                fetch(`${constants.API_BASE_URL}/user-datasets`, { headers: { Authorization: `Bearer ${token}` } }),
+            const [sessionsData, datasetsData] = await Promise.all([
+                api.get('/training-sessions', { force: true }),
+                api.get('/user-datasets', { force: true }),
             ]);
-            const sessionsData = sessionsRes.ok ? await sessionsRes.json() : { sessions: [] };
-            const datasetsData = datasetsRes.ok ? await datasetsRes.json() : { datasets: [] };
             const sessions = sessionsData.sessions || [];
             const uniqueModels = new Set(sessions.map(s => s.model_code));
             setStats({
@@ -62,6 +61,9 @@ const ProfilePage = () => {
                     ⚙️ Edit Profile
                 </Link>
             </div>
+
+            {/* Subscription usage (self-hides unless the feature flag is on) */}
+            <UsageWidget />
 
             <div className="profile-stats">
                 <div className="stat-card">

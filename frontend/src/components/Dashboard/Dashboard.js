@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlayCircle, faFileAlt, faRobot, faBullseye, faRedo } from '@fortawesome/free-solid-svg-icons';
+import { faPlayCircle, faFileAlt, faRobot, faCircleCheck, faRedo } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
 import DownloadResultsZip from '../DownloadResultsZip/DownloadResultsZip';
 import { useModelRegistry, getModelExtension } from '../../hooks/useModelRegistry';
+import { truncateName } from '../../utils/truncateName';
+import usePagination from '../../hooks/usePagination';
+import Pagination from '../shared/Pagination';
 import './Dashboard.css';
 
 const Dashboard = () => {
@@ -25,8 +28,10 @@ const Dashboard = () => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const sessionsRes = await api.get('/training-sessions');
-                const datasetsRes = await api.get('/user-datasets');
+                // force: skip the GET cache so a session created by an SSE
+                // training run (which doesn't go through api.*) shows up here.
+                const sessionsRes = await api.get('/training-sessions', { force: true });
+                const datasetsRes = await api.get('/user-datasets', { force: true });
 
                 console.log('Sessions raw response:', sessionsRes);
 
@@ -80,17 +85,26 @@ const Dashboard = () => {
     };
 
     const handleReplaySession = (session) => {
-        // Store session data for the target model component to pick up
+        // Store session data for the target model component to pick up.
+        // Including session_id + status lets the model page restore the run's
+        // state: show saved results if completed, or re-attach to live
+        // training progress if it's still running.
         sessionStorage.setItem('replay_session', JSON.stringify({
+            session_id: session._id,
+            status: session.status,
             hyperparams: session.hyperparams,
             model_code: session.model_code,
             dataset_info: session.dataset_info,
+            dataset_config: session.dataset_config || {},
         }));
-        // Also store the dataset selection in localStorage using the model's cache key
+        // Also store the dataset selection in localStorage using the model's cache
+        // key, including the ids so the dataset dropdown can re-select it.
         if (session.dataset_info?.filename) {
             localStorage.setItem(`${session.model_code}_dataset`, JSON.stringify({
                 filename: session.dataset_info.filename,
                 file_type: session.dataset_info.file_type || 'csv',
+                dataset_id: session.dataset_info.dataset_id || null,
+                drive_id: session.dataset_info.drive_id || null,
             }));
         }
         // Navigate to Lab — the model needs to be selected from sidebar
@@ -132,9 +146,11 @@ const Dashboard = () => {
 
     const totalModels = new Set(sessions.map(s => s.model_code)).size;
     const completedSessions = sessions.filter(s => s.status === 'completed');
-    const avgAccuracy = completedSessions.length > 0
-        ? (completedSessions.reduce((sum, s) => sum + (s.results?.accuracy || 0), 0) / completedSessions.length * 100).toFixed(1)
-        : 'N/A';
+
+    // Paginate both lists client-side (the endpoints return everything,
+    // sorted newest-first) so each section stays compact on the dashboard.
+    const sessionsPage = usePagination(sessions, 10);
+    const datasetsPage = usePagination(datasets, 8);
 
     if (loading) {
         return (
@@ -201,11 +217,11 @@ const Dashboard = () => {
                 </div>
                 <div className="stat-card">
                     <span className="stat-icon">
-                        <FontAwesomeIcon icon={faBullseye} />
+                        <FontAwesomeIcon icon={faCircleCheck} />
                     </span>
                     <div>
-                        <span className="stat-number">{avgAccuracy}%</span>
-                        <span className="stat-text">Avg Accuracy</span>
+                        <span className="stat-number">{completedSessions.length}</span>
+                        <span className="stat-text">Completed Runs</span>
                     </div>
                 </div>
             </div>
@@ -234,7 +250,7 @@ const Dashboard = () => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {sessions.slice(0, 10).map((s) => (
+                                {sessionsPage.pageItems.map((s) => (
                                     <tr key={s._id}>
                                         <td className="model-cell">
                                             <span className="model-badge" title={s.model_code}>{s.model_code}</span>
@@ -291,6 +307,14 @@ const Dashboard = () => {
                                 ))}
                             </tbody>
                         </table>
+                        <Pagination
+                            page={sessionsPage.page}
+                            totalPages={sessionsPage.totalPages}
+                            totalItems={sessionsPage.totalItems}
+                            pageSize={sessionsPage.pageSize}
+                            onChange={sessionsPage.setPage}
+                            unitLabel="sessions"
+                        />
                     </div>
                 )}
             </div>
@@ -303,18 +327,28 @@ const Dashboard = () => {
                         <p>No datasets uploaded yet.</p>
                     </div>
                 ) : (
-                    <div className="datasets-grid">
-                        {datasets.map((d) => (
-                            <div className="dataset-card" key={d._id}>
-                                <span className="dataset-icon">📄</span>
-                                <div className="dataset-info">
-                                    <span className="dataset-name" title={d.filename}>{d.filename}</span>
-                                    <span className="dataset-date">{new Date(d.uploaded_at).toLocaleDateString()}</span>
+                    <>
+                        <div className="datasets-grid">
+                            {datasetsPage.pageItems.map((d) => (
+                                <div className="dataset-card" key={d._id}>
+                                    <span className="dataset-icon">📄</span>
+                                    <div className="dataset-info">
+                                        <span className="dataset-name" title={d.filename}>{truncateName(d.filename, 28)}</span>
+                                        <span className="dataset-date">{new Date(d.uploaded_at).toLocaleDateString()}</span>
+                                    </div>
+                                    <span className="dataset-type">{d.file_type}</span>
                                 </div>
-                                <span className="dataset-type">{d.file_type}</span>
-                            </div>
-                        ))}
-                    </div>
+                            ))}
+                        </div>
+                        <Pagination
+                            page={datasetsPage.page}
+                            totalPages={datasetsPage.totalPages}
+                            totalItems={datasetsPage.totalItems}
+                            pageSize={datasetsPage.pageSize}
+                            onChange={datasetsPage.setPage}
+                            unitLabel="datasets"
+                        />
+                    </>
                 )}
             </div>
 
