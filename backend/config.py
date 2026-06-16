@@ -69,6 +69,25 @@ FREE_TIER_FINETUNE_RUNS = int(os.getenv('FREE_TIER_FINETUNE_RUNS', '0'))
 # on free; default is a generous monthly allowance.
 FREE_TIER_DATASTUDIO_OPS = int(os.getenv('FREE_TIER_DATASTUDIO_OPS', '100'))
 
+# Per-account storage caps (number of datasets a user may keep). Enforced on
+# upload + preprocessing output when SUBSCRIPTION_ENABLED. 0 = unlimited.
+FREE_TIER_MAX_DATASETS = int(os.getenv('FREE_TIER_MAX_DATASETS', '20'))
+PRO_TIER_MAX_DATASETS = int(os.getenv('PRO_TIER_MAX_DATASETS', '200'))
+TEAM_TIER_MAX_DATASETS = int(os.getenv('TEAM_TIER_MAX_DATASETS', '1000'))
+
+# --- Stripe (payments) ------------------------------------------------------
+# All optional — when STRIPE_SECRET_KEY is unset, the payment endpoints report
+# "not configured" and the app behaves as before (manual/free only).
+STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY', None)            # sk_test_… / sk_live_…
+STRIPE_PUBLISHABLE_KEY = os.getenv('STRIPE_PUBLISHABLE_KEY', None)  # pk_test_… / pk_live_…
+STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET', None)    # whsec_… (from `stripe listen` / dashboard)
+# Recurring Price IDs created in the Stripe dashboard (one per paid plan).
+STRIPE_PRICE_PRO = os.getenv('STRIPE_PRICE_PRO', None)              # price_…
+STRIPE_PRICE_TEAM = os.getenv('STRIPE_PRICE_TEAM', None)           # price_…
+# Where Stripe Checkout returns the user after success/cancel (frontend URLs).
+STRIPE_SUCCESS_URL = os.getenv('STRIPE_SUCCESS_URL', None)         # e.g. https://app/billing?status=success
+STRIPE_CANCEL_URL = os.getenv('STRIPE_CANCEL_URL', None)           # e.g. https://app/pricing?status=cancel
+
 # --- HuggingFace ---
 HF_TOKEN = os.getenv('HF_TOKEN', None)  # Optional — needed for gated models
 # Shared on-disk cache for base models pulled from the HF Hub, so a given base

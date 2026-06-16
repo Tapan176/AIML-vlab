@@ -16,12 +16,19 @@ caps come from config so they can be tuned via .env without a deploy.
 """
 from datetime import datetime
 
+from bson import ObjectId
+
 from config import (
     SUBSCRIPTION_ENABLED,
     FREE_TIER_CLASSICAL_RUNS,
     FREE_TIER_DEEP_RUNS,
     FREE_TIER_FINETUNE_RUNS,
     FREE_TIER_DATASTUDIO_OPS,
+    FREE_TIER_MAX_DATASETS,
+    PRO_TIER_MAX_DATASETS,
+    TEAM_TIER_MAX_DATASETS,
+    STRIPE_PRICE_PRO,
+    STRIPE_PRICE_TEAM,
 )
 from mongoDb.connection import get_db
 
@@ -41,6 +48,7 @@ PLANS = {
             "finetune": FREE_TIER_FINETUNE_RUNS,
             "datastudio": FREE_TIER_DATASTUDIO_OPS,
         },
+        "max_datasets": FREE_TIER_MAX_DATASETS,
         "features": ["data_profiling", "dataset_versions", "replay"],
         "blurb": "For learning and light experimentation.",
     },
@@ -49,6 +57,7 @@ PLANS = {
         "name": "Pro",
         "price": 9,
         "limits": {"classical": None, "deep": 100, "finetune": 20, "datastudio": None},
+        "max_datasets": PRO_TIER_MAX_DATASETS,
         "features": [
             "data_profiling", "dataset_versions", "replay",
             "priority_queue", "gpu", "all_models",
@@ -60,6 +69,7 @@ PLANS = {
         "name": "Team",
         "price": 29,
         "limits": {"classical": None, "deep": 400, "finetune": 100, "datastudio": None},
+        "max_datasets": TEAM_TIER_MAX_DATASETS,
         "features": [
             "data_profiling", "dataset_versions", "replay",
             "priority_queue", "gpu", "all_models",
@@ -205,6 +215,7 @@ def get_entitlements(user):
         "plan": plan["id"],
         "plan_name": plan["name"],
         "limits": plan["limits"],
+        "max_datasets": plan.get("max_datasets"),
         "features": plan.get("features", []),
         "usage": out,
         "period": current_period(),
@@ -220,8 +231,88 @@ def list_plans():
             "name": p["name"],
             "price": p["price"],
             "limits": p["limits"],
+            "max_datasets": p.get("max_datasets"),
             "features": p.get("features", []),
             "blurb": p.get("blurb", ""),
         }
         for p in PLANS.values()
     ]
+
+
+# ── Storage (dataset count) quota ───────────────────────────────────────────
+
+def check_storage_quota(user, additional=1):
+    """Return (ok, info) for whether the user may keep `additional` more
+    datasets. No-op (allowed) when subscriptions are disabled. `additional`
+    lets callers pre-check before an upload."""
+    if not SUBSCRIPTION_ENABLED or not user:
+        return True, None
+    plan = get_user_plan(user)
+    cap = plan.get("max_datasets")
+    if not cap:  # None or 0 → unlimited
+        return True, None
+    current = _dataset_count(user["_id"])
+    if current + additional > cap:
+        return False, {
+            "error": "storage_quota_exceeded",
+            "used": current,
+            "limit": cap,
+            "plan": plan["id"],
+            "plan_name": plan["name"],
+            "message": (
+                f"You've reached the {cap}-dataset limit on the {plan['name']} plan. "
+                f"Delete some datasets or upgrade for more storage."
+            ),
+        }
+    return True, None
+
+
+# ── Stripe ↔ plan mapping + subscription mutation ───────────────────────────
+
+def price_id_for_plan(plan_id):
+    """Map an internal plan id → the Stripe Price ID (from config)."""
+    return {"pro": STRIPE_PRICE_PRO, "team": STRIPE_PRICE_TEAM}.get(plan_id)
+
+
+def plan_for_price_id(price_id):
+    """Reverse map a Stripe Price ID → internal plan id (for webhooks)."""
+    if price_id and price_id == STRIPE_PRICE_PRO:
+        return "pro"
+    if price_id and price_id == STRIPE_PRICE_TEAM:
+        return "team"
+    return None
+
+
+def set_user_subscription(user_id, plan_id, status="active", stripe_customer_id=None,
+                          stripe_subscription_id=None, current_period_end=None):
+    """Persist a user's subscription state (called from Stripe webhooks).
+
+    Storing the Stripe customer/subscription ids lets us open the billing portal
+    and reconcile future webhook events. `status` follows Stripe's subscription
+    statuses (active, trialing, past_due, canceled, …)."""
+    db = get_db()
+    sub = {
+        "plan": plan_id or "free",
+        "status": status,
+    }
+    if stripe_customer_id:
+        sub["stripe_customer_id"] = stripe_customer_id
+    if stripe_subscription_id:
+        sub["stripe_subscription_id"] = stripe_subscription_id
+    if current_period_end is not None:
+        sub["current_period_end"] = current_period_end
+    db.users.update_one({"_id": ObjectId(str(user_id))}, {"$set": {"subscription": sub}})
+    # Bust the auth middleware's user cache so the new plan takes effect at once.
+    try:
+        from auth.auth_middleware import invalidate_user_cache
+        invalidate_user_cache(user_id)
+    except Exception:
+        pass
+    return sub
+
+
+def find_user_by_stripe_customer(customer_id):
+    """Locate the local user for a Stripe customer id (webhook reconciliation)."""
+    if not customer_id:
+        return None
+    return get_db().users.find_one({"subscription.stripe_customer_id": customer_id})

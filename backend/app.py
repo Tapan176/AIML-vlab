@@ -34,6 +34,16 @@ try:
     app.json.sort_keys = False         # Flask >= 2.2 (provider-based)
 except Exception:
     pass
+
+# Hard backstop on request body size so a malicious client can't exhaust memory
+# /disk by streaming a huge upload. Slightly above MAX_UPLOAD_SIZE_BYTES to
+# leave room for multipart overhead; the upload route also checks the per-plan
+# storage cap and returns a friendly 413/429.
+try:
+    from config import MAX_UPLOAD_SIZE_BYTES
+    app.config['MAX_CONTENT_LENGTH'] = MAX_UPLOAD_SIZE_BYTES + (5 * 1024 * 1024)
+except Exception:
+    pass
 # Apply CORS — allow credentials so Authorization header passes preflight
 CORS(app, resources={r"/*": {
     "origins": ALLOWED_ORIGINS,
@@ -81,6 +91,14 @@ app.register_blueprint(oauth_routes, url_prefix='/api')
 app.register_blueprint(admin_routes, url_prefix='/api/admin')
 app.register_blueprint(finetune_routes, url_prefix='/api')
 app.register_blueprint(subscription_routes, url_prefix='/api')
+
+# Stripe calls the webhook from its own IPs and can burst on retries — exempt it
+# from the per-IP rate limit so legitimate billing events are never dropped.
+# (The endpoint still verifies the Stripe signature, so it's not open abuse.)
+try:
+    limiter.exempt(app.view_functions['subscription_routes.stripe_webhook'])
+except Exception as e:
+    print(f"Could not exempt stripe webhook from rate limit: {e}")
 
 @app.route('/api')
 def health_check():
