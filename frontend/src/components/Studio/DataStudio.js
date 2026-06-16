@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
-import constants from '../../constants';
+import api from '../../services/api';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTrash, faDatabase, faMagic, faTags, faChartBar, faCodeBranch, faSave, faFolderOpen } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../../context/AuthContext';
 import ShowDataset from '../Dataset/ShowDataset';
 import ImageAnnotation from './ImageAnnotation';
+import { truncateName } from '../../utils/truncateName';
 import './DataStudio.css';
 
 export default function DataStudio() {
@@ -34,12 +35,8 @@ export default function DataStudio() {
 
     const fetchDatasets = async () => {
         setLoading(true);
-        const token = localStorage.getItem('aiml_token');
         try {
-            const res = await fetch(`${constants.API_BASE_URL}/user-datasets`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const data = await res.json();
+            const data = await api.get('/user-datasets');
             setDatasets(data.datasets || []);
         } catch (err) {
             console.error("Failed to fetch cloud datasets:", err);
@@ -61,42 +58,32 @@ export default function DataStudio() {
 
     const fetchTemplates = useCallback(async () => {
         try {
-            const res = await fetch(`${constants.API_BASE_URL}/pipelines/templates`);
-            if (res.ok) setTemplates(await res.json());
+            setTemplates(await api.get('/pipelines/templates'));
         } catch {}
     }, []);
 
     const fetchPipelines = useCallback(async () => {
-        const token = localStorage.getItem('aiml_token');
         try {
-            const res = await fetch(`${constants.API_BASE_URL}/pipelines`, { headers: { 'Authorization': `Bearer ${token}` } });
-            if (res.ok) setSavedPipelines(await res.json());
+            setSavedPipelines(await api.get('/pipelines'));
         } catch {}
     }, []);
 
     const handleSavePipeline = async () => {
         if (!pipelineName.trim() || prepOperations.length === 0) { alert('Enter a name and add operations.'); return; }
-        const token = localStorage.getItem('aiml_token');
         try {
-            const res = await fetch(`${constants.API_BASE_URL}/pipelines`, {
-                method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: pipelineName.trim(), operations: prepOperations })
-            });
-            if (res.ok) { alert(`Pipeline '${pipelineName}' saved!`); fetchPipelines(); }
+            await api.post('/pipelines', { name: pipelineName.trim(), operations: prepOperations });
+            alert(`Pipeline '${pipelineName}' saved!`);
+            fetchPipelines();
         } catch { alert('Failed to save pipeline.'); }
     };
 
     const handleLoadPipeline = async (name) => {
-        const token = localStorage.getItem('aiml_token');
         try {
-            const res = await fetch(`${constants.API_BASE_URL}/pipelines/${encodeURIComponent(name)}`, { headers: { 'Authorization': `Bearer ${token}` } });
-            if (res.ok) {
-                const data = await res.json();
-                setPrepOperations(data.operations || []);
-                setPipelineName(name);
-                setActiveTab('preprocessing');
-                alert(`Loaded '${name}' (${data.operations.length} ops).`);
-            }
+            const data = await api.get(`/pipelines/${encodeURIComponent(name)}`);
+            setPrepOperations(data.operations || []);
+            setPipelineName(name);
+            setActiveTab('preprocessing');
+            alert(`Loaded '${name}' (${data.operations.length} ops).`);
         } catch { alert('Failed to load pipeline.'); }
     };
 
@@ -108,10 +95,8 @@ export default function DataStudio() {
     const handleLoadProfile = async () => {
         if (!profileDataset) return;
         setProfiling(true); setProfile(null);
-        const token = localStorage.getItem('aiml_token');
         try {
-            const res = await fetch(`${constants.API_BASE_URL}/datasets/${profileDataset}/profile`, { headers: { 'Authorization': `Bearer ${token}` } });
-            if (res.ok) setProfile(await res.json());
+            setProfile(await api.get(`/datasets/${profileDataset}/profile`));
         } catch { alert('Profiling failed.'); }
         setProfiling(false);
     };
@@ -119,13 +104,8 @@ export default function DataStudio() {
     const handleDiff = async () => {
         if (!diffA || !diffB) return;
         setDiffing(true); setDiffResult(null);
-        const token = localStorage.getItem('aiml_token');
         try {
-            const res = await fetch(`${constants.API_BASE_URL}/datasets/diff`, {
-                method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ dataset_id_a: diffA, dataset_id_b: diffB })
-            });
-            if (res.ok) setDiffResult(await res.json());
+            setDiffResult(await api.post('/datasets/diff', { dataset_id_a: diffA, dataset_id_b: diffB }));
         } catch { alert('Diff failed.'); }
         setDiffing(false);
     };
@@ -138,22 +118,13 @@ export default function DataStudio() {
 
     const handleDelete = async (id, filename) => {
         if (!window.confirm(`Are you sure you want to permanently delete "${filename}" from your cloud library?`)) return;
-        
-        const token = localStorage.getItem('aiml_token');
+
         try {
-            const res = await fetch(`${constants.API_BASE_URL}/datasets/${id}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (res.ok) {
-                setDatasets(datasets.filter(d => d._id !== id));
-            } else {
-                const err = await res.json();
-                alert(err.error || 'Failed to delete dataset');
-            }
+            await api.delete(`/datasets/${id}`);
+            setDatasets(datasets.filter(d => d._id !== id));
         } catch (err) {
             console.error(err);
-            alert('Deletion failed');
+            alert(err.data?.error || err.message || 'Deletion failed');
         }
     };
 
@@ -164,33 +135,19 @@ export default function DataStudio() {
         }
         
         setIsProcessing(true);
-        const token = localStorage.getItem('aiml_token');
         try {
-            const res = await fetch(`${constants.API_BASE_URL}/datasets/preprocess`, {
-                method: 'POST',
-                headers: { 
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    dataset_id: selectedPrepDataset,
-                    operations: prepOperations
-                })
+            const data = await api.post('/datasets/preprocess', {
+                dataset_id: selectedPrepDataset,
+                operations: prepOperations
             });
-            
-            const data = await res.json();
-            if (res.ok) {
-                alert(`Success! Generated new dataset: ${data.dataset?.filename}`);
-                setDatasets([data.dataset, ...datasets]);
-                setSelectedPrepDataset('');
-                setPrepOperations([]);
-                setActiveTab('manager'); // Switch back to view it
-            } else {
-                alert(`Error: ${data.error}`);
-            }
+            alert(`Success! Generated new dataset: ${data.dataset?.filename}`);
+            setDatasets([data.dataset, ...datasets]);
+            setSelectedPrepDataset('');
+            setPrepOperations([]);
+            setActiveTab('manager'); // Switch back to view it
         } catch (err) {
             console.error(err);
-            alert('Preprocessing request failed.');
+            alert(err.data?.error ? `Error: ${err.data.error}` : 'Preprocessing request failed.');
         } finally {
             setIsProcessing(false);
         }
@@ -303,7 +260,7 @@ export default function DataStudio() {
                                 >
                                     <option value="">-- Choose a CSV dataset --</option>
                                     {datasets.filter(d => d.file_type === 'csv').map(d => (
-                                        <option key={d._id} value={d._id}>{d.filename}</option>
+                                        <option key={d._id} value={d._id} title={d.filename}>{truncateName(d.filename, 42)}</option>
                                     ))}
                                 </select>
                             </div>
@@ -400,7 +357,7 @@ export default function DataStudio() {
                                 <label>Select Dataset:</label>
                                 <select className="form-control" value={profileDataset} onChange={e => setProfileDataset(e.target.value)}>
                                     <option value="">-- Choose a CSV dataset --</option>
-                                    {datasets.filter(d => d.file_type === 'csv').map(d => <option key={d._id} value={d._id}>{d.filename}</option>)}
+                                    {datasets.filter(d => d.file_type === 'csv').map(d => <option key={d._id} value={d._id} title={d.filename}>{truncateName(d.filename, 42)}</option>)}
                                 </select>
                             </div>
                             <button className="btn-run-prep" onClick={handleLoadProfile} disabled={profiling || !profileDataset}>
@@ -502,14 +459,14 @@ export default function DataStudio() {
                                 <label>Dataset A (Before):</label>
                                 <select className="form-control" value={diffA} onChange={e => setDiffA(e.target.value)}>
                                     <option value="">-- Select dataset --</option>
-                                    {datasets.filter(d => d.file_type === 'csv').map(d => <option key={d._id} value={d._id}>{d.filename}</option>)}
+                                    {datasets.filter(d => d.file_type === 'csv').map(d => <option key={d._id} value={d._id} title={d.filename}>{truncateName(d.filename, 42)}</option>)}
                                 </select>
                             </div>
                             <div className="prep-form-group">
                                 <label>Dataset B (After):</label>
                                 <select className="form-control" value={diffB} onChange={e => setDiffB(e.target.value)}>
                                     <option value="">-- Select dataset --</option>
-                                    {datasets.filter(d => d.file_type === 'csv').map(d => <option key={d._id} value={d._id}>{d.filename}</option>)}
+                                    {datasets.filter(d => d.file_type === 'csv').map(d => <option key={d._id} value={d._id} title={d.filename}>{truncateName(d.filename, 42)}</option>)}
                                 </select>
                             </div>
                             <button className="btn-run-prep" onClick={handleDiff} disabled={diffing || !diffA || !diffB}>
@@ -519,10 +476,10 @@ export default function DataStudio() {
                                 <div style={{ marginTop: '20px' }}>
                                     <div style={{ display: 'flex', gap: '20px', marginBottom: '16px', flexWrap: 'wrap' }}>
                                         <div style={{ padding: '12px', background: 'var(--bg-card)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                                            <strong>{diffResult.dataset_a.filename}</strong>: {diffResult.dataset_a.rows} rows, {diffResult.dataset_a.cols} cols
+                                            <strong title={diffResult.dataset_a.filename}>{truncateName(diffResult.dataset_a.filename, 32)}</strong>: {diffResult.dataset_a.rows} rows, {diffResult.dataset_a.cols} cols
                                         </div>
                                         <div style={{ padding: '12px', background: 'var(--bg-card)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                                            <strong>{diffResult.dataset_b.filename}</strong>: {diffResult.dataset_b.rows} rows, {diffResult.dataset_b.cols} cols
+                                            <strong title={diffResult.dataset_b.filename}>{truncateName(diffResult.dataset_b.filename, 32)}</strong>: {diffResult.dataset_b.rows} rows, {diffResult.dataset_b.cols} cols
                                         </div>
                                     </div>
                                     <div style={{ padding: '12px', background: diffResult.rows_delta !== 0 ? 'rgba(255,149,0,0.08)' : 'rgba(52,199,89,0.08)', borderRadius: '8px', marginBottom: '12px' }}>

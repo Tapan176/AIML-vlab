@@ -1,7 +1,8 @@
 /* eslint-disable jsx-a11y/img-redundant-alt */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import constants from '../../constants';
 import api from '../../services/api';
+import { truncateName } from '../../utils/truncateName';
 
 const TAB_CLOUD = 'cloud';
 const TAB_UPLOAD = 'upload';
@@ -60,7 +61,7 @@ function OnDemandFolderImages({ datasetId, folder, imageCount, renderImageGrid }
     return null;
 }
 
-export default function ShowDataset({ onDatasetUpload, ...props }) {
+export default function ShowDataset({ onDatasetUpload, initialFilename, onColumnsDetected, ...props }) {
     const [csvData, setCsvData] = useState(null);
     const [imageLinks, setImageLinks] = useState([]);
     const [showDataset, setShowDataset] = useState(false);
@@ -84,6 +85,30 @@ export default function ShowDataset({ onDatasetUpload, ...props }) {
     const [selectedVersion, setSelectedVersion] = useState(null);
 
     const { allowedTypes } = props;
+
+    // Stable refs to the parent callbacks so column/restore effects don't
+    // re-run just because the parent re-rendered with new function identities.
+    const onColumnsDetectedRef = useRef(onColumnsDetected);
+    onColumnsDetectedRef.current = onColumnsDetected;
+    const onDatasetUploadRef = useRef(onDatasetUpload);
+    onDatasetUploadRef.current = onDatasetUpload;
+    // Guards the one-shot pre-selection of a cached/replayed dataset.
+    const restoredRef = useRef(false);
+
+    // Fetch a dataset's columns (CSV only) and hand them to the parent so it
+    // can render column pickers (used by the fine-tuning pages). Best-effort —
+    // a failure just leaves the parent on its manual-entry fallback.
+    const loadColumns = useCallback(async (datasetId) => {
+        if (!datasetId || !onColumnsDetectedRef.current) return;
+        try {
+            const data = await api.get(`/datasets/${datasetId}/preview`);
+            if (data && data.preview_type === 'csv' && Array.isArray(data.columns)) {
+                onColumnsDetectedRef.current(data.columns);
+            }
+        } catch (err) {
+            // Non-fatal: parent keeps its manual column entry.
+        }
+    }, []);
 
     useEffect(() => {
         const fetchDatasets = async () => {
@@ -122,6 +147,27 @@ export default function ShowDataset({ onDatasetUpload, ...props }) {
         fetchDatasets();
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    // Pre-select a cached/replayed dataset once the cloud list has loaded, so
+    // re-opening a model page (or a Dashboard "Replay") shows the dataset that
+    // was actually used instead of "-- Choose a dataset --". Runs once.
+    useEffect(() => {
+        if (restoredRef.current || !initialFilename || cloudDatasets.length === 0) return;
+        const match = cloudDatasets.find(d => d.filename === initialFilename);
+        if (!match) return;
+        restoredRef.current = true;
+        setSelectedCloudDataset(match.filename);
+        setSelectedDatasetId(match._id || null);
+        onDatasetUploadRef.current({
+            filename: match.filename,
+            dataset_id: match._id || null,
+            drive_id: match.drive_id || null,
+            file_type: match.file_type || null,
+        });
+        fetchVersions(match.filename);
+        loadColumns(match._id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [cloudDatasets, initialFilename]);
 
     // Fetch versions when a cloud dataset is selected
     const fetchVersions = useCallback(async (filename) => {
@@ -170,6 +216,7 @@ export default function ShowDataset({ onDatasetUpload, ...props }) {
                 file_type: selectedDs?.file_type || null,
             });
             fetchVersions(filename);
+            loadColumns(selectedDs?._id);
         } else {
             setSelectedDatasetId(null);
             onDatasetUpload(null);
@@ -190,6 +237,7 @@ export default function ShowDataset({ onDatasetUpload, ...props }) {
                 file_type: ver.file_type || null,
                 version: ver.version
             });
+            loadColumns(ver._id);
         }
     }
 
@@ -220,6 +268,10 @@ export default function ShowDataset({ onDatasetUpload, ...props }) {
                 setCsvData(data.csv_data);
                 setImageLinks([]);
                 onDatasetUpload(data);
+                // Surface columns from the freshly uploaded CSV for column pickers.
+                if (onColumnsDetectedRef.current && Array.isArray(data.csv_data) && data.csv_data.length > 0) {
+                    onColumnsDetectedRef.current(Object.keys(data.csv_data[0]));
+                }
             } else if (data.image_links) {
                 setImageLinks(data.image_links.map(link => `${constants.API_BASE_URL}/${link}`));
                 setCsvData(null);
@@ -465,14 +517,14 @@ export default function ShowDataset({ onDatasetUpload, ...props }) {
                                 {cloudDatasets.filter(d => d.group === 'Default').length === 0 ? (
                                     <option value="" disabled>No default datasets</option>
                                 ) : cloudDatasets.filter(d => d.group === 'Default').map(d => (
-                                    <option key={`def-${d._id}`} value={d.filename}>{d.filename} {d.version > 1 ? `(v${d.version})` : ''}</option>
+                                    <option key={`def-${d._id}`} value={d.filename} title={d.filename}>{truncateName(d.filename, 40)} {d.version > 1 ? `(v${d.version})` : ''}</option>
                                 ))}
                             </optgroup>
                             <optgroup label="My Uploads">
                                 {cloudDatasets.filter(d => d.group === 'My Uploads').length === 0 ? (
                                     <option value="" disabled>No user datasets</option>
                                 ) : cloudDatasets.filter(d => d.group === 'My Uploads').map(d => (
-                                    <option key={`usr-${d._id}`} value={d.filename}>{d.filename} {d.version > 1 ? `(v${d.version})` : ''}</option>
+                                    <option key={`usr-${d._id}`} value={d.filename} title={d.filename}>{truncateName(d.filename, 40)} {d.version > 1 ? `(v${d.version})` : ''}</option>
                                 ))}
                             </optgroup>
                         </select>
@@ -495,7 +547,7 @@ export default function ShowDataset({ onDatasetUpload, ...props }) {
                             </button>
                         )}
                     </div>
-                    {selectedCloudDataset && <div style={{ color: 'green', fontSize: '0.9em', marginTop: '8px' }}>✓ Selected: {selectedCloudDataset}{selectedVersion ? ` (v${selectedVersion.version})` : ''}</div>}
+                    {selectedCloudDataset && <div style={{ color: 'green', fontSize: '0.9em', marginTop: '8px' }} title={selectedCloudDataset}>✓ Selected: {truncateName(selectedCloudDataset, 48)}{selectedVersion ? ` (v${selectedVersion.version})` : ''}</div>}
                 </div>
             )}
 

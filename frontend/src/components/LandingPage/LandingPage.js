@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useState, useEffect } from 'react';
-import { API_URL, MODEL_CATEGORIES } from '../../constants';
+import { MODEL_CATEGORIES } from '../../constants';
+import { fetchModelRegistry } from '../../hooks/useModelRegistry';
 import './LandingPage.css';
 
 const FEATURES = [
@@ -67,22 +68,24 @@ const LandingPage = () => {
     const [modelCount, setModelCount] = useState(20);
 
     useEffect(() => {
-        fetch(`${API_URL}/models/registry`)
-            .then(res => res.json())
+        let active = true;
+        // Use the shared, module-cached registry fetch so this reuses the same
+        // request/cache as the rest of the app (no duplicate network call).
+        fetchModelRegistry()
             .then(data => {
-                if (data.models) {
-                    const modelList = Object.values(data.models).map(m => ({
-                        name: m.name,
-                        category: m.category,
-                        color: CATEGORY_COLORS[m.category] || '#6c63ff',
-                    }));
-                    if (modelList.length > 0) {
-                        setModels(modelList);
-                        setModelCount(modelList.length);
-                    }
+                if (!active || !data.models) return;
+                const modelList = Object.values(data.models).map(m => ({
+                    name: m.name,
+                    category: m.category,
+                    color: CATEGORY_COLORS[m.category] || '#6c63ff',
+                }));
+                if (modelList.length > 0) {
+                    setModels(modelList);
+                    setModelCount(modelList.length);
                 }
             })
             .catch(() => {});
+        return () => { active = false; };
     }, []);
 
     return (

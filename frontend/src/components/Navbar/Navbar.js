@@ -2,12 +2,14 @@ import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { useSubscription } from '../../context/SubscriptionContext';
 import { API_URL } from '../../constants';
 import './Navbar.css';
 
 const Navbar = () => {
     const { user, isAuthenticated, logout } = useAuth();
     const { isDark, toggleTheme } = useTheme();
+    const { enabled: subscriptionEnabled } = useSubscription();
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const dropdownRef = useRef(null);
     const location = useLocation();
@@ -41,11 +43,12 @@ const Navbar = () => {
                             <Link to="/lab" className={`nav-link ${isActive('/lab') ? 'active' : ''}`}>Lab</Link>
                             <Link to="/datasets" className={`nav-link ${isActive('/datasets') ? 'active' : ''}`}>Datasets</Link>
                             <Link to="/studio" className={`nav-link ${isActive('/studio') ? 'active' : ''}`}>Data Studio</Link>
+                            <Link to="/dashboard" className={`nav-link ${isActive('/dashboard') ? 'active' : ''}`}>Dashboard</Link>
                         </>
                     )}
                     <Link to="/about" className={`nav-link ${isActive('/about') ? 'active' : ''}`}>About</Link>
-                    {isAuthenticated && (
-                        <Link to="/dashboard" className={`nav-link ${isActive('/dashboard') ? 'active' : ''}`}>Dashboard</Link>
+                    {subscriptionEnabled && (
+                        <Link to="/pricing" className={`nav-link ${isActive('/pricing') ? 'active' : ''}`}>Pricing</Link>
                     )}
                     {isAuthenticated && user?.role === 'admin' && (
                         <Link to="/admin" className={`nav-link ${isActive('/admin') ? 'active' : ''}`}>Admin Panel</Link>

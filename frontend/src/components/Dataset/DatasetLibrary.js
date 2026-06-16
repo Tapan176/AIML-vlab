@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
+import { truncateName } from '../../utils/truncateName';
+import usePagination from '../../hooks/usePagination';
+import Pagination from '../shared/Pagination';
 import './DatasetLibrary.css';
 
 const DatasetLibrary = () => {
@@ -76,6 +79,13 @@ const DatasetLibrary = () => {
         d.filename?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
+    // 12 per page — a dedicated browse page with large cards + search.
+    const { page, setPage, totalPages, pageItems, totalItems, pageSize } = usePagination(filteredDatasets, 12);
+
+    // Jump back to the first page whenever the search filter changes so the
+    // user always sees the top of the new result set.
+    useEffect(() => { setPage(1); }, [searchQuery, setPage]);
+
     if (loading && datasets.length === 0) return <div className="library-loading">Loading datasets...</div>;
 
     return (
@@ -114,14 +124,15 @@ const DatasetLibrary = () => {
                     <p>No datasets found.</p>
                 </div>
             ) : (
+                <>
                 <div className="dataset-grid">
-                    {filteredDatasets.map((dataset) => (
+                    {pageItems.map((dataset) => (
                         <div className="dataset-card" key={dataset._id}>
                             <div className="dataset-icon">
                                 {dataset.file_type === 'csv' ? '📊' : dataset.file_type === 'zip' ? '🗂️' : '📄'}
                             </div>
                             <div className="dataset-info">
-                                <h3 title={dataset.filename}>{dataset.filename}</h3>
+                                <h3 title={dataset.filename}>{truncateName(dataset.filename, 30)}</h3>
                                 <p className="dataset-date">Added {new Date(dataset.uploaded_at).toLocaleDateString()}</p>
                                 <div className="dataset-badges">
                                     <span className="badge type-badge">{dataset.file_type?.toUpperCase()}</span>
@@ -146,6 +157,15 @@ const DatasetLibrary = () => {
                         </div>
                     ))}
                 </div>
+                <Pagination
+                    page={page}
+                    totalPages={totalPages}
+                    totalItems={totalItems}
+                    pageSize={pageSize}
+                    onChange={setPage}
+                    unitLabel="datasets"
+                />
+                </>
             )}
         </div>
     );

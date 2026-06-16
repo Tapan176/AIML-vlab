@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { SubscriptionProvider } from './context/SubscriptionContext';
 import Navbar from './components/Navbar/Navbar';
 import LandingPage from './components/LandingPage/LandingPage';
 import Home from './components/Home/Home';
@@ -13,9 +14,10 @@ import Dashboard from './components/Dashboard/Dashboard';
 import AboutUs from './components/AboutUs/AboutUs';
 import Settings from './components/Profile/Settings';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
-import AdminDashboard from './components/Admin/AdminDashboard';
+import AdminLayout from './components/Admin/AdminLayout';
 import DatasetLibrary from './components/Dataset/DatasetLibrary';
 import DataStudio from './components/Studio/DataStudio';
+import PricingPage from './components/Subscription/PricingPage';
 import './App.css';
 
 function App() {
@@ -23,10 +25,12 @@ function App() {
         <ThemeProvider>
             <AuthProvider>
                 <Router>
+                    <SubscriptionProvider>
                     <Navbar />
                     <div className="app-content">
                         <Routes>
                             <Route path="/" element={<LandingPage />} />
+                            <Route path="/pricing" element={<PricingPage />} />
                             <Route path="/lab" element={
                                 <ProtectedRoute>
                                     <Home />
@@ -68,11 +72,12 @@ function App() {
                             } />
                             <Route path="/admin" element={
                                 <ProtectedRoute>
-                                    <AdminDashboard />
+                                    <AdminLayout />
                                 </ProtectedRoute>
                             } />
                         </Routes>
                     </div>
+                    </SubscriptionProvider>
                 </Router>
             </AuthProvider>
         </ThemeProvider>
