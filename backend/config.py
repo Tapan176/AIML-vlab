@@ -52,6 +52,19 @@ FLASK_PORT = int(os.getenv('FLASK_PORT', '5050'))
 FLASK_DEBUG = os.getenv('FLASK_DEBUG', 'true').lower() == 'true'
 ALLOWED_ORIGINS = os.getenv('ALLOWED_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000,http://localhost:5050,http://127.0.0.1:5050').split(',')
 
+# --- Subscription / Quotas ---
+# Master switch. When false (default) the app behaves exactly as before:
+# no quotas are enforced and the subscription UI stays hidden. Flip to true
+# (SUBSCRIPTION_ENABLED=true in .env) to turn on tiered usage limits.
+SUBSCRIPTION_ENABLED = os.getenv('SUBSCRIPTION_ENABLED', 'false').lower() == 'true'
+# Free-tier monthly run caps, only enforced when SUBSCRIPTION_ENABLED. Runs are
+# classed as classical (scikit-learn/XGBoost), deep (CNN/ANN/ResNet/LSTM/YOLO/
+# StyleGAN), or finetune (BERT/DistilBERT/ViT). A value of 0 blocks that class
+# on the free tier (e.g. fine-tuning is the heaviest, so it's off by default).
+FREE_TIER_CLASSICAL_RUNS = int(os.getenv('FREE_TIER_CLASSICAL_RUNS', '50'))
+FREE_TIER_DEEP_RUNS = int(os.getenv('FREE_TIER_DEEP_RUNS', '5'))
+FREE_TIER_FINETUNE_RUNS = int(os.getenv('FREE_TIER_FINETUNE_RUNS', '0'))
+
 # --- HuggingFace ---
 HF_TOKEN = os.getenv('HF_TOKEN', None)  # Optional — needed for gated models
 # Shared on-disk cache for base models pulled from the HF Hub, so a given base

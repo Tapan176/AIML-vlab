@@ -22,8 +22,18 @@ from auth.auth_route import auth_routes
 from auth.oauth_route import oauth_routes
 from admin.admin_route import admin_routes
 from models.finetune_routes import finetune_routes
+from subscription.subscription_route import subscription_routes
 
 app = Flask(__name__)
+# Preserve dict insertion order in JSON responses. Flask sorts keys
+# alphabetically by default, which scrambled the model registry's category and
+# model ordering (the Sidebar relies on the backend's intentional Regression →
+# … → Fine-Tuning order). Disable sorting so jsonify keeps insertion order.
+app.config['JSON_SORT_KEYS'] = False  # Flask < 2.2
+try:
+    app.json.sort_keys = False         # Flask >= 2.2 (provider-based)
+except Exception:
+    pass
 # Apply CORS — allow credentials so Authorization header passes preflight
 CORS(app, resources={r"/*": {
     "origins": ALLOWED_ORIGINS,
@@ -70,6 +80,7 @@ app.register_blueprint(auth_routes, url_prefix='/api')
 app.register_blueprint(oauth_routes, url_prefix='/api')
 app.register_blueprint(admin_routes, url_prefix='/api/admin')
 app.register_blueprint(finetune_routes, url_prefix='/api')
+app.register_blueprint(subscription_routes, url_prefix='/api')
 
 @app.route('/api')
 def health_check():
