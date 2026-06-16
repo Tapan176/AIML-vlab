@@ -22,7 +22,7 @@
     font-size: 1.8rem;
     font-weight: 700;
     margin-bottom: 4px;
-    background: linear-gradient(135deg, var(--accent), #a78bfa);
+    background: var(--gradient-primary);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -209,7 +209,7 @@
 
 /* Run Button */
 .btn-run {
-    background: linear-gradient(135deg, var(--accent), #a78bfa);
+    background: var(--gradient-primary);
     color: #fff;
     border: none;
     padding: 12px 32px;

@@ -28,7 +28,7 @@
     width: 80px;
     height: 80px;
     border-radius: 50%;
-    background: linear-gradient(135deg, var(--accent), #a78bfa);
+    background: var(--gradient-primary);
     color: white;
     display: flex;
     align-items: center;

@@ -10,10 +10,13 @@
    file's backgrounds leak globally and darken those pages. All colors use the
    shared theme variables from index.css so the pages follow light/dark theme. */
 
+/* Match the classical model pages' full-width layout (.model-page in
+   ModelCss/ModelPage.css uses width:100% + 28px 36px padding) so fine-tuning
+   pages don't sit in a narrow centered column while the rest use the whole
+   space. */
 .model-container {
-    max-width: 920px;
-    margin: 0 auto;
-    padding: 24px 20px 48px;
+    width: 100%;
+    padding: 28px 36px 48px;
 }
 
 .model-container .model-header {
@@ -42,7 +45,7 @@
 }
 
 .model-container .model-badge.fine-tuning {
-    background: linear-gradient(135deg, var(--accent), #a78bfa);
+    background: var(--gradient-primary);
     color: #fff;
 }
 
@@ -112,7 +115,7 @@
     padding: 12px;
     border: none;
     border-radius: 10px;
-    background: linear-gradient(135deg, var(--accent), #a78bfa);
+    background: var(--gradient-primary);
     color: #fff;
     font-size: 1rem;
     font-weight: 600;

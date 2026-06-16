@@ -43,7 +43,7 @@
     width: 100px;
     height: 100px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #5b21b6 0%, #a78bfa 100%);
+    background: var(--gradient-primary);
     color: white;
     display: flex;
     align-items: center;
@@ -86,7 +86,7 @@
     display: inline-block;
     margin-top: 0.5rem;
     padding: 0.7rem 1.8rem;
-    background: linear-gradient(135deg, #5b21b6 0%, #7c3aed 100%);
+    background: var(--gradient-primary);
     border: none;
     border-radius: 10px;
     color: white;
@@ -172,7 +172,7 @@
 .stat-value {
     font-size: 2.2rem;
     font-weight: 800;
-    color: #5b21b6;
+    color: var(--accent);
     line-height: 1;
     margin-bottom: 0.5rem;
     position: relative;
@@ -216,9 +216,9 @@
 }
 
 .profile-action-link:hover {
-    border-color: #5b21b6;
+    border-color: var(--accent);
     transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(91, 33, 182, 0.15);
+    box-shadow: 0 6px 16px var(--accent-glow);
     text-decoration: none;
 }
 

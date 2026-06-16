@@ -28,7 +28,7 @@
     font-size: 2.2rem;
     font-weight: 800;
     margin: 0;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--gradient-primary);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -68,7 +68,7 @@
     left: 0;
     right: 0;
     height: 3px;
-    background: linear-gradient(90deg, #667eea, #764ba2);
+    background: var(--gradient-primary);
     opacity: 0;
     transition: opacity 0.3s ease;
 }
@@ -151,7 +151,7 @@
     content: '';
     width: 4px;
     height: 28px;
-    background: linear-gradient(180deg, #667eea, #764ba2);
+    background: var(--gradient-primary);
     border-radius: 2px;
 }
 
@@ -237,6 +237,12 @@
     border-bottom: none;
 }
 
+/* Pagination styles live in shared/Pagination.css. Give the sessions-table
+   pagination a top divider so it reads as part of the table. */
+.sessions-table .pagination {
+    border-top: 1px solid var(--border-color);
+}
+
 .model-badge {
     background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.15));
     color: var(--accent);
@@ -318,7 +324,7 @@
     left: 0;
     right: 0;
     height: 3px;
-    background: linear-gradient(90deg, #667eea, #764ba2);
+    background: var(--gradient-primary);
     transform: scaleX(0);
     transform-origin: left;
     transition: transform 0.3s ease;
@@ -457,7 +463,7 @@
 
 /* Feedback Button */
 .btn-feedback {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--gradient-primary);
     color: white;
     border: none;
     padding: 0.85rem 1.8rem;
@@ -540,7 +546,7 @@
     font-size: 1.7rem;
     font-weight: 800;
     margin: 0 0 2rem 0;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--gradient-primary);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -612,7 +618,7 @@
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--gradient-primary);
     color: white;
     border: none;
     padding: 0.8rem 1.6rem;

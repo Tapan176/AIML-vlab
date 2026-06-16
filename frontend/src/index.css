@@ -14,14 +14,23 @@
     --bg-input: #1e1e4a;
     --bg-navbar: rgba(12, 12, 29, 0.85);
 
-    --text-primary: #e8e8f0;
-    --text-secondary: #9898b8;
+    --text-primary: #ececf4;
+    --text-secondary: #b0b0cc;
 
-    --border-color: rgba(140, 140, 200, 0.12);
+    --border-color: rgba(120, 180, 200, 0.14);
 
-    --accent: #6c63ff;
-    --accent-hover: #5a52e0;
-    --accent-glow: rgba(108, 99, 255, 0.15);
+    /* Cyan/teal accent for dark backgrounds (replaces the previous purple).
+       High-contrast and modern on the near-black surfaces; hover brightens
+       further for clear feedback on dark. */
+    --accent: #22d3ee;
+    --accent-hover: #67e8f9;
+    --accent-glow: rgba(34, 211, 238, 0.18);
+
+    /* Theme-aware brand gradients. Components should prefer these over
+       hardcoded purple stops so dark mode stays cyan/teal. */
+    --gradient-primary: linear-gradient(135deg, #06b6d4 0%, #22d3ee 100%);
+    --gradient-secondary: linear-gradient(135deg, #06b6d4 0%, #10b981 100%);
+    --gradient-hero: linear-gradient(135deg, #22d3ee 0%, #2dd4bf 50%, #06b6d4 100%);
 
     --success: #34c759;
     --warning: #ff9500;
@@ -50,6 +59,11 @@
     --accent: #5b52e0;
     --accent-hover: #4a42c8;
     --accent-glow: rgba(91, 82, 224, 0.12);
+
+    /* Light theme keeps the indigo/purple brand gradients. */
+    --gradient-primary: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+    --gradient-secondary: linear-gradient(135deg, #06b6d4 0%, #10b981 100%);
+    --gradient-hero: linear-gradient(135deg, var(--accent) 0%, #a78bfa 50%, #ec4899 100%);
 
     --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
     --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
@@ -148,11 +162,11 @@ img {
 
 .btn-download-primary,
 .btn-download {
-    background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+    background: var(--gradient-primary);
 }
 
 .btn-download-secondary {
-    background: linear-gradient(135deg, #06b6d4 0%, #10b981 100%);
+    background: var(--gradient-secondary);
 }
 
 .btn-download-primary:hover,
