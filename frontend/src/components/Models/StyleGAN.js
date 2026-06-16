@@ -95,6 +95,7 @@ export default function StyleGAN() {
                                     }
                                     if (parsed.status === 'completed' || parsed.status === 'training_complete') {
                                         setResults(parsed);
+                                        try { window.dispatchEvent(new CustomEvent('aiml:trained')); } catch (e) {}
                                     }
                                 } catch (e) {
                                     console.error("Parse stream err:", e);

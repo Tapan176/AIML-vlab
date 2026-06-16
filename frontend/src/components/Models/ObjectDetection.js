@@ -81,6 +81,7 @@ export default function ObjectDetection() {
                                     setLogs(prev => [...prev, parsed.log]);
                                 } else if (parsed.status === 'completed' || parsed.status === 'training_complete') {
                                     setResults(parsed);
+                                    try { window.dispatchEvent(new CustomEvent('aiml:trained')); } catch (e) {}
                                 } else if (parsed.error) {
                                     setError(parsed.error);
                                 }

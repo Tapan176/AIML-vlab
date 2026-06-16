@@ -56,6 +56,34 @@ export const SubscriptionProvider = ({ children }) => {
         return () => window.removeEventListener('aiml:quota', handler);
     }, []);
 
+    // Refresh usage in (near) real time whenever a training run is kicked off
+    // or completes (model pages dispatch 'aiml:trained'), AND whenever a usage
+    // event explicitly asks for it ('aiml:usage'). The server increments the
+    // counter at session creation, so this reflects the new run immediately.
+    useEffect(() => {
+        const handler = () => refresh();
+        window.addEventListener('aiml:trained', handler);
+        window.addEventListener('aiml:usage', handler);
+        return () => {
+            window.removeEventListener('aiml:trained', handler);
+            window.removeEventListener('aiml:usage', handler);
+        };
+    }, [refresh]);
+
+    // Refresh when the tab regains focus / becomes visible, so usage is current
+    // after the user trains in one place and switches to the Profile page.
+    useEffect(() => {
+        if (!enabled) return undefined;
+        const onFocus = () => refresh();
+        const onVisible = () => { if (document.visibilityState === 'visible') refresh(); };
+        window.addEventListener('focus', onFocus);
+        document.addEventListener('visibilitychange', onVisible);
+        return () => {
+            window.removeEventListener('focus', onFocus);
+            document.removeEventListener('visibilitychange', onVisible);
+        };
+    }, [enabled, refresh]);
+
     const value = { enabled, entitlements, refresh };
 
     return (

@@ -119,6 +119,7 @@ const FinetuneBERT = () => {
                                     setLogs(prev => [...prev, parsed.log]);
                                 } else if (parsed.status === 'completed' || parsed.evaluation_metrics) {
                                     setResults(parsed);
+                                    try { window.dispatchEvent(new CustomEvent('aiml:trained')); } catch (e) {}
                                 }
                             } catch (e) {}
                         }

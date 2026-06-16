@@ -112,6 +112,7 @@ export default function ResNet() {
                                 } else if (parsed.status === 'completed' || parsed.status === 'training_complete') {
                                     // Simulated results object since it's a stub
                                     setResults(parsed);
+                                    try { window.dispatchEvent(new CustomEvent('aiml:trained')); } catch (e) {}
                                 } else if (parsed.error) {
                                     setError(parsed.error);
                                 }

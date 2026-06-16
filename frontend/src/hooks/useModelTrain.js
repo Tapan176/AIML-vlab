@@ -25,6 +25,8 @@ export default function useModelTrain(endpoint, options = {}) {
                 : (data?.outputImageUrls?.map(u => `${API_URL}/${u}?timestamp=${Date.now()}`) || []);
             const normalised = { ...data, images };
             setResults(normalised);
+            // Tell the subscription usage widget to refresh (a run was recorded).
+            try { window.dispatchEvent(new CustomEvent('aiml:trained')); } catch (e) {}
             return normalised;
         } catch (err) {
             setError(err.message);
