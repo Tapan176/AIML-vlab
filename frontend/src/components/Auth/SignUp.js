@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { COUNTRY_CODES } from '../../constants';
+import OAuthSection from './OAuthSection';
 import './Auth.css';
 
 const SignUp = () => {
@@ -110,6 +111,8 @@ const SignUp = () => {
                         {loading ? <span className="spinner-sm"></span> : 'Create Account'}
                     </button>
                 </form>
+
+                <OAuthSection onError={setError} />
 
                 <div className="auth-footer">
                     <p>Already have an account? <Link to="/login">Sign in</Link></p>

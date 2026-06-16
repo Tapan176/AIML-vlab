@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { API_URL } from '../constants';
+import api, { clearCache } from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -21,21 +22,13 @@ export const AuthProvider = ({ children }) => {
             return;
         }
         try {
-            const res = await fetch(`${API_URL}/me`, {
-                headers: { 'Authorization': `Bearer ${storedToken}` }
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setUser(data.user);
-                setToken(storedToken);
-            } else {
-                // Token expired or invalid
-                localStorage.removeItem('aiml_token');
-                setToken(null);
-                setUser(null);
-            }
+            // authGet de-dupes the StrictMode double-mount into one /me call and
+            // does NOT hard-redirect on 401 (silent rehydrate just clears state).
+            const data = await api.authGet('/me', storedToken, { force: true });
+            setUser(data.user);
+            setToken(storedToken);
         } catch (err) {
-            console.error('Failed to rehydrate session:', err);
+            // Token expired/invalid or network error — drop it and stay logged out.
             localStorage.removeItem('aiml_token');
             setToken(null);
             setUser(null);
@@ -95,6 +88,7 @@ export const AuthProvider = ({ children }) => {
 
     const logout = () => {
         localStorage.removeItem('aiml_token');
+        clearCache(); // so the next user never sees the previous user's cached lists
         setToken(null);
         setUser(null);
     };

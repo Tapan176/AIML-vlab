@@ -103,6 +103,15 @@ def token_required(f=None, optional=False):
                     return fn(None, *args, **kwargs)
                 return jsonify({'error': f'Authentication failed: {str(e)}'}), 401
 
+            # Reject deactivated accounts. Default missing 'active' to True so
+            # legacy users (created before the field existed) aren't locked out.
+            # The admin set_user_status route calls invalidate_user_cache so this
+            # takes effect within the cache TTL.
+            if current_user is not None and current_user.get('active', True) is False:
+                if optional:
+                    return fn(None, *args, **kwargs)
+                return jsonify({'error': 'Account is deactivated'}), 403
+
             # Pass current_user to the route function
             return fn(current_user, *args, **kwargs)
 
