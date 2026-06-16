@@ -494,6 +494,7 @@ def get_session_result_images(current_user, session_id):
         return jsonify({"images": []}), 200
 
     import base64
+    import io
     import os
     import zipfile
 
@@ -501,7 +502,14 @@ def get_session_result_images(current_user, session_id):
     try:
         from services.google_drive_service import stream_file_from_drive
         fh, _ = stream_file_from_drive(drive_id)
-        with zipfile.ZipFile(fh) as zf:
+        # stream_file_from_drive returns a SpooledTemporaryFile, which on
+        # Python <3.11 doesn't implement seekable() — zipfile.ZipFile calls it
+        # and raises AttributeError. Copy into a BytesIO (fully seekable) so the
+        # zip can be read reliably across Python versions. Results zips are
+        # small (a handful of plot images), so the in-memory copy is cheap.
+        fh.seek(0)
+        buf = io.BytesIO(fh.read())
+        with zipfile.ZipFile(buf) as zf:
             # Sort entries so the carousel order is stable across reloads.
             for name in sorted(zf.namelist()):
                 ext = os.path.splitext(name)[1].lower()
