@@ -159,4 +159,10 @@
     .sidebar.collapsed {
         width: 100%;
     }
+
+    /* Cap the category list on mobile so the stacked sidebar doesn't push the
+       model content far down the page. */
+    .sidebar-categories {
+        max-height: 45vh;
+    }
 }

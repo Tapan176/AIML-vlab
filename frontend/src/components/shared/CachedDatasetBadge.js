@@ -15,7 +15,7 @@ import { truncateName } from '../../utils/truncateName';
 export default function CachedDatasetBadge({ filename, label = 'Cached dataset', maxLength = 44 }) {
     if (!filename) return null;
     return (
-        <div className="cached-dataset-badge" style={{ marginTop: '10px', color: '#34c759' }}>
+        <div className="cached-dataset-badge" style={{ marginTop: '10px', color: 'var(--success)' }}>
             ✓ {label}: <strong title={filename}>{truncateName(filename, maxLength)}</strong>
         </div>
     );

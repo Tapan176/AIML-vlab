@@ -118,18 +118,18 @@
 }
 
 .btn-danger-small {
-    background: #e74c3c;
-    color: white;
+    background: var(--danger);
+    color: var(--text-on-accent);
     border: none;
     padding: 0.4rem 0.8rem;
     border-radius: 4px;
     cursor: pointer;
     font-size: 0.8rem;
-    transition: background 0.2s;
+    transition: filter 0.2s;
 }
 
 .btn-danger-small:hover {
-    background: #c0392b;
+    filter: brightness(1.1);
 }
 
 .no-data {

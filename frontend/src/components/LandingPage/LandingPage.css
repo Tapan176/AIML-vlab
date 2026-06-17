@@ -84,7 +84,7 @@
     gap: 0.3rem;
     padding: 0.85rem 2rem;
     background: var(--accent);
-    color: white;
+    color: var(--text-on-accent);
     border: none;
     border-radius: 10px;
     font-size: 1rem;
@@ -282,7 +282,7 @@
     width: 48px;
     height: 48px;
     background: var(--accent);
-    color: white;
+    color: var(--text-on-accent);
     border-radius: 50%;
     font-size: 1.1rem;
     font-weight: 700;

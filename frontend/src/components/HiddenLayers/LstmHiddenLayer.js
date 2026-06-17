@@ -21,14 +21,14 @@ export default function LstmHiddenLayer({ layers, onChange, onAddLayer, onRemove
                 <h3>🔄 Recurrent & Dense Layers ({layers.length})</h3>
             </div>
             
-            <p style={{ color: '#666', fontSize: '0.9em', marginBottom: '15px' }}>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9em', marginBottom: '15px' }}>
                 Note: Standard practice is to stack LSTM layers with <strong>Return Sequences = True</strong>, 
                 except for the final LSTM layer before transitioning to Dense layers.
             </p>
 
             <div className="hidden-layers-list">
                 {layers.map((layer, index) => (
-                    <div className="hidden-layer-card" key={index} style={{ borderLeft: layer.type === 'lstm' ? '4px solid #34c759' : '4px solid #6c63ff' }}>
+                    <div className="hidden-layer-card" key={index} style={{ borderLeft: layer.type === 'lstm' ? '4px solid var(--success)' : '4px solid var(--accent)' }}>
                         <div className="layer-card-header">
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                 <h4>Layer {index + 1}</h4>
@@ -80,7 +80,7 @@ export default function LstmHiddenLayer({ layers, onChange, onAddLayer, onRemove
                 ))}
                 
                 <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                    <button type="button" className="btn-add-layer" onClick={() => onAddLayer('lstm')} style={{ flex: 1, background: '#e8f5e9', color: '#2e7d32', borderColor: '#a5d6a7' }}>
+                    <button type="button" className="btn-add-layer" onClick={() => onAddLayer('lstm')} style={{ flex: 1, background: 'var(--success-soft)', color: 'var(--success)', borderColor: 'var(--success)' }}>
                         ＋ Add LSTM Layer
                     </button>
                     <button type="button" className="btn-add-layer" onClick={() => onAddLayer('dense')} style={{ flex: 1 }}>

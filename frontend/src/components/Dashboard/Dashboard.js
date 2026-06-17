@@ -413,7 +413,7 @@ const Dashboard = () => {
                                     setConfirmDelete(null);
                                     await handleDeleteSession(sessionId, modelCode);
                                 }}
-                                style={{ background: 'linear-gradient(135deg, #ff5f6d 0%, #ffc371 100%)' }}
+                                style={{ background: 'var(--gradient-danger)' }}
                             >
                                 Yes, delete
                             </button>

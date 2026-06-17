@@ -2,7 +2,10 @@
     /* width: 300px; Set initial width */
     width: 100%; /* Adjust width as needed */
     height: 100%; /* Adjust height as needed */
-    background-color: #f8f9fa; /* Bootstrap background color */
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
     overflow-y: auto; /* Allow vertical scrolling if content exceeds height */
     transition: width 0.3s ease; /* Add smooth transition effect */
     max-height: 82vh;

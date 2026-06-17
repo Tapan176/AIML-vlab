@@ -59,7 +59,7 @@ export default function ImageAnnotation() {
         const scaleX = canvasSize.w / naturalSize.w;
         const scaleY = canvasSize.h / naturalSize.h;
 
-        const colors = ['#ff3b30', '#007aff', '#34c759', '#ff9500', '#af52de', '#00c7be', '#ff2d55', '#5856d6'];
+        const colors = ['#ff3b30', '#007aff', '#34c759', '#ff9500', '#14b8a6', '#00c7be', '#ff2d55', '#0ea5e9'];
 
         boxes.forEach((box) => {
             const classIdx = classes.indexOf(box.label) % colors.length;
@@ -368,22 +368,22 @@ export default function ImageAnnotation() {
         rightPanel: { flex: '2 1 500px', display: 'flex', flexDirection: 'column', gap: '16px' },
         card: { background: 'var(--bg-card, #1e1e2e)', border: '1px solid var(--border-color, #333)', borderRadius: '12px', padding: '16px' },
         dropzone: {
-            border: '2px dashed', borderColor: isDragging ? '#6c63ff' : 'var(--border-color, #555)',
+            border: '2px dashed', borderColor: isDragging ? 'var(--accent)' : 'var(--border-color, #555)',
             borderRadius: '12px', padding: '40px 20px', textAlign: 'center', cursor: 'pointer',
-            background: isDragging ? 'rgba(108,99,255,0.08)' : 'transparent',
+            background: isDragging ? 'var(--accent-soft)' : 'transparent',
             transition: 'all 0.2s',
         },
         canvas: { border: '1px solid var(--border-color, #555)', borderRadius: '8px', cursor: 'crosshair', maxWidth: '100%' },
         btn: { padding: '8px 16px', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '13px' },
-        btnPrimary: { background: '#6c63ff', color: '#fff' },
-        btnDanger: { background: 'rgba(255,59,48,0.15)', color: '#ff3b30', border: '1px solid rgba(255,59,48,0.3)' },
-        btnSuccess: { background: '#34c759', color: '#fff' },
+        btnPrimary: { background: 'var(--accent)', color: 'var(--text-on-accent)' },
+        btnDanger: { background: 'var(--danger-soft)', color: 'var(--danger)', border: '1px solid var(--danger)' },
+        btnSuccess: { background: 'var(--success)', color: 'var(--text-on-accent)' },
         badge: { display: 'inline-block', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '600' },
-        classItem: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', borderRadius: '8px', background: 'rgba(108,99,255,0.06)', marginBottom: '6px' },
+        classItem: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', borderRadius: '8px', background: 'var(--accent-soft)', marginBottom: '6px' },
         nav: { display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'center', marginTop: '8px' },
         thumb: (active) => ({
             width: '50px', height: '50px', objectFit: 'cover', borderRadius: '6px', cursor: 'pointer',
-            border: active ? '2px solid #6c63ff' : '2px solid transparent', opacity: active ? 1 : 0.6,
+            border: active ? '2px solid var(--accent)' : '2px solid transparent', opacity: active ? 1 : 0.6,
         }),
     };
 
@@ -464,7 +464,7 @@ export default function ImageAnnotation() {
                                 {currentAnnotations.map((box, i) => (
                                     <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 8px', borderBottom: '1px solid var(--border-color, #333)' }}>
                                         <span style={{ fontSize: '13px' }}>
-                                            <span style={{ ...s.badge, background: 'rgba(108,99,255,0.15)', color: '#6c63ff' }}>{box.label}</span>
+                                            <span style={{ ...s.badge, background: 'var(--accent-soft)', color: 'var(--accent)' }}>{box.label}</span>
                                             <span style={{ marginLeft: '8px', color: 'var(--text-secondary, #888)' }}>
                                                 {box.w}×{box.h}
                                             </span>
@@ -496,7 +496,7 @@ export default function ImageAnnotation() {
                             <button
                                 onClick={exportCoco}
                                 disabled={totalBoxes === 0}
-                                style={{ ...s.btn, background: '#ff9500', color: '#fff', width: '100%', opacity: totalBoxes === 0 ? 0.5 : 1 }}
+                                style={{ ...s.btn, background: 'var(--warning)', color: 'var(--text-on-accent)', width: '100%', opacity: totalBoxes === 0 ? 0.5 : 1 }}
                             >
                                 📋 Export COCO JSON
                             </button>

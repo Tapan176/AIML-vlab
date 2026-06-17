@@ -11,8 +11,14 @@ const Navbar = () => {
     const { isDark, toggleTheme } = useTheme();
     const { enabled: subscriptionEnabled } = useSubscription();
     const [dropdownOpen, setDropdownOpen] = useState(false);
+    const [menuOpen, setMenuOpen] = useState(false);
     const dropdownRef = useRef(null);
     const location = useLocation();
+
+    // Close the mobile nav menu whenever the route changes.
+    useEffect(() => {
+        setMenuOpen(false);
+    }, [location]);
 
     useEffect(() => {
         const handleClick = (e) => {
@@ -36,7 +42,7 @@ const Navbar = () => {
                     <span className="brand-text">ML <span className="brand-highlight">Lab</span></span>
                 </Link>
 
-                <div className="nav-links">
+                <div className={`nav-links ${menuOpen ? 'open' : ''}`}>
                     <Link to="/" className={`nav-link ${isActive('/') ? 'active' : ''}`}>Home</Link>
                     {isAuthenticated && (
                         <>
@@ -100,6 +106,16 @@ const Navbar = () => {
                             <Link to="/signup" className="nav-btn-primary">Sign Up</Link>
                         </div>
                     )}
+
+                    <button
+                        className="nav-toggle"
+                        type="button"
+                        aria-label="Toggle navigation menu"
+                        aria-expanded={menuOpen}
+                        onClick={() => setMenuOpen(prev => !prev)}
+                    >
+                        {menuOpen ? '✕' : '☰'}
+                    </button>
                 </div>
             </div>
         </nav>

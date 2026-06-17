@@ -124,7 +124,7 @@
     padding: 0.5rem 1rem;
     background: var(--accent);
     border-radius: 8px;
-    color: white;
+    color: var(--text-on-accent);
     font-size: 0.85rem;
     font-weight: 600;
     text-decoration: none;
@@ -155,7 +155,7 @@
     width: 36px;
     height: 36px;
     background: var(--accent);
-    color: white;
+    color: var(--text-on-accent);
     border-radius: 50%;
     font-size: 0.85rem;
     font-weight: 700;
@@ -238,12 +238,72 @@
     background: rgba(255, 59, 48, 0.1);
 }
 
+/* Mobile menu toggle (hamburger) — hidden on desktop. */
+.nav-toggle {
+    display: none;
+    width: 40px;
+    height: 40px;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 1.15rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.nav-toggle:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
 /* Responsive */
-@media (max-width: 640px) {
-    .nav-links {
-        display: none;
-    }
+@media (max-width: 768px) {
     .nav-container {
         padding: 0 1rem;
+    }
+
+    .nav-toggle {
+        display: inline-flex;
+    }
+
+    /* Links collapse into a slide-down panel toggled by the hamburger. */
+    .nav-links {
+        position: absolute;
+        top: 64px;
+        left: 0;
+        right: 0;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.25rem;
+        background: var(--bg-card);
+        border-bottom: 1px solid var(--border-color);
+        box-shadow: var(--shadow-lg);
+        padding: 0.75rem 1rem 1rem;
+        display: none;
+        max-height: calc(100vh - 64px);
+        overflow-y: auto;
+    }
+
+    .nav-links.open {
+        display: flex;
+        animation: dropIn 0.2s ease;
+    }
+
+    .nav-link {
+        padding: 0.85rem 1rem;
+        font-size: 1rem;
+    }
+}
+
+@media (max-width: 400px) {
+    .nav-actions {
+        gap: 0.4rem;
+    }
+    .brand-text {
+        font-size: 1.05rem;
     }
 }

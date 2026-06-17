@@ -104,7 +104,7 @@
 
 .dataset-section input[type="file"]::file-selector-button {
     background: var(--accent);
-    color: #fff;
+    color: var(--text-on-accent);
     border: none;
     padding: 6px 16px;
     border-radius: 4px;
@@ -119,7 +119,7 @@
 
 .dataset-section button {
     background: var(--accent);
-    color: #fff;
+    color: var(--text-on-accent);
     border: none;
     padding: 8px 18px;
     border-radius: 6px;
@@ -210,7 +210,7 @@
 /* Run Button */
 .btn-run {
     background: var(--gradient-primary);
-    color: #fff;
+    color: var(--text-on-accent);
     border: none;
     padding: 12px 32px;
     border-radius: 8px;
@@ -359,7 +359,7 @@
 
 .carousel-btn:hover {
     background: var(--accent);
-    color: #fff;
+    color: var(--text-on-accent);
     border-color: var(--accent);
 }
 
@@ -441,7 +441,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.4);
+    background: var(--bg-overlay);
     z-index: 200;
     opacity: 0;
     pointer-events: none;
@@ -511,7 +511,7 @@
 
 .btn-close-drawer:hover {
     background: var(--danger);
-    color: #fff;
+    color: var(--text-on-accent);
     border-color: var(--danger);
 }
 
@@ -684,7 +684,7 @@
 
 .btn-remove-layer:hover {
     background: var(--danger);
-    color: #fff;
+    color: var(--text-on-accent);
 }
 
 .btn-add-layer {

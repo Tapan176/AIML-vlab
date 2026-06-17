@@ -119,7 +119,7 @@ export default function StyleGAN() {
             <div className="dataset-section">
                 <ShowDataset onDatasetUpload={handleDatasetSelect} allowedTypes={['zip']} initialFilename={datasetData?.filename} />
                 {datasetData && datasetData.filename && (
-                    <div style={{ marginTop: '10px', color: '#34c759' }}>
+                    <div style={{ marginTop: '10px', color: 'var(--success)' }}>
                         ✓ Cached Image ZIP Dataset: <strong>{datasetData.filename}</strong>
                     </div>
                 )}
@@ -140,25 +140,25 @@ export default function StyleGAN() {
             {error && <div className="model-error">❌ {error}</div>}
 
             {replayActive && !loading && (
-                <div className="model-info-banner" style={{ marginTop: '16px', padding: '12px 16px', borderRadius: '8px', background: 'rgba(255,149,0,0.1)', border: '1px solid rgba(255,149,0,0.3)', color: '#ff9500' }}>
+                <div className="model-info-banner" style={{ marginTop: '16px', padding: '12px 16px', borderRadius: '8px', background: 'var(--warning-soft)', border: '1px solid var(--warning)', color: 'var(--warning)' }}>
                     ⏳ This training session is still in progress — showing live progress below. Results will appear automatically when it finishes.
                 </div>
             )}
 
             {(logs.length > 0 || replayActive) && (
                 <div className="terminal-log-container" style={{
-                    backgroundColor: '#1e1e1e', color: '#00ff00', padding: '15px',
+                    backgroundColor: 'var(--terminal-bg)', color: 'var(--terminal-text)', padding: '15px',
                     borderRadius: '8px', fontFamily: 'monospace', marginTop: '20px',
                     maxHeight: '300px', overflowY: 'auto', textAlign: 'left',
                     boxShadow: 'inset 0 0 10px rgba(0,0,0,0.5)'
                 }}>
-                    <h3 style={{ color: '#fff', borderBottom: '1px solid #333', paddingBottom: '10px', marginBottom: '10px' }}>
+                    <h3 style={{ color: 'var(--terminal-title)', borderBottom: '1px solid var(--terminal-border)', paddingBottom: '10px', marginBottom: '10px' }}>
                         🖥️ Live Training Console
                     </h3>
                     <div className="log-scroll">
                         {logs.map((log, idx) => (
                             <div key={idx} style={{ margin: '4px 0', fontSize: '13px' }}>
-                                <span style={{ color: '#888' }}>[{new Date().toLocaleTimeString()}]</span> {log}
+                                <span style={{ color: 'var(--terminal-muted)' }}>[{new Date().toLocaleTimeString()}]</span> {log}
                             </div>
                         ))}
                         <div ref={logsEndRef} />
@@ -189,7 +189,7 @@ export default function StyleGAN() {
                         )}
                     </div>
 
-                    <p style={{ color: '#aaa', marginTop: '10px' }}>* Models are stored in your personal cloud namespace.</p>
+                    <p style={{ color: 'var(--text-secondary)', marginTop: '10px' }}>* Models are stored in your personal cloud namespace.</p>
                 </div>
             )}
 

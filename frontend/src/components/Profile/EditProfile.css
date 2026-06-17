@@ -29,7 +29,7 @@
     height: 80px;
     border-radius: 50%;
     background: var(--gradient-primary);
-    color: white;
+    color: var(--text-on-accent);
     display: flex;
     align-items: center;
     justify-content: center;

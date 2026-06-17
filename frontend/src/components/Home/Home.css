@@ -100,10 +100,21 @@
 
 /* Responsive */
 @media (max-width: 768px) {
+    /* Stack sidebar above content and let the page scroll naturally instead
+       of locking to the viewport (which left tiny cramped scroll areas). */
     .home-layout {
         flex-direction: column;
+        height: auto;
+        min-height: calc(100vh - 64px);
+        overflow: visible;
     }
     .main-content {
         padding: 1rem;
+    }
+    .welcome-panel {
+        min-height: 40vh;
+    }
+    .welcome-icon {
+        font-size: 3rem;
     }
 }

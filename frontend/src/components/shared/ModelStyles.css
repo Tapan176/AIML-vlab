@@ -46,7 +46,7 @@
 
 .model-container .model-badge.fine-tuning {
     background: var(--gradient-primary);
-    color: #fff;
+    color: var(--text-on-accent);
 }
 
 /* ---- Form ---- */
@@ -116,7 +116,7 @@
     border: none;
     border-radius: 10px;
     background: var(--gradient-primary);
-    color: #fff;
+    color: var(--text-on-accent);
     font-size: 1rem;
     font-weight: 600;
     cursor: pointer;
@@ -149,10 +149,10 @@
     line-height: 1.5;
     max-height: 320px;
     overflow-y: auto;
-    background: #0d0f12;
+    background: var(--terminal-bg);
     border-radius: 8px;
     padding: 12px;
-    color: #b6f09c;
+    color: var(--terminal-text);
     white-space: pre-wrap;
     word-break: break-word;
 }

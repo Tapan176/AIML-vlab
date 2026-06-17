@@ -61,7 +61,7 @@
 
 .admin-btn {
     background: var(--accent);
-    color: #fff;
+    color: var(--text-on-accent);
     border: none;
     padding: 0.5rem 1rem;
     border-radius: 8px;

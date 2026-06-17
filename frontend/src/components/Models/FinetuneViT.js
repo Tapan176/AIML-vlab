@@ -174,7 +174,7 @@ const FinetuneViT = () => {
             {error && <div className="error-banner">{error}</div>}
 
             {replayActive && !training && (
-                <div className="error-banner" style={{ background: 'rgba(255,149,0,0.1)', borderColor: 'rgba(255,149,0,0.3)', color: '#ff9500' }}>
+                <div className="error-banner" style={{ background: 'var(--warning-soft)', borderColor: 'var(--warning)', color: 'var(--warning)' }}>
                     ⏳ This fine-tuning session is still in progress — showing live progress below. Results will appear automatically when it finishes.
                 </div>
             )}

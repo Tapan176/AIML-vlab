@@ -33,7 +33,7 @@ function OnDemandFolderImages({ datasetId, folder, imageCount, renderImageGrid }
 
     if (loading) {
         return (
-            <div style={{ padding: '15px', textAlign: 'center', color: '#6c63ff' }}>
+            <div style={{ padding: '15px', textAlign: 'center', color: 'var(--accent)' }}>
                 <span style={{ fontSize: '1.2em' }}>⏳</span> Loading {imageCount} images...
             </div>
         );
@@ -42,7 +42,7 @@ function OnDemandFolderImages({ datasetId, folder, imageCount, renderImageGrid }
     if (images.length > 0) {
         return (
             <div>
-                <h5 style={{ margin: '10px 0 5px', color: '#333' }}>
+                <h5 style={{ margin: '10px 0 5px', color: 'var(--text-primary)' }}>
                     🖼 Images ({imageCount})
                 </h5>
                 {renderImageGrid(images)}
@@ -52,7 +52,7 @@ function OnDemandFolderImages({ datasetId, folder, imageCount, renderImageGrid }
 
     if (fetched && images.length === 0) {
         return (
-            <div style={{ padding: '10px', color: '#666', fontStyle: 'italic' }}>
+            <div style={{ padding: '10px', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
                 🖼 {imageCount} image files in this folder (thumbnails unavailable)
             </div>
         );
@@ -300,7 +300,7 @@ export default function ShowDataset({ onDatasetUpload, initialFilename, onColumn
                 <thead>
                     <tr>
                         {columns.map((col, i) => (
-                            <th key={i} style={{ border: '1px solid var(--border-color, #ddd)', padding: '8px 12px', background: 'var(--bg-surface, #f5f5f5)', fontWeight: 600, fontSize: '0.85em', position: 'sticky', top: 0 }}>{col}</th>
+                            <th key={i} style={{ border: '1px solid var(--border-color, #ddd)', padding: '8px 12px', background: 'var(--bg-elevated)', fontWeight: 600, fontSize: '0.85em', position: 'sticky', top: 0 }}>{col}</th>
                         ))}
                     </tr>
                 </thead>
@@ -375,15 +375,15 @@ export default function ShowDataset({ onDatasetUpload, initialFilename, onColumn
 
         const folderBtnStyle = {
             padding: '8px 14px', borderRadius: '8px',
-            border: '2px solid #6c63ff', background: '#f0eeff',
+            border: '2px solid var(--accent)', background: 'var(--accent-soft)',
             cursor: 'pointer', fontSize: '0.9em', fontWeight: 500,
-            color: '#333', display: 'flex', alignItems: 'center', gap: '6px'
+            color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px'
         };
 
         return (
             <div style={{ padding: '10px 0' }}>
                 {/* Stats bar */}
-                <div style={{ fontSize: '0.85em', color: '#666', marginBottom: '10px', display: 'flex', gap: '15px' }}>
+                <div style={{ fontSize: '0.85em', color: 'var(--text-secondary)', marginBottom: '10px', display: 'flex', gap: '15px' }}>
                     <span>📁 {folder_tree.length} folders</span>
                     <span>📄 {total_files} files</span>
                     <span>🖼 {total_images} images</span>
@@ -392,16 +392,16 @@ export default function ShowDataset({ onDatasetUpload, initialFilename, onColumn
                 {/* Breadcrumb navigation */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '10px', fontSize: '0.9em', flexWrap: 'wrap' }}>
                     <button onClick={() => setZipCurrentFolder('')}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6c63ff', fontWeight: !zipCurrentFolder ? 'bold' : 'normal', fontSize: '0.95em' }}>
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontWeight: !zipCurrentFolder ? 'bold' : 'normal', fontSize: '0.95em' }}>
                         📦 root
                     </button>
                     {zipCurrentFolder && zipCurrentFolder.split('/').filter(Boolean).map((part, i, arr) => {
                         const path = arr.slice(0, i + 1).join('/');
                         return (
                             <React.Fragment key={path}>
-                                <span style={{ color: '#999' }}>/</span>
+                                <span style={{ color: 'var(--text-tertiary)' }}>/</span>
                                 <button onClick={() => setZipCurrentFolder(path)}
-                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6c63ff', fontWeight: i === arr.length - 1 ? 'bold' : 'normal', fontSize: '0.95em' }}>
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontWeight: i === arr.length - 1 ? 'bold' : 'normal', fontSize: '0.95em' }}>
                                     {part}
                                 </button>
                             </React.Fragment>
@@ -416,7 +416,7 @@ export default function ShowDataset({ onDatasetUpload, initialFilename, onColumn
                             const parts = zipCurrentFolder.split('/').filter(Boolean);
                             parts.pop();
                             setZipCurrentFolder(parts.join('/'));
-                        }} style={{ ...folderBtnStyle, background: '#e8e8e8', border: '2px solid #ccc' }}>
+                        }} style={{ ...folderBtnStyle, background: 'var(--bg-elevated)', border: '2px solid var(--border-strong)' }}>
                             📁 ..
                         </button>
                     )}
@@ -433,7 +433,7 @@ export default function ShowDataset({ onDatasetUpload, initialFilename, onColumn
 
                 {/* File list (non-image files only, since images are shown as thumbnails) */}
                 {nonImageFiles.length > 0 && (
-                    <div style={{ marginBottom: '10px', fontSize: '0.85em', color: '#555' }}>
+                    <div style={{ marginBottom: '10px', fontSize: '0.85em', color: 'var(--text-secondary)' }}>
                         <div style={{ fontWeight: 600, marginBottom: '4px' }}>Files ({nonImageFiles.length}):</div>
                         {nonImageFiles.slice(0, 50).map((f, i) => (
                             <div key={i} style={{ padding: '2px 0' }}>📄 {f}</div>
@@ -445,7 +445,7 @@ export default function ShowDataset({ onDatasetUpload, initialFilename, onColumn
                 {/* Image thumbnails for current folder */}
                 {imagesToShow.length > 0 && (
                     <div>
-                        <h5 style={{ margin: '10px 0 5px', color: '#333' }}>
+                        <h5 style={{ margin: '10px 0 5px', color: 'var(--text-primary)' }}>
                             🖼 {currentImageFiles.length > 0 ? `Images (${currentImageFiles.length})` : 'Image Samples'}
                         </h5>
                         {renderImageGrid(imagesToShow)}
@@ -465,7 +465,7 @@ export default function ShowDataset({ onDatasetUpload, initialFilename, onColumn
                 {/* Root level: show all pre-loaded sample thumbnails when no specific folder */}
                 {!zipCurrentFolder && imagesToShow.length === 0 && image_thumbnails.length > 0 && !hasImageFiles && (
                     <div>
-                        <h5 style={{ margin: '10px 0 5px', color: '#333' }}>
+                        <h5 style={{ margin: '10px 0 5px', color: 'var(--text-primary)' }}>
                             🖼 Image Samples ({total_images} total)
                         </h5>
                         {renderImageGrid(image_thumbnails)}
@@ -494,14 +494,14 @@ export default function ShowDataset({ onDatasetUpload, initialFilename, onColumn
             <div style={{ display: 'flex', gap: '0', marginBottom: '15px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color, #ddd)', width: 'fit-content' }}>
                 <button onClick={() => setActiveTab(TAB_CLOUD)}
                     style={{ padding: '10px 20px', border: 'none', cursor: 'pointer', fontWeight: activeTab === TAB_CLOUD ? 'bold' : 'normal',
-                             background: activeTab === TAB_CLOUD ? 'var(--primary, #6c63ff)' : 'var(--bg-card, #fff)',
-                             color: activeTab === TAB_CLOUD ? '#fff' : 'var(--text-primary, #333)', transition: 'all 0.2s' }}>
+                             background: activeTab === TAB_CLOUD ? 'var(--accent)' : 'var(--bg-card, #fff)',
+                             color: activeTab === TAB_CLOUD ? 'var(--text-on-accent)' : 'var(--text-primary)', transition: 'all 0.2s' }}>
                     ☁️ Cloud Library
                 </button>
                 <button onClick={() => setActiveTab(TAB_UPLOAD)}
                     style={{ padding: '10px 20px', border: 'none', cursor: 'pointer', fontWeight: activeTab === TAB_UPLOAD ? 'bold' : 'normal',
-                             background: activeTab === TAB_UPLOAD ? 'var(--primary, #6c63ff)' : 'var(--bg-card, #fff)',
-                             color: activeTab === TAB_UPLOAD ? '#fff' : 'var(--text-primary, #333)', transition: 'all 0.2s' }}>
+                             background: activeTab === TAB_UPLOAD ? 'var(--accent)' : 'var(--bg-card, #fff)',
+                             color: activeTab === TAB_UPLOAD ? 'var(--text-on-accent)' : 'var(--text-primary)', transition: 'all 0.2s' }}>
                     ⬆️ Upload New
                 </button>
             </div>
@@ -542,7 +542,7 @@ export default function ShowDataset({ onDatasetUpload, initialFilename, onColumn
 
                         {selectedCloudDataset && (
                             <button onClick={handlePreviewCloud} disabled={previewLoading}
-                                style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', background: '#6c63ff', color: 'white', opacity: previewLoading ? 0.6 : 1 }}>
+                                style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', background: 'var(--accent)', color: 'var(--text-on-accent)', opacity: previewLoading ? 0.6 : 1 }}>
                                 {previewLoading ? '⏳ Loading...' : '👁 Preview'}
                             </button>
                         )}
@@ -560,7 +560,7 @@ export default function ShowDataset({ onDatasetUpload, initialFilename, onColumn
                                accept={allowedTypes ? allowedTypes.map(t => typeof t === 'string' && !t.startsWith('.') ? `.${t}` : t).join(',') : undefined}
                         />
                         <button onClick={handleUpload} disabled={loading}
-                            style={{ padding: '8px 16px', border: 'none', borderRadius: '8px', cursor: 'pointer', background: '#6c63ff', color: 'white', opacity: loading ? 0.6 : 1 }}>
+                            style={{ padding: '8px 16px', border: 'none', borderRadius: '8px', cursor: 'pointer', background: 'var(--accent)', color: 'var(--text-on-accent)', opacity: loading ? 0.6 : 1 }}>
                             {loading ? '⏳ Uploading...' : '⬆ Upload Dataset'}
                         </button>
                     </div>

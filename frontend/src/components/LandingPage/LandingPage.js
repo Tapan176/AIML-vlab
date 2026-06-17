@@ -38,15 +38,16 @@ const FEATURES = [
     }
 ];
 
+// Distinct per-category accent hues — teal/cyan-led, no purple/violet.
 const CATEGORY_COLORS = {
-    'Regression': '#6c63ff',
-    'Classification': '#34c759',
-    'Clustering': '#ff9500',
-    'Neural Networks': '#ff3b30',
-    'Ensemble': '#c5fc00ff',
-    'NLP': '#00a8f7ff',
-    'Generative AI': '#7000f0ff',
-    'Fine-Tuning': '#ff6b6b',
+    'Regression': '#0d9488',      // teal
+    'Classification': '#10b981',  // emerald
+    'Clustering': '#f59e0b',      // amber
+    'Neural Networks': '#ef4444', // red
+    'Ensemble': '#3b82f6',        // blue
+    'NLP': '#0ea5e9',             // sky
+    'Generative AI': '#ec4899',   // pink
+    'Fine-Tuning': '#f97316',     // orange
 };
 
 const STEPS = [
@@ -77,7 +78,7 @@ const LandingPage = () => {
                 const modelList = Object.values(data.models).map(m => ({
                     name: m.name,
                     category: m.category,
-                    color: CATEGORY_COLORS[m.category] || '#6c63ff',
+                    color: CATEGORY_COLORS[m.category] || '#0d9488',
                 }));
                 if (modelList.length > 0) {
                     setModels(modelList);

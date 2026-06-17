@@ -125,7 +125,7 @@ export default function LSTM() {
             <div className="dataset-section">
                 <ShowDataset onDatasetUpload={handleDatasetSelect} allowedTypes={['csv', 'txt']} initialFilename={datasetData?.filename} />
                 {datasetData && datasetData.filename && (
-                    <div style={{ marginTop: '10px', color: '#34c759' }}>
+                    <div style={{ marginTop: '10px', color: 'var(--success)' }}>
                         ✓ Cached sequence dataset: <strong>{datasetData.filename}</strong>
                     </div>
                 )}
@@ -171,14 +171,14 @@ export default function LSTM() {
             {error && <div className="model-error">❌ {error}</div>}
 
             {replayActive && !loading && (
-                <div className="model-info-banner" style={{ marginTop: '16px', padding: '12px 16px', borderRadius: '8px', background: 'rgba(255,149,0,0.1)', border: '1px solid rgba(255,149,0,0.3)', color: '#ff9500' }}>
+                <div className="model-info-banner" style={{ marginTop: '16px', padding: '12px 16px', borderRadius: '8px', background: 'var(--warning-soft)', border: '1px solid var(--warning)', color: 'var(--warning)' }}>
                     ⏳ This training session is still in progress — showing live progress below. Results will appear automatically when it finishes.
                 </div>
             )}
 
             {(logs.length > 0 || replayActive) && (
-                <div className="terminal-container" style={{ marginTop: '20px', background: '#1e1e1e', color: '#00ff00', padding: '15px', borderRadius: '8px', fontFamily: 'monospace', height: '300px', overflowY: 'auto' }}>
-                    <div style={{ borderBottom: '1px solid #333', paddingBottom: '10px', marginBottom: '10px', color: '#888' }}>
+                <div className="terminal-container" style={{ marginTop: '20px', background: 'var(--terminal-bg)', color: 'var(--terminal-text)', padding: '15px', borderRadius: '8px', fontFamily: 'monospace', height: '300px', overflowY: 'auto' }}>
+                    <div style={{ borderBottom: '1px solid var(--terminal-border)', paddingBottom: '10px', marginBottom: '10px', color: 'var(--terminal-muted)' }}>
                         🖥️ Live Training Console
                     </div>
                     {logs.map((log, index) => (

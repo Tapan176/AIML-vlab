@@ -12,8 +12,8 @@ export default function ResNetHiddenLayer({ layers, onChange, onAddLayer, onRemo
                 <h3>🧩 Custom Classification Head ({layers.length})</h3>
             </div>
             
-            <div style={{ background: '#f8f9fa', border: '1px solid #dee2e6', borderRadius: '8px', padding: '15px', marginBottom: '20px' }}>
-                <h4 style={{ margin: '0 0 10px 0', color: '#495057' }}>ResNet50 Backbone (Pre-trained on ImageNet)</h4>
+            <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '15px', marginBottom: '20px' }}>
+                <h4 style={{ margin: '0 0 10px 0', color: 'var(--text-primary)' }}>ResNet50 Backbone (Pre-trained on ImageNet)</h4>
                 <div className="form-group" style={{ margin: 0 }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0 }}>
                         <input 
@@ -24,7 +24,7 @@ export default function ResNetHiddenLayer({ layers, onChange, onAddLayer, onRemo
                         />
                         <strong>Freeze Base Model Weights</strong>
                     </label>
-                    <p style={{ margin: '5px 0 0 25px', fontSize: '0.85em', color: '#6c757d' }}>
+                    <p style={{ margin: '5px 0 0 25px', fontSize: '0.85em', color: 'var(--text-secondary)' }}>
                         If checked, only the Custom Classification Head (listed below) will be trained. If unchecked, the entire ResNet50 base network will be fine-tuned alongside your custom layers.
                     </p>
                 </div>
@@ -32,7 +32,7 @@ export default function ResNetHiddenLayer({ layers, onChange, onAddLayer, onRemo
 
             <div className="hidden-layers-list">
                 {layers.map((layer, index) => (
-                    <div className="hidden-layer-card" key={index} style={{ borderLeft: '4px solid #ff9500' }}>
+                    <div className="hidden-layer-card" key={index} style={{ borderLeft: '4px solid var(--warning)' }}>
                         <div className="layer-card-header">
                             <h4>Dense Layer {index + 1}</h4>
                             <button type="button" className="btn-remove-layer" onClick={() => onRemoveLayer(index)}>✕ Remove</button>
@@ -63,7 +63,7 @@ export default function ResNetHiddenLayer({ layers, onChange, onAddLayer, onRemo
                     </div>
                 ))}
                 
-                <button type="button" className="btn-add-layer" onClick={() => onAddLayer(DEFAULT_DENSE_LAYER)} style={{ width: '100%', background: '#fff5e6', color: '#cc7700', borderColor: '#ffcc80' }}>
+                <button type="button" className="btn-add-layer" onClick={() => onAddLayer(DEFAULT_DENSE_LAYER)} style={{ width: '100%', background: 'var(--warning-soft)', color: 'var(--warning)', borderColor: 'var(--warning)' }}>
                     ＋ Add Custom Dense Layer
                 </button>
             </div>

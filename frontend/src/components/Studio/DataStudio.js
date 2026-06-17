@@ -6,6 +6,8 @@ import { useAuth } from '../../context/AuthContext';
 import ShowDataset from '../Dataset/ShowDataset';
 import ImageAnnotation from './ImageAnnotation';
 import { truncateName } from '../../utils/truncateName';
+import usePagination from '../../hooks/usePagination';
+import Pagination from '../shared/Pagination';
 import './DataStudio.css';
 
 export default function DataStudio() {
@@ -32,6 +34,17 @@ export default function DataStudio() {
     const [diffB, setDiffB] = useState('');
     const [diffResult, setDiffResult] = useState(null);
     const [diffing, setDiffing] = useState(false);
+
+    // Paginate the Data Manager dataset list (same pattern as the Datasets
+    // Library) so the table doesn't grow into an endless scroll.
+    const {
+        page: dsPage,
+        setPage: setDsPage,
+        totalPages: dsTotalPages,
+        pageItems: dsPageItems,
+        totalItems: dsTotalItems,
+        pageSize: dsPageSize,
+    } = usePagination(datasets, 8);
 
     const fetchDatasets = async () => {
         setLoading(true);
@@ -231,7 +244,7 @@ export default function DataStudio() {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {datasets.map(d => (
+                                        {dsPageItems.map(d => (
                                             <tr key={d._id}>
                                                 <td title={d.filename} style={{ maxWidth: '260px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.filename}</td>
                                                 <td><span className={`badge badge-${d.file_type}`}>{d.file_type.toUpperCase()}</span></td>
@@ -245,6 +258,16 @@ export default function DataStudio() {
                                         ))}
                                     </tbody>
                                 </table>
+                            )}
+                            {!loading && datasets.length > 0 && (
+                                <Pagination
+                                    page={dsPage}
+                                    totalPages={dsTotalPages}
+                                    totalItems={dsTotalItems}
+                                    pageSize={dsPageSize}
+                                    onChange={setDsPage}
+                                    unitLabel="datasets"
+                                />
                             )}
                         </div>
                     )}
@@ -332,7 +355,7 @@ export default function DataStudio() {
                                 <div style={{ flex: 1 }}>
                                     <input type="text" className="form-control" placeholder="Pipeline name..." value={pipelineName} onChange={e => setPipelineName(e.target.value)} style={{ width: '100%' }} />
                                 </div>
-                                <button onClick={handleSavePipeline} style={{ padding: '8px 16px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>
+                                <button onClick={handleSavePipeline} style={{ padding: '8px 16px', background: 'var(--accent)', color: 'var(--text-on-accent)', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>
                                     <FontAwesomeIcon icon={faSave} /> Save
                                 </button>
                             </div>
@@ -370,7 +393,7 @@ export default function DataStudio() {
                                 <div style={{ marginTop: '20px' }}>
                                     <div style={{ display: 'flex', gap: '20px', marginBottom: '20px', flexWrap: 'wrap' }}>
                                         <div style={{ padding: '16px', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-color)', minWidth: '120px', textAlign: 'center' }}>
-                                            <div style={{ fontSize: '2rem', fontWeight: '800', color: profile.quality_score >= 70 ? '#34c759' : profile.quality_score >= 40 ? '#ff9500' : '#ff3b30' }}>{profile.quality_score}</div>
+                                            <div style={{ fontSize: '2rem', fontWeight: '800', color: profile.quality_score >= 70 ? 'var(--success)' : profile.quality_score >= 40 ? 'var(--warning)' : 'var(--danger)' }}>{profile.quality_score}</div>
                                             <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Quality Score</div>
                                         </div>
                                         <div style={{ padding: '16px', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-color)', minWidth: '100px', textAlign: 'center' }}>
@@ -382,7 +405,7 @@ export default function DataStudio() {
                                             <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Columns</div>
                                         </div>
                                         <div style={{ padding: '16px', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-color)', minWidth: '100px', textAlign: 'center' }}>
-                                            <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#ff3b30' }}>{profile.total_missing}</div>
+                                            <div style={{ fontSize: '1.5rem', fontWeight: '700', color: 'var(--danger)' }}>{profile.total_missing}</div>
                                             <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Missing</div>
                                         </div>
                                     </div>
@@ -403,12 +426,12 @@ export default function DataStudio() {
                                                     <tr key={col}>
                                                         <td><strong>{col}</strong></td>
                                                         <td>{c.dtype}</td>
-                                                        <td style={{ color: c.missing_pct > 20 ? '#ff3b30' : 'inherit' }}>{c.missing_pct}%</td>
+                                                        <td style={{ color: c.missing_pct > 20 ? 'var(--danger)' : 'inherit' }}>{c.missing_pct}%</td>
                                                         <td>{c.cardinality}</td>
                                                         <td>{c.mean?.toFixed(2) || '—'}</td>
                                                         <td>{c.std?.toFixed(2) || '—'}</td>
-                                                        <td style={{ color: c.high_skew ? '#ff9500' : 'inherit' }}>{c.skew?.toFixed(2) || '—'}</td>
-                                                        <td style={{ color: c.outlier_pct > 10 ? '#ff3b30' : 'inherit' }}>{c.outlier_pct?.toFixed(1) || '0'}%</td>
+                                                        <td style={{ color: c.high_skew ? 'var(--warning)' : 'inherit' }}>{c.skew?.toFixed(2) || '—'}</td>
+                                                        <td style={{ color: c.outlier_pct > 10 ? 'var(--danger)' : 'inherit' }}>{c.outlier_pct?.toFixed(1) || '0'}%</td>
                                                     </tr>
                                                 ))}
                                             </tbody>
@@ -505,7 +528,7 @@ export default function DataStudio() {
                                                             <td>{col}</td>
                                                             <td>{d.mean_before.toFixed(4)}</td>
                                                             <td>{d.mean_after.toFixed(4)}</td>
-                                                            <td style={{ color: Math.abs(d.drift) > 1 ? '#ff3b30' : '#ff9500' }}>{d.drift.toFixed(4)}</td>
+                                                            <td style={{ color: Math.abs(d.drift) > 1 ? 'var(--danger)' : 'var(--warning)' }}>{d.drift.toFixed(4)}</td>
                                                         </tr>
                                                     ))}
                                                 </tbody>

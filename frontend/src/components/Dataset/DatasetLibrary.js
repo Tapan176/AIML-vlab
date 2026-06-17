@@ -116,7 +116,7 @@ const DatasetLibrary = () => {
                         accept=".csv,.zip"
                     />
                 </div>
-                {error && <div className="library-error" style={{marginTop: '1rem', color: '#ff3b30', fontSize: '0.9rem'}}>{error}</div>}
+                {error && <div className="library-error" style={{marginTop: '1rem', color: 'var(--danger)', fontSize: '0.9rem'}}>{error}</div>}
             </header>
 
             {filteredDatasets.length === 0 ? (
@@ -137,9 +137,9 @@ const DatasetLibrary = () => {
                                 <div className="dataset-badges">
                                     <span className="badge type-badge">{dataset.file_type?.toUpperCase()}</span>
                                     {dataset.is_default ? (
-                                        <span className="badge model-badge" style={{background: 'rgba(52, 199, 89, 0.1)', color: '#34c759'}}>Default</span>
+                                        <span className="badge model-badge" style={{background: 'var(--success-soft)', color: 'var(--success)'}}>Default</span>
                                     ) : (
-                                        <span className="badge model-badge" style={{background: 'rgba(255, 149, 0, 0.1)', color: '#ff9500'}}>Personal</span>
+                                        <span className="badge model-badge" style={{background: 'var(--warning-soft)', color: 'var(--warning)'}}>Personal</span>
                                     )}
                                     {dataset.supported_models && dataset.supported_models.map(m => (
                                         <span key={m} className="badge model-badge">{m}</span>

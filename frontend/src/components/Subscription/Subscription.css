@@ -67,7 +67,7 @@
 .upgrade-btn-primary {
     background: var(--accent);
     border-color: var(--accent);
-    color: #fff;
+    color: var(--text-on-accent);
     box-shadow: 0 0 0 0 var(--accent-glow);
 }
 
@@ -219,7 +219,7 @@
     left: 50%;
     transform: translateX(-50%);
     background: var(--accent);
-    color: #fff;
+    color: var(--text-on-accent);
     font-size: 0.7rem;
     font-weight: 700;
     letter-spacing: 0.04em;
@@ -304,7 +304,7 @@
 /* Enabled (clickable) upgrade button — overrides the disabled look above. */
 .plan-cta:not(:disabled) {
     background: var(--gradient-primary, var(--accent));
-    color: #fff;
+    color: var(--text-on-accent);
     border-color: transparent;
     cursor: pointer;
     opacity: 1;
@@ -322,12 +322,12 @@
 }
 
 .plan-card.current {
-    border: 2px solid var(--success, #34c759);
+    border: 2px solid var(--success);
 }
 .plan-cta.current-cta {
     background: transparent;
-    color: var(--success, #34c759);
-    border-color: var(--success, #34c759);
+    color: var(--success);
+    border-color: var(--success);
     opacity: 1;
 }
 
@@ -340,7 +340,7 @@
 
 .pricing-error {
     text-align: center;
-    color: var(--danger, #ff3b30);
+    color: var(--danger);
     margin: 0 0 1rem;
     font-weight: 600;
 }

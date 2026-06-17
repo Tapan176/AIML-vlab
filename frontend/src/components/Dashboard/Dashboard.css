@@ -93,7 +93,7 @@
     justify-content: center;
     border-radius: 12px;
     margin-right: 1rem;
-    color: #fff;
+    color: var(--text-on-accent);
 }
 
 .stat-card {
@@ -109,7 +109,7 @@
     background: linear-gradient(135deg, #10b981 0%, #34d399 100%); /* training/green */
 }
 .stats-grid .stat-card:nth-child(2) .stat-icon {
-    background: linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%); /* datasets/purple */
+    background: linear-gradient(135deg, #06b6d4 0%, #22d3ee 100%); /* datasets/cyan */
 }
 .stats-grid .stat-card:nth-child(3) .stat-icon {
     background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%); /* models/orange */
@@ -167,7 +167,7 @@
 
 .empty-state:hover {
     border-color: var(--accent);
-    background: linear-gradient(135deg, var(--bg-card), rgba(102, 126, 234, 0.05));
+    background: linear-gradient(135deg, var(--bg-card), var(--accent-soft));
 }
 
 .empty-state p {
@@ -214,7 +214,7 @@
     letter-spacing: 0.06em;
     color: var(--text-primary);
     border-bottom: 2px solid var(--border-color);
-    background: linear-gradient(135deg, rgba(102, 126, 234, 0.05), rgba(118, 75, 162, 0.05));
+    background: var(--bg-elevated);
 }
 
 .sessions-table td {
@@ -244,7 +244,7 @@
 }
 
 .model-badge {
-    background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.15));
+    background: var(--accent-soft);
     color: var(--accent);
     padding: 0.35rem 0.8rem;
     border-radius: 8px;
@@ -280,21 +280,21 @@
 }
 
 .status-completed {
-    background: rgba(52, 199, 89, 0.15);
-    color: #34c759;
-    border: 1px solid rgba(52, 199, 89, 0.3);
+    background: var(--success-soft);
+    color: var(--success);
+    border: 1px solid var(--success);
 }
 
 .status-pending {
-    background: rgba(255, 149, 0, 0.15);
-    color: #ff9500;
-    border: 1px solid rgba(255, 149, 0, 0.3);
+    background: var(--warning-soft);
+    color: var(--warning);
+    border: 1px solid var(--warning);
 }
 
 .status-failed {
-    background: rgba(255, 59, 48, 0.15);
-    color: #ff3b30;
-    border: 1px solid rgba(255, 59, 48, 0.3);
+    background: var(--danger-soft);
+    color: var(--danger);
+    border: 1px solid var(--danger);
 }
 
 /* Datasets */
@@ -370,7 +370,7 @@
 }
 
 .dataset-type {
-    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+    background: var(--accent-soft);
     padding: 0.3rem 0.6rem;
     border-radius: 6px;
     font-size: 0.7rem;
@@ -444,8 +444,8 @@
 
 /* Dataset tag in sessions table */
 .dataset-tag {
-    background: var(--accent-glow, rgba(88, 86, 214, 0.1));
-    color: var(--accent, #5856d6);
+    background: var(--accent-soft);
+    color: var(--accent);
     padding: 0.15rem 0.5rem;
     border-radius: 4px;
     font-size: 0.75rem;
@@ -464,7 +464,7 @@
 /* Feedback Button */
 .btn-feedback {
     background: var(--gradient-primary);
-    color: white;
+    color: var(--text-on-accent);
     border: none;
     padding: 0.85rem 1.8rem;
     border-radius: 10px;
@@ -472,13 +472,13 @@
     font-size: 0.98rem;
     font-weight: 700;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.35);
+    box-shadow: 0 6px 20px var(--accent-glow);
     letter-spacing: 0.02em;
 }
 
 .btn-feedback:hover {
     transform: translateY(-3px);
-    box-shadow: 0 10px 30px rgba(102, 126, 234, 0.5);
+    box-shadow: 0 10px 30px var(--accent-glow);
 }
 
 .btn-feedback:active {
@@ -499,7 +499,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.6);
+    background: var(--bg-overlay);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -582,7 +582,7 @@
 .feedback-modal textarea:focus {
     outline: none;
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+    box-shadow: 0 0 0 3px var(--accent-glow);
     background: var(--bg-card);
 }
 
@@ -619,7 +619,7 @@
 
 .btn-primary {
     background: var(--gradient-primary);
-    color: white;
+    color: var(--text-on-accent);
     border: none;
     padding: 0.8rem 1.6rem;
     border-radius: 10px;
@@ -627,12 +627,12 @@
     font-size: 0.95rem;
     font-weight: 700;
     transition: all 0.3s ease;
-    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    box-shadow: 0 4px 15px var(--accent-glow);
 }
 
 .btn-primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 8px 24px var(--accent-glow);
 }
 
 .btn-primary:active {
@@ -654,15 +654,15 @@
 }
 
 .dashboard-toast-success {
-    background: rgba(76, 217, 100, 0.1);
-    color: #34c759;
-    border: 1px solid rgba(52, 199, 89, 0.4);
+    background: var(--success-soft);
+    color: var(--success);
+    border: 1px solid var(--success);
 }
 
 .dashboard-toast-error {
-    background: rgba(255, 69, 58, 0.12);
-    color: #ff3b30;
-    border: 1px solid rgba(255, 59, 48, 0.4);
+    background: var(--danger-soft);
+    color: var(--danger);
+    border: 1px solid var(--danger);
 }
 
 @keyframes toast-fade {
