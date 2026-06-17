@@ -7,7 +7,7 @@ import jwt
 from datetime import datetime, timedelta
 from mongoDb.connection import get_db
 from bson import ObjectId
-from config import JWT_SECRET, JWT_ALGORITHM, JWT_EXPIRY_HOURS
+from config import JWT_SECRET, JWT_ALGORITHM, JWT_EXPIRY_HOURS, FLASK_DEBUG
 
 
 def _generate_token(user_id, email, role="user"):
@@ -44,6 +44,12 @@ def _sanitize_user(user):
 
 
 def login(email, password):
+    # Reject non-string credentials BEFORE they reach the Mongo query. A JSON
+    # body like {"email": {"$gt": ""}} would otherwise be a NoSQL operator that
+    # matches an arbitrary user (authentication bypass).
+    if not isinstance(email, str) or not isinstance(password, str):
+        raise Exception("user_not_found")
+
     db = get_db()
     user = db.users.find_one({"email": email})
 
@@ -113,29 +119,35 @@ def signup(first_name, last_name, email, password, phone, country_code, terms_ac
 
 
 def forgot_password(email):
-    db = get_db()
-    user = db.users.find_one({"email": email})
+    # Behave identically whether or not the account exists (prevents user
+    # enumeration) and NEVER return the token to the caller. Returning it let
+    # anyone mint a working reset token for any email = unauthenticated takeover.
+    if isinstance(email, str):
+        db = get_db()
+        user = db.users.find_one({"email": email})
+        if user:
+            reset_token = jwt.encode(
+                {
+                    "email": email,
+                    "type": "password_reset",
+                    "exp": datetime.utcnow() + timedelta(hours=1),
+                },
+                JWT_SECRET,
+                algorithm=JWT_ALGORITHM,
+            )
+            # TODO: deliver the reset link by email. Until an email backend is
+            # wired up, surface the token only in the server log in dev so it is
+            # never exposed over the API.
+            if FLASK_DEBUG:
+                print(f"[forgot_password] DEV ONLY reset token for {email}: {reset_token}", flush=True)
 
-    if not user:
-        raise Exception("user_not_found")
-
-    # Generate a password reset token (short expiry)
-    reset_token = jwt.encode(
-        {
-            "email": email,
-            "type": "password_reset",
-            "exp": datetime.utcnow() + timedelta(hours=1)
-        },
-        JWT_SECRET,
-        algorithm=JWT_ALGORITHM
-    )
-
-    # TODO: Send email with reset link containing reset_token
-
-    return {"message": "Password reset link sent to your email", "reset_token": reset_token}
+    return {"message": "If an account exists for that email, a password reset link has been sent."}
 
 
 def reset_password(token, new_password):
+    if not isinstance(token, str) or not isinstance(new_password, str):
+        raise Exception("invalid_reset_token")
+
     db = get_db()
 
     try:

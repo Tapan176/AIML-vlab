@@ -28,12 +28,21 @@ JWT_EXPIRY_HOURS = int(os.getenv('JWT_EXPIRY_HOURS', '24'))
 JWT_ALGORITHM = 'HS256'
 
 if JWT_SECRET == _JWT_DEFAULT:
-    import warnings
-    warnings.warn(
-        "JWT_SECRET is using the public default value. "
-        "Set JWT_SECRET in backend/.env to a long random string before running in any non-throwaway environment.",
-        stacklevel=2,
-    )
+    # A known default secret lets anyone forge JWTs (including admin role).
+    # In local dev (FLASK_DEBUG=true) warn but allow; otherwise hard-fail at
+    # startup so this can never reach production.
+    if os.getenv('FLASK_DEBUG', 'false').lower() == 'true':
+        import warnings
+        warnings.warn(
+            "JWT_SECRET is the public default value. Set a long random JWT_SECRET in "
+            "backend/.env — allowed here only because FLASK_DEBUG=true.",
+            stacklevel=2,
+        )
+    else:
+        raise RuntimeError(
+            "JWT_SECRET is unset or equals the public default. Set a long random "
+            "JWT_SECRET environment variable before starting the server."
+        )
 
 # --- File Storage ---
 UPLOAD_DIR = os.getenv('UPLOAD_DIR', 'static/uploads')
@@ -49,7 +58,9 @@ GOOGLE_TOKEN_PATH = os.getenv('GOOGLE_TOKEN_PATH', os.path.join(BASE_DIR, 'token
 
 # --- Server ---
 FLASK_PORT = int(os.getenv('FLASK_PORT', '5050'))
-FLASK_DEBUG = os.getenv('FLASK_DEBUG', 'true').lower() == 'true'
+# Default OFF — the Werkzeug debugger must never be exposed in production. Opt
+# into it explicitly with FLASK_DEBUG=true for local dev.
+FLASK_DEBUG = os.getenv('FLASK_DEBUG', 'false').lower() == 'true'
 ALLOWED_ORIGINS = os.getenv('ALLOWED_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000,http://localhost:5050,http://127.0.0.1:5050').split(',')
 
 # --- Subscription / Quotas ---
