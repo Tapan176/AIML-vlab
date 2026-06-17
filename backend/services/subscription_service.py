@@ -29,6 +29,8 @@ from config import (
     TEAM_TIER_MAX_DATASETS,
     STRIPE_PRICE_PRO,
     STRIPE_PRICE_TEAM,
+    LEMONSQUEEZY_VARIANT_PRO,
+    LEMONSQUEEZY_VARIANT_TEAM,
 )
 from mongoDb.connection import get_db
 
@@ -283,24 +285,57 @@ def plan_for_price_id(price_id):
     return None
 
 
-def set_user_subscription(user_id, plan_id, status="active", stripe_customer_id=None,
-                          stripe_subscription_id=None, current_period_end=None):
-    """Persist a user's subscription state (called from Stripe webhooks).
+# ── Lemon Squeezy ↔ plan mapping ────────────────────────────────────────────
 
-    Storing the Stripe customer/subscription ids lets us open the billing portal
-    and reconcile future webhook events. `status` follows Stripe's subscription
-    statuses (active, trialing, past_due, canceled, …)."""
+def variant_id_for_plan(plan_id):
+    """Map an internal plan id → the Lemon Squeezy variant ID (from config)."""
+    return {"pro": LEMONSQUEEZY_VARIANT_PRO, "team": LEMONSQUEEZY_VARIANT_TEAM}.get(plan_id)
+
+
+def plan_for_variant_id(variant_id):
+    """Reverse map a Lemon Squeezy variant ID → internal plan id (for webhooks).
+
+    LS sends variant_id as an int in webhook payloads; compare as strings so a
+    config value of "12345" matches a payload int 12345.
+    """
+    vid = str(variant_id) if variant_id is not None else None
+    if vid and LEMONSQUEEZY_VARIANT_PRO and vid == str(LEMONSQUEEZY_VARIANT_PRO):
+        return "pro"
+    if vid and LEMONSQUEEZY_VARIANT_TEAM and vid == str(LEMONSQUEEZY_VARIANT_TEAM):
+        return "team"
+    return None
+
+
+def set_user_subscription(user_id, plan_id, status="active", stripe_customer_id=None,
+                          stripe_subscription_id=None, current_period_end=None,
+                          provider=None, customer_id=None, subscription_id=None,
+                          portal_url=None):
+    """Persist a user's subscription state (called from payment webhooks).
+
+    Provider-agnostic: pass `provider` ('stripe'|'lemonsqueezy') with generic
+    `customer_id`/`subscription_id`, OR the legacy `stripe_*` kwargs. We also
+    keep the Stripe-named fields for backward compatibility with existing code.
+    `status` follows the provider's subscription statuses (active, on_trial,
+    past_due, cancelled, expired, …)."""
     db = get_db()
+    cust = customer_id or stripe_customer_id
+    subid = subscription_id or stripe_subscription_id
     sub = {
         "plan": plan_id or "free",
         "status": status,
+        "provider": provider or ("stripe" if stripe_customer_id else None),
     }
-    if stripe_customer_id:
-        sub["stripe_customer_id"] = stripe_customer_id
-    if stripe_subscription_id:
-        sub["stripe_subscription_id"] = stripe_subscription_id
+    # Generic ids (used by the provider-agnostic billing layer).
+    if cust:
+        sub["customer_id"] = cust
+        sub["stripe_customer_id"] = cust  # back-compat
+    if subid:
+        sub["subscription_id"] = subid
+        sub["stripe_subscription_id"] = subid  # back-compat
     if current_period_end is not None:
         sub["current_period_end"] = current_period_end
+    if portal_url:
+        sub["portal_url"] = portal_url  # LS gives a per-subscription portal URL
     db.users.update_one({"_id": ObjectId(str(user_id))}, {"$set": {"subscription": sub}})
     # Bust the auth middleware's user cache so the new plan takes effect at once.
     try:
@@ -316,3 +351,16 @@ def find_user_by_stripe_customer(customer_id):
     if not customer_id:
         return None
     return get_db().users.find_one({"subscription.stripe_customer_id": customer_id})
+
+
+def find_user_by_customer(customer_id):
+    """Locate the local user for a provider customer id (any provider)."""
+    if not customer_id:
+        return None
+    cid = str(customer_id)
+    return get_db().users.find_one({
+        "$or": [
+            {"subscription.customer_id": cid},
+            {"subscription.stripe_customer_id": cid},
+        ]
+    })

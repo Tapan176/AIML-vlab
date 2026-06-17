@@ -33,6 +33,7 @@ export default function PricingPage() {
     const [plans, setPlans] = useState([]);
     const [loading, setLoading] = useState(true);
     const [paymentsEnabled, setPaymentsEnabled] = useState(false);
+    const [provider, setProvider] = useState(null);
     const [currency, setCurrency] = useState('USD');
     const [busyPlan, setBusyPlan] = useState(null);
     const [error, setError] = useState(null);
@@ -40,6 +41,11 @@ export default function PricingPage() {
     const { entitlements } = useSubscription();
     const currentPlan = entitlements?.plan || 'free';
     const formatPrice = makePriceFormatter(currency);
+    const providerLabel = provider === 'lemonsqueezy'
+        ? 'Lemon Squeezy'
+        : provider === 'stripe'
+            ? 'Stripe'
+            : 'our secure payment provider';
 
     useEffect(() => {
         let active = true;
@@ -52,6 +58,7 @@ export default function PricingPage() {
                 if (!active) return;
                 setPlans((data && data.plans) || []);
                 setPaymentsEnabled(!!(data && data.payments_enabled));
+                setProvider((data && data.provider) || null);
                 if (locale && locale.currency) setCurrency(locale.currency);
             } catch (e) {
                 if (active) setPlans([]);
@@ -73,7 +80,7 @@ export default function PricingPage() {
         try {
             const res = await api.post('/billing/checkout', { plan: planId });
             if (res && res.url) {
-                window.location.href = res.url; // redirect to Stripe Checkout
+                window.location.href = res.url; // redirect to the provider's hosted checkout
             } else {
                 setError('Could not start checkout. Please try again.');
             }
@@ -100,7 +107,7 @@ export default function PricingPage() {
         <div className="pricing-page">
             <h1 className="pricing-heading">Plans &amp; Pricing</h1>
             <p className="pricing-subhead">
-                Same price worldwide — shown in your local currency, billed securely via Stripe.
+                Same price worldwide — shown in your local currency, billed securely via {providerLabel}.
             </p>
             {error && <p className="pricing-error">{error}</p>}
 

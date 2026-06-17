@@ -75,6 +75,11 @@ FREE_TIER_MAX_DATASETS = int(os.getenv('FREE_TIER_MAX_DATASETS', '20'))
 PRO_TIER_MAX_DATASETS = int(os.getenv('PRO_TIER_MAX_DATASETS', '200'))
 TEAM_TIER_MAX_DATASETS = int(os.getenv('TEAM_TIER_MAX_DATASETS', '1000'))
 
+# --- Payments: provider selector --------------------------------------------
+# 'lemonsqueezy' (default — works from India, no invite, merchant of record) or
+# 'stripe'. The active provider's keys must be set for checkout to work.
+PAYMENT_PROVIDER = os.getenv('PAYMENT_PROVIDER', 'lemonsqueezy').lower()
+
 # --- Stripe (payments) ------------------------------------------------------
 # All optional — when STRIPE_SECRET_KEY is unset, the payment endpoints report
 # "not configured" and the app behaves as before (manual/free only).
@@ -87,6 +92,20 @@ STRIPE_PRICE_TEAM = os.getenv('STRIPE_PRICE_TEAM', None)           # price_…
 # Where Stripe Checkout returns the user after success/cancel (frontend URLs).
 STRIPE_SUCCESS_URL = os.getenv('STRIPE_SUCCESS_URL', None)         # e.g. https://app/billing?status=success
 STRIPE_CANCEL_URL = os.getenv('STRIPE_CANCEL_URL', None)           # e.g. https://app/pricing?status=cancel
+
+# --- Lemon Squeezy (payments) -----------------------------------------------
+# Merchant of record — works from India, no invite, handles global tax. All
+# optional; when LEMONSQUEEZY_API_KEY is unset the endpoints report "not
+# configured". Get these from https://app.lemonsqueezy.com/settings/api and your
+# store's Products → Variants.
+LEMONSQUEEZY_API_KEY = os.getenv('LEMONSQUEEZY_API_KEY', None)         # API key (Bearer)
+LEMONSQUEEZY_STORE_ID = os.getenv('LEMONSQUEEZY_STORE_ID', None)       # numeric store id
+LEMONSQUEEZY_WEBHOOK_SECRET = os.getenv('LEMONSQUEEZY_WEBHOOK_SECRET', None)  # webhook signing secret
+# Variant IDs (one per paid plan) — each plan = a subscription variant.
+LEMONSQUEEZY_VARIANT_PRO = os.getenv('LEMONSQUEEZY_VARIANT_PRO', None)
+LEMONSQUEEZY_VARIANT_TEAM = os.getenv('LEMONSQUEEZY_VARIANT_TEAM', None)
+# Where LS Checkout returns the user after success (frontend URL).
+LEMONSQUEEZY_REDIRECT_URL = os.getenv('LEMONSQUEEZY_REDIRECT_URL', None)  # e.g. https://app/profile?status=success
 
 # --- HuggingFace ---
 HF_TOKEN = os.getenv('HF_TOKEN', None)  # Optional — needed for gated models

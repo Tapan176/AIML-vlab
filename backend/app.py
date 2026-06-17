@@ -92,13 +92,13 @@ app.register_blueprint(admin_routes, url_prefix='/api/admin')
 app.register_blueprint(finetune_routes, url_prefix='/api')
 app.register_blueprint(subscription_routes, url_prefix='/api')
 
-# Stripe calls the webhook from its own IPs and can burst on retries — exempt it
-# from the per-IP rate limit so legitimate billing events are never dropped.
-# (The endpoint still verifies the Stripe signature, so it's not open abuse.)
+# Payment providers call the webhook from their own IPs and can burst on
+# retries — exempt it from the per-IP rate limit so legitimate billing events
+# are never dropped. (The endpoint still verifies the provider signature.)
 try:
-    limiter.exempt(app.view_functions['subscription_routes.stripe_webhook'])
+    limiter.exempt(app.view_functions['subscription_routes.billing_webhook'])
 except Exception as e:
-    print(f"Could not exempt stripe webhook from rate limit: {e}")
+    print(f"Could not exempt billing webhook from rate limit: {e}")
 
 @app.route('/api')
 def health_check():

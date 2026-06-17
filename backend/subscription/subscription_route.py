@@ -1,26 +1,26 @@
 """
-Subscription / usage + Stripe payment endpoints.
+Subscription / usage + payment endpoints (provider-agnostic).
 
-Read endpoints (/subscription/me, /subscription/plans) are safe even when
-SUBSCRIPTION_ENABLED is false. The Stripe endpoints (/billing/*) require both
-SUBSCRIPTION_ENABLED and STRIPE_SECRET_KEY; otherwise they return 503 so the
-app degrades gracefully.
+Supported providers (config.PAYMENT_PROVIDER): 'lemonsqueezy' (default — works
+from India, no invite, merchant of record) and 'stripe'. Read endpoints
+(/subscription/me, /subscription/plans) are always safe. Billing endpoints
+require SUBSCRIPTION_ENABLED + the active provider's keys; otherwise they return
+503 and the UI shows "Coming soon".
 
-Flow:
-  1. Frontend POST /billing/checkout {plan} → Stripe Checkout Session
-     (mode=subscription); frontend redirects to the returned URL.
-  2. User pays on Stripe's hosted page → redirected back to STRIPE_SUCCESS_URL.
-  3. Stripe POSTs a webhook to /billing/webhook → we verify the signature and
-     update the user's subscription in Mongo. THIS is the source of truth —
-     never trust the client redirect alone.
-  4. POST /billing/portal opens the Stripe Billing Portal for self-serve
-     upgrade/downgrade/cancel.
+Flow (both providers):
+  1. POST /billing/checkout {plan} → hosted checkout URL; frontend redirects.
+  2. User pays on the provider's hosted page → redirected back to our app.
+  3. Provider POSTs a signed webhook to /billing/webhook → we verify the
+     signature and update user.subscription in Mongo (SOURCE OF TRUTH — never
+     trust the client redirect alone).
+  4. POST /billing/portal → self-serve manage/cancel.
 """
 from flask import Blueprint, jsonify, request
 
 from auth.auth_middleware import token_required
 from config import (
     SUBSCRIPTION_ENABLED,
+    PAYMENT_PROVIDER,
     STRIPE_SECRET_KEY,
     STRIPE_WEBHOOK_SECRET,
     STRIPE_SUCCESS_URL,
@@ -32,20 +32,35 @@ from services.subscription_service import (
     list_plans,
     price_id_for_plan,
     plan_for_price_id,
+    variant_id_for_plan,
+    plan_for_variant_id,
     set_user_subscription,
     find_user_by_stripe_customer,
+    find_user_by_customer,
 )
 
 subscription_routes = Blueprint('subscription_routes', __name__)
 
 
 def _stripe():
-    """Return a configured stripe module, or None when payments are off."""
-    if not (SUBSCRIPTION_ENABLED and STRIPE_SECRET_KEY):
+    """Return a configured stripe module, or None when Stripe isn't active."""
+    if not (SUBSCRIPTION_ENABLED and PAYMENT_PROVIDER == 'stripe' and STRIPE_SECRET_KEY):
         return None
     import stripe
     stripe.api_key = STRIPE_SECRET_KEY
     return stripe
+
+
+def _payments_active():
+    """True when the configured provider is fully set up."""
+    if not SUBSCRIPTION_ENABLED:
+        return False
+    if PAYMENT_PROVIDER == 'stripe':
+        return bool(STRIPE_SECRET_KEY)
+    if PAYMENT_PROVIDER == 'lemonsqueezy':
+        from subscription import lemonsqueezy as ls
+        return ls.is_configured()
+    return False
 
 
 def _with_param(url, extra):
@@ -74,8 +89,11 @@ def plans():
     try:
         return jsonify({
             "plans": list_plans(),
-            "payments_enabled": bool(SUBSCRIPTION_ENABLED and STRIPE_SECRET_KEY),
-            "publishable_key": STRIPE_PUBLISHABLE_KEY if SUBSCRIPTION_ENABLED else None,
+            "payments_enabled": _payments_active(),
+            "provider": PAYMENT_PROVIDER if SUBSCRIPTION_ENABLED else None,
+            "publishable_key": (STRIPE_PUBLISHABLE_KEY
+                                if (SUBSCRIPTION_ENABLED and PAYMENT_PROVIDER == 'stripe')
+                                else None),
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -111,30 +129,43 @@ def billing_locale():
     return jsonify({"country": country, "currency": currency}), 200
 
 
-# ── Stripe Checkout / Billing Portal ────────────────────────────────────────
+# ── Checkout / Portal / Webhook (provider-agnostic) ─────────────────────────
 
 @subscription_routes.route('/billing/checkout', methods=['POST'])
 @token_required
 def create_checkout(current_user):
-    """Create a Stripe Checkout Session for the requested plan and return its URL.
+    """Create a hosted checkout for the requested plan and return its URL.
 
-    Stripe Adaptive Pricing (enabled in the Stripe dashboard) localizes the
-    displayed currency for the buyer automatically — the underlying Price stays
-    canonical, so the price is the same everywhere.
+    Dispatches to the configured provider. Both localize currency on their
+    hosted page; the canonical price is the same everywhere.
     """
-    stripe = _stripe()
-    if not stripe:
+    if not _payments_active():
         return jsonify({"error": "payments_not_configured"}), 503
 
     data = request.get_json(silent=True) or {}
     plan_id = data.get('plan')
+
+    # ── Lemon Squeezy ──
+    if PAYMENT_PROVIDER == 'lemonsqueezy':
+        variant_id = variant_id_for_plan(plan_id)
+        if not variant_id:
+            return jsonify({"error": "invalid_or_unconfigured_plan"}), 400
+        try:
+            from subscription import lemonsqueezy as ls
+            url = ls.create_checkout(variant_id, current_user, plan_id)
+            return jsonify({"url": url}), 200
+        except Exception as e:
+            return jsonify({"error": f"lemonsqueezy_error: {e}"}), 502
+
+    # ── Stripe ──
+    stripe = _stripe()
+    if not stripe:
+        return jsonify({"error": "payments_not_configured"}), 503
     price_id = price_id_for_plan(plan_id)
     if not price_id:
         return jsonify({"error": "invalid_or_unconfigured_plan"}), 400
-
     sub = current_user.get('subscription') or {}
     customer_id = sub.get('stripe_customer_id')
-
     try:
         session_kwargs = {
             "mode": "subscription",
@@ -155,7 +186,6 @@ def create_checkout(current_user):
             session_kwargs["customer"] = customer_id
         else:
             session_kwargs["customer_email"] = current_user.get('email')
-
         session = stripe.checkout.Session.create(**session_kwargs)
         return jsonify({"url": session.url, "id": session.id}), 200
     except Exception as e:
@@ -165,12 +195,23 @@ def create_checkout(current_user):
 @subscription_routes.route('/billing/portal', methods=['POST'])
 @token_required
 def billing_portal(current_user):
-    """Open the Stripe Billing Portal so the user can manage/cancel their plan."""
-    stripe = _stripe()
-    if not stripe:
+    """Open the provider's customer portal so the user can manage/cancel."""
+    if not _payments_active():
         return jsonify({"error": "payments_not_configured"}), 503
 
     sub = current_user.get('subscription') or {}
+
+    # ── Lemon Squeezy: LS provides a per-subscription portal URL on the webhook ──
+    if PAYMENT_PROVIDER == 'lemonsqueezy':
+        portal_url = sub.get('portal_url')
+        if portal_url:
+            return jsonify({"url": portal_url}), 200
+        return jsonify({"error": "no_active_subscription"}), 400
+
+    # ── Stripe ──
+    stripe = _stripe()
+    if not stripe:
+        return jsonify({"error": "payments_not_configured"}), 503
     customer_id = sub.get('stripe_customer_id')
     if not customer_id:
         return jsonify({"error": "no_active_subscription"}), 400
@@ -185,31 +226,80 @@ def billing_portal(current_user):
 
 
 @subscription_routes.route('/billing/webhook', methods=['POST'])
-def stripe_webhook():
-    """Stripe webhook: the SOURCE OF TRUTH for subscription state.
+def billing_webhook():
+    """Payment webhook: the SOURCE OF TRUTH for subscription state.
 
-    Verifies the signature with STRIPE_WEBHOOK_SECRET, then maps Stripe events
-    to the user's subscription. Returns 200 quickly so Stripe doesn't retry on
-    transient app errors we've already logged.
+    Verifies the provider's signature, then maps events to user.subscription.
+    Returns 200 quickly so the provider doesn't retry on our transient errors.
     """
-    if not (SUBSCRIPTION_ENABLED and STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET):
+    if not SUBSCRIPTION_ENABLED:
         return jsonify({"error": "payments_not_configured"}), 503
 
+    raw = request.get_data()
+
+    if PAYMENT_PROVIDER == 'lemonsqueezy':
+        from subscription import lemonsqueezy as ls
+        if not ls.is_configured():
+            return jsonify({"error": "payments_not_configured"}), 503
+        sig = request.headers.get('X-Signature', '')
+        if not ls.verify_webhook(raw, sig):
+            return jsonify({"error": "invalid_signature"}), 400
+        try:
+            evt = ls.parse_event(request.get_json(silent=True) or {})
+            _handle_ls_event(evt)
+        except Exception as e:
+            print(f"[ls webhook] handler error: {e}")
+        return jsonify({"received": True}), 200
+
+    # ── Stripe ──
+    if not (STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET):
+        return jsonify({"error": "payments_not_configured"}), 503
     import stripe
     stripe.api_key = STRIPE_SECRET_KEY
-    payload = request.get_data()
     sig = request.headers.get('Stripe-Signature', '')
     try:
-        event = stripe.Webhook.construct_event(payload, sig, STRIPE_WEBHOOK_SECRET)
+        event = stripe.Webhook.construct_event(raw, sig, STRIPE_WEBHOOK_SECRET)
     except Exception as e:
         return jsonify({"error": f"invalid_signature: {e}"}), 400
-
     try:
         _handle_stripe_event(stripe, event)
     except Exception as e:
         print(f"[stripe webhook] handler error for {event.get('type')}: {e}")
-
     return jsonify({"received": True}), 200
+
+
+def _handle_ls_event(evt):
+    """Map a normalized Lemon Squeezy event → user.subscription.
+
+    LS events: subscription_created, subscription_updated, subscription_cancelled,
+    subscription_expired, subscription_resumed, subscription_paused, …
+    """
+    event = evt.get("event")
+    user_id = evt.get("user_id")
+    status = evt.get("status")
+    plan_id = plan_for_variant_id(evt.get("variant_id"))
+    customer_id = evt.get("customer_id")
+    subscription_id = evt.get("subscription_id")
+    portal_url = evt.get("portal_url")
+
+    # Resolve the user from custom_data, else by customer id (later events).
+    if not user_id and customer_id:
+        u = find_user_by_customer(customer_id)
+        user_id = str(u["_id"]) if u else None
+    if not user_id:
+        return
+
+    # Active-ish statuses keep the paid plan; terminal ones drop to free.
+    active_statuses = {"active", "on_trial", "paused", "past_due"}
+    terminal = {"cancelled", "expired", "unpaid"}
+    if event in ("subscription_cancelled", "subscription_expired") or status in terminal:
+        set_user_subscription(user_id, "free", status=status or "cancelled",
+                              provider="lemonsqueezy", customer_id=customer_id,
+                              subscription_id=subscription_id, portal_url=portal_url)
+    elif plan_id:
+        set_user_subscription(user_id, plan_id, status=status or "active",
+                              provider="lemonsqueezy", customer_id=customer_id,
+                              subscription_id=subscription_id, portal_url=portal_url)
 
 
 def _handle_stripe_event(stripe, event):
