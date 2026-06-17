@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { SubscriptionProvider } from './context/SubscriptionContext';
+import { UIDialogProvider } from './context/UIDialog';
 import Navbar from './components/Navbar/Navbar';
 import LandingPage from './components/LandingPage/LandingPage';
 import Home from './components/Home/Home';
@@ -25,6 +26,7 @@ function App() {
         <ThemeProvider>
             <AuthProvider>
                 <Router>
+                    <UIDialogProvider>
                     <SubscriptionProvider>
                     <Navbar />
                     <div className="app-content">
@@ -78,6 +80,7 @@ function App() {
                         </Routes>
                     </div>
                     </SubscriptionProvider>
+                    </UIDialogProvider>
                 </Router>
             </AuthProvider>
         </ThemeProvider>

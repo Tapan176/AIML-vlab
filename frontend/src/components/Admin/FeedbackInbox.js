@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useUI } from '../../context/UIDialog';
 import api from '../../services/api';
 import Pagination from '../shared/Pagination';
 import './AdminDashboard.css';
@@ -16,6 +17,7 @@ const RESOLVED_OPTIONS = [
 
 export default function FeedbackInbox() {
     const { user } = useAuth();
+    const { notify, confirm } = useUI();
     const [items, setItems] = useState([]);
     const [total, setTotal] = useState(0);
     const [page, setPage] = useState(1);
@@ -55,17 +57,24 @@ export default function FeedbackInbox() {
             await api.patch(`/admin/feedback/${id}`, { resolved: next });
         } catch (err) {
             setItems((prev) => prev.map((f) => (f._id === id ? { ...f, resolved: current } : f)));
-            alert(err.message || 'Failed to update feedback.');
+            notify(err.message || 'Failed to update feedback.', 'error');
         }
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm('Delete this feedback entry?')) return;
+        const ok = await confirm({
+            title: 'Delete feedback?',
+            message: 'Delete this feedback entry?',
+            confirmText: 'Delete',
+            danger: true,
+        });
+        if (!ok) return;
         try {
             await api.delete(`/admin/feedback/${id}`);
+            notify('Feedback deleted.', 'success');
             fetchFeedback();
         } catch (err) {
-            alert(err.message || 'Failed to delete feedback.');
+            notify(err.message || 'Failed to delete feedback.', 'error');
         }
     };
 

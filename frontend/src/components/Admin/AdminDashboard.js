@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useUI } from '../../context/UIDialog';
 import { API_URL } from '../../constants';
 import './AdminDashboard.css';
 
 const AdminDashboard = () => {
     const { user, token } = useAuth();
+    const { notify, confirm } = useUI();
     const [stats, setStats] = useState(null);
     const [datasets, setDatasets] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -44,20 +46,27 @@ const AdminDashboard = () => {
     }, [user, token]);
 
     const handleDeleteDataset = async (datasetId) => {
-        if (window.confirm("Are you sure you want to remove this default dataset?")) {
-            try {
-                const res = await fetch(`${API_URL}/admin/datasets/default/${datasetId}`, {
-                    method: 'DELETE',
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (res.ok) {
-                    setDatasets(datasets.filter(d => d._id !== datasetId));
-                } else {
-                    alert('Failed to delete dataset');
-                }
-            } catch (err) {
-                console.error(err);
+        const ok = await confirm({
+            title: 'Remove default dataset?',
+            message: 'Are you sure you want to remove this default dataset?',
+            confirmText: 'Remove',
+            danger: true,
+        });
+        if (!ok) return;
+        try {
+            const res = await fetch(`${API_URL}/admin/datasets/default/${datasetId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                setDatasets(datasets.filter(d => d._id !== datasetId));
+                notify('Default dataset removed.', 'success');
+            } else {
+                notify('Failed to delete dataset', 'error');
             }
+        } catch (err) {
+            console.error(err);
+            notify('Failed to delete dataset', 'error');
         }
     };
 

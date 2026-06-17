@@ -1,24 +1,31 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useUI } from '../../context/UIDialog';
 import './EditProfile.css';
 
 const Settings = () => {
     const { deleteAccount } = useAuth();
+    const { confirm } = useUI();
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
     const handleDeleteAccount = async () => {
-        if (window.confirm("Are you sure you want to delete your account? This action cannot be undone.")) {
-            try {
-                setLoading(true);
-                await deleteAccount();
-                navigate('/');
-            } catch (err) {
-                setError(err.message || 'Failed to delete account');
-                setLoading(false);
-            }
+        const ok = await confirm({
+            title: 'Delete account?',
+            message: 'Once you delete your account, there is no going back. This action cannot be undone.',
+            confirmText: 'Delete account',
+            danger: true,
+        });
+        if (!ok) return;
+        try {
+            setLoading(true);
+            await deleteAccount();
+            navigate('/');
+        } catch (err) {
+            setError(err.message || 'Failed to delete account');
+            setLoading(false);
         }
     };
 

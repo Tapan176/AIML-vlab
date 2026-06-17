@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useUI } from '../../context/UIDialog';
 import api from '../../services/api';
 import Pagination from '../shared/Pagination';
 import './AdminDashboard.css';
@@ -9,6 +10,7 @@ const LIMIT = 20;
 
 export default function UserManagement() {
     const { user } = useAuth();
+    const { notify } = useUI();
     const [users, setUsers] = useState([]);
     const [total, setTotal] = useState(0);
     const [page, setPage] = useState(1);
@@ -54,7 +56,7 @@ export default function UserManagement() {
         } catch (err) {
             // Revert on failure (e.g. backend blocks removing your own admin role).
             setUsers((prev) => prev.map((u) => (u._id === id ? { ...u, role: prevRole } : u)));
-            alert(err.message || 'Failed to update role.');
+            notify(err.message || 'Failed to update role.', 'error');
         }
     };
 
@@ -65,7 +67,7 @@ export default function UserManagement() {
             await api.patch(`/admin/users/${id}/status`, { active: next });
         } catch (err) {
             setUsers((prev) => prev.map((u) => (u._id === id ? { ...u, active: current } : u)));
-            alert(err.message || 'Failed to update status.');
+            notify(err.message || 'Failed to update status.', 'error');
         }
     };
 

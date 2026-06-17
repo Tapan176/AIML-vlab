@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useUI } from '../../context/UIDialog';
 import { MODEL_CATEGORIES } from '../../constants';
 import api from '../../services/api';
 import Pagination from '../shared/Pagination';
@@ -31,6 +32,7 @@ function statusBadgeClass(status) {
 
 export default function SessionsBrowser() {
     const { user } = useAuth();
+    const { notify, confirm } = useUI();
     const [sessions, setSessions] = useState([]);
     const [total, setTotal] = useState(0);
     const [page, setPage] = useState(1);
@@ -64,12 +66,19 @@ export default function SessionsBrowser() {
     }, [fetchSessions]);
 
     const handleDelete = async (id) => {
-        if (!window.confirm('Delete this training session? This cannot be undone.')) return;
+        const ok = await confirm({
+            title: 'Delete training session?',
+            message: 'Delete this training session? This cannot be undone.',
+            confirmText: 'Delete',
+            danger: true,
+        });
+        if (!ok) return;
         try {
             await api.delete(`/admin/sessions/${id}`);
+            notify('Session deleted.', 'success');
             fetchSessions();
         } catch (err) {
-            alert(err.message || 'Failed to delete session.');
+            notify(err.message || 'Failed to delete session.', 'error');
         }
     };
 

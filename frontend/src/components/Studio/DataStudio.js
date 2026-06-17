@@ -3,6 +3,7 @@ import api from '../../services/api';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTrash, faDatabase, faMagic, faTags, faChartBar, faCodeBranch, faSave, faFolderOpen } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../../context/AuthContext';
+import { useUI } from '../../context/UIDialog';
 import ShowDataset from '../Dataset/ShowDataset';
 import ImageAnnotation from './ImageAnnotation';
 import { truncateName } from '../../utils/truncateName';
@@ -12,6 +13,7 @@ import './DataStudio.css';
 
 export default function DataStudio() {
     const { isAuthenticated } = useAuth();
+    const { notify, confirm } = useUI();
     const [datasets, setDatasets] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('manager'); // 'manager', 'preprocessing', 'annotation'
@@ -82,12 +84,12 @@ export default function DataStudio() {
     }, []);
 
     const handleSavePipeline = async () => {
-        if (!pipelineName.trim() || prepOperations.length === 0) { alert('Enter a name and add operations.'); return; }
+        if (!pipelineName.trim() || prepOperations.length === 0) { notify('Enter a name and add operations.', 'warning'); return; }
         try {
             await api.post('/pipelines', { name: pipelineName.trim(), operations: prepOperations });
-            alert(`Pipeline '${pipelineName}' saved!`);
+            notify(`Pipeline '${pipelineName}' saved!`, 'success');
             fetchPipelines();
-        } catch { alert('Failed to save pipeline.'); }
+        } catch { notify('Failed to save pipeline.', 'error'); }
     };
 
     const handleLoadPipeline = async (name) => {
@@ -96,8 +98,8 @@ export default function DataStudio() {
             setPrepOperations(data.operations || []);
             setPipelineName(name);
             setActiveTab('preprocessing');
-            alert(`Loaded '${name}' (${data.operations.length} ops).`);
-        } catch { alert('Failed to load pipeline.'); }
+            notify(`Loaded '${name}' (${data.operations.length} ops).`, 'success');
+        } catch { notify('Failed to load pipeline.', 'error'); }
     };
 
     const handleApplyTemplate = (key) => {
@@ -110,7 +112,7 @@ export default function DataStudio() {
         setProfiling(true); setProfile(null);
         try {
             setProfile(await api.get(`/datasets/${profileDataset}/profile`));
-        } catch { alert('Profiling failed.'); }
+        } catch { notify('Profiling failed.', 'error'); }
         setProfiling(false);
     };
 
@@ -119,7 +121,7 @@ export default function DataStudio() {
         setDiffing(true); setDiffResult(null);
         try {
             setDiffResult(await api.post('/datasets/diff', { dataset_id_a: diffA, dataset_id_b: diffB }));
-        } catch { alert('Diff failed.'); }
+        } catch { notify('Diff failed.', 'error'); }
         setDiffing(false);
     };
 
@@ -130,20 +132,27 @@ export default function DataStudio() {
     };
 
     const handleDelete = async (id, filename) => {
-        if (!window.confirm(`Are you sure you want to permanently delete "${filename}" from your cloud library?`)) return;
+        const ok = await confirm({
+            title: 'Delete dataset?',
+            message: `This will permanently delete "${filename}" from your cloud library. This action cannot be undone.`,
+            confirmText: 'Delete',
+            danger: true,
+        });
+        if (!ok) return;
 
         try {
             await api.delete(`/datasets/${id}`);
             setDatasets(datasets.filter(d => d._id !== id));
+            notify('Dataset deleted.', 'success');
         } catch (err) {
             console.error(err);
-            alert(err.data?.error || err.message || 'Deletion failed');
+            notify(err.data?.error || err.message || 'Deletion failed', 'error');
         }
     };
 
     const handleRunPreprocessing = async () => {
         if (!selectedPrepDataset || prepOperations.length === 0) {
-            alert("Please select a dataset and add at least one operation.");
+            notify("Please select a dataset and add at least one operation.", 'warning');
             return;
         }
         
@@ -153,7 +162,7 @@ export default function DataStudio() {
                 dataset_id: selectedPrepDataset,
                 operations: prepOperations
             });
-            alert(`Success! Generated new dataset: ${data.dataset?.filename}`);
+            notify(`Generated new dataset: ${data.dataset?.filename}`, 'success');
             // Tell the subscription context to refresh usage (Data Studio runs
             // are metered under the 'datastudio' class).
             try { window.dispatchEvent(new CustomEvent('aiml:usage')); } catch (e) {}
@@ -167,7 +176,7 @@ export default function DataStudio() {
             // (api.js dispatches 'aiml:quota'); don't double-notify with an alert.
             const code = err.data?.error;
             if (code !== 'quota_exceeded' && code !== 'storage_quota_exceeded') {
-                alert(err.message || 'Preprocessing request failed.');
+                notify(err.message || 'Preprocessing request failed.', 'error');
             }
         } finally {
             setIsProcessing(false);

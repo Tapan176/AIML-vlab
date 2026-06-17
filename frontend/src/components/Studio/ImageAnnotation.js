@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import constants from '../../constants';
+import { useUI } from '../../context/UIDialog';
 
 /**
  * Image Annotation Studio
@@ -11,6 +12,7 @@ import constants from '../../constants';
  * - Save annotated datasets to Google Drive
  */
 export default function ImageAnnotation() {
+    const { notify } = useUI();
     const [images, setImages] = useState([]);          // [{file, url, name}]
     const [currentIdx, setCurrentIdx] = useState(0);
     const [annotations, setAnnotations] = useState({}); // { imageName: [{x,y,w,h,label}] }
@@ -227,7 +229,7 @@ export default function ImageAnnotation() {
     };
 
     const exportCoco = () => {
-        if (images.length === 0) { alert('No images to export.'); return; }
+        if (images.length === 0) { notify('No images to export.', 'warning'); return; }
         const coco = buildCocoData();
         const blob = new Blob([JSON.stringify(coco, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -277,14 +279,14 @@ export default function ImageAnnotation() {
                 if (data.classes) setClasses(data.classes);
                 if (data.annotations) setAnnotations(data.annotations);
                 if (data.classes?.length > 0) setSelectedClass(data.classes[0]);
-                alert(`✅ Imported: ${data.classes?.length || 0} classes, ${Object.keys(data.annotations || {}).length} annotated images.`);
-            } catch { alert('Invalid annotation file.'); }
+                notify(`Imported ${data.classes?.length || 0} classes, ${Object.keys(data.annotations || {}).length} annotated images.`, 'success');
+            } catch { notify('Invalid annotation file.', 'error'); }
         };
         reader.readAsText(file);
     };
 
     const exportYolo = () => {
-        if (images.length === 0) { alert('No images to export.'); return; }
+        if (images.length === 0) { notify('No images to export.', 'warning'); return; }
 
         const { yoloFiles, classesTxt, yaml } = buildYoloData();
 
@@ -304,11 +306,11 @@ export default function ImageAnnotation() {
     };
 
     const saveToCloud = async () => {
-        if (images.length === 0) { alert('No images to save.'); return; }
-        
+        if (images.length === 0) { notify('No images to save.', 'warning'); return; }
+
         const token = localStorage.getItem('aiml_token');
         if (!token) {
-            alert('Please sign in to save annotations to cloud.');
+            notify('Please sign in to save annotations to cloud.', 'warning');
             return;
         }
 
@@ -347,13 +349,13 @@ export default function ImageAnnotation() {
 
             const data = await res.json();
             if (res.ok) {
-                alert(`✅ Annotations saved to cloud!\nProject: ${baseName}\nVersion: v${data.version}\nID: ${data.dataset_id}`);
+                notify(`Annotations saved to cloud!\nProject: ${baseName} · Version v${data.version}`, 'success');
             } else {
-                alert(`Error: ${data.error}`);
+                notify(`Error: ${data.error}`, 'error');
             }
         } catch (err) {
             console.error(err);
-            alert('Failed to save annotations to cloud.');
+            notify('Failed to save annotations to cloud.', 'error');
         } finally {
             setIsSaving(false);
         }

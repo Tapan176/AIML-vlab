@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useUI } from '../../context/UIDialog';
 import api from '../../services/api';
 import Pagination from '../shared/Pagination';
 import './AdminDashboard.css';
@@ -15,6 +16,7 @@ const DEFAULT_OPTIONS = [
 
 export default function DatasetManager() {
     const { user } = useAuth();
+    const { notify, confirm } = useUI();
     const [datasets, setDatasets] = useState([]);
     const [total, setTotal] = useState(0);
     const [page, setPage] = useState(1);
@@ -61,17 +63,24 @@ export default function DatasetManager() {
             await api.patch(`/admin/datasets/${id}/default`, { is_default: next });
         } catch (err) {
             setDatasets((prev) => prev.map((d) => (d._id === id ? { ...d, is_default: current } : d)));
-            alert(err.message || 'Failed to update dataset.');
+            notify(err.message || 'Failed to update dataset.', 'error');
         }
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm('Delete this dataset? This cannot be undone.')) return;
+        const ok = await confirm({
+            title: 'Delete dataset?',
+            message: 'Delete this dataset? This cannot be undone.',
+            confirmText: 'Delete',
+            danger: true,
+        });
+        if (!ok) return;
         try {
             await api.delete(`/admin/datasets/${id}`);
+            notify('Dataset deleted.', 'success');
             fetchDatasets();
         } catch (err) {
-            alert(err.message || 'Failed to delete dataset.');
+            notify(err.message || 'Failed to delete dataset.', 'error');
         }
     };
 

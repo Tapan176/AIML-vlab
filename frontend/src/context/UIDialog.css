@@ -1,0 +1,216 @@
+/* ================================================
+   Global UI dialogs — toasts + confirm modal
+   (token-driven; matches the app's teal/cyan theme)
+   ================================================ */
+
+/* ---- Toast stack ---- */
+.ui-toast-stack {
+    position: fixed;
+    top: 80px;
+    right: 24px;
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    pointer-events: none;
+    max-width: min(92vw, 420px);
+}
+
+.ui-toast {
+    pointer-events: auto;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    padding: 0.8rem 1.1rem;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    line-height: 1.35;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-left-width: 4px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+    cursor: pointer;
+    white-space: pre-line; /* honor \n in messages */
+    word-break: break-word;
+    animation: ui-toast-life 4.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.ui-toast-icon {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 800;
+    margin-top: 1px;
+    color: var(--text-on-accent);
+}
+
+.ui-toast-msg {
+    flex: 1;
+    min-width: 0;
+}
+
+.ui-toast-success {
+    border-left-color: var(--success);
+}
+.ui-toast-success .ui-toast-icon {
+    background: var(--success);
+}
+
+.ui-toast-error {
+    border-left-color: var(--danger);
+}
+.ui-toast-error .ui-toast-icon {
+    background: var(--danger);
+}
+
+.ui-toast-warning {
+    border-left-color: var(--warning);
+}
+.ui-toast-warning .ui-toast-icon {
+    background: var(--warning);
+}
+
+.ui-toast-info {
+    border-left-color: var(--accent);
+}
+.ui-toast-info .ui-toast-icon {
+    background: var(--accent);
+}
+
+@keyframes ui-toast-life {
+    0%   { opacity: 0; transform: translateX(16px); }
+    6%   { opacity: 1; transform: translateX(0); }
+    90%  { opacity: 1; transform: translateX(0); }
+    100% { opacity: 0; transform: translateX(16px); }
+}
+
+/* ---- Confirm modal ---- */
+.ui-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--bg-overlay);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2100;
+    padding: 1rem;
+    animation: ui-fade-in 0.18s ease;
+}
+
+@keyframes ui-fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+.ui-modal {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 18px;
+    padding: 2rem;
+    width: 100%;
+    max-width: 460px;
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+    animation: ui-slide-up 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes ui-slide-up {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.ui-modal-title {
+    margin: 0 0 0.75rem 0;
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.ui-modal-title.danger {
+    color: var(--danger);
+}
+
+.ui-modal-message {
+    margin: 0 0 1.75rem 0;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    line-height: 1.55;
+    white-space: pre-line;
+}
+
+.ui-modal-actions {
+    display: flex;
+    gap: 0.85rem;
+    justify-content: flex-end;
+}
+
+.ui-btn {
+    padding: 0.7rem 1.4rem;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 0.92rem;
+    font-weight: 700;
+    font-family: inherit;
+    transition: all 0.2s ease;
+    border: 1.5px solid transparent;
+}
+
+.ui-btn-secondary {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border-color: var(--border-color);
+}
+.ui-btn-secondary:hover {
+    background: var(--border-color);
+    border-color: var(--text-secondary);
+}
+
+.ui-btn-primary {
+    background: var(--gradient-primary);
+    color: var(--text-on-accent);
+    box-shadow: 0 4px 15px var(--accent-glow);
+}
+.ui-btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px var(--accent-glow);
+}
+
+.ui-btn-danger {
+    background: var(--gradient-danger);
+    color: var(--text-on-accent);
+    box-shadow: 0 4px 15px var(--danger-soft);
+}
+.ui-btn-danger:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.05);
+}
+
+.ui-btn:active {
+    transform: translateY(0);
+}
+
+@media (max-width: 540px) {
+    .ui-toast-stack {
+        top: 70px;
+        right: 12px;
+        left: 12px;
+        max-width: none;
+    }
+    .ui-modal {
+        padding: 1.5rem;
+    }
+    .ui-modal-actions {
+        flex-direction: column-reverse;
+    }
+    .ui-btn {
+        width: 100%;
+    }
+}

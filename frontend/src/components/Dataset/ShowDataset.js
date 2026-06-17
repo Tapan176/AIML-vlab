@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import constants from '../../constants';
 import api from '../../services/api';
 import { truncateName } from '../../utils/truncateName';
+import { useUI } from '../../context/UIDialog';
 
 const TAB_CLOUD = 'cloud';
 const TAB_UPLOAD = 'upload';
@@ -62,6 +63,7 @@ function OnDemandFolderImages({ datasetId, folder, imageCount, renderImageGrid }
 }
 
 export default function ShowDataset({ onDatasetUpload, initialFilename, onColumnsDetected, ...props }) {
+    const { notify } = useUI();
     const [csvData, setCsvData] = useState(null);
     const [imageLinks, setImageLinks] = useState([]);
     const [showDataset, setShowDataset] = useState(false);
@@ -254,7 +256,7 @@ export default function ShowDataset({ onDatasetUpload, initialFilename, onColumn
         const file = fileInput.files[0];
 
         if (!file) {
-            alert('Please select a file.');
+            notify('Please select a file.', 'warning');
             return;
         }
 
@@ -286,7 +288,7 @@ export default function ShowDataset({ onDatasetUpload, initialFilename, onColumn
 
     function handleTogglePreview() {
         if (!csvData && imageLinks.length === 0 && !cloudPreview) {
-            alert('Please upload or preview a dataset first.');
+            notify('Please upload or preview a dataset first.', 'warning');
             return;
         }
         setShowDataset(!showDataset);
