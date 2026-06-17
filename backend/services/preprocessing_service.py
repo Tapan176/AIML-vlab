@@ -252,10 +252,9 @@ def perform_preprocessing(current_user, dataset_id, operations):
     src_base = src_name.rsplit('.', 1)[0] if '.' in src_name else src_name
     output_filename = f"{src_base}_preprocessed.csv"
 
-    class SF:
-        def __init__(self, s): self.s = s
-        def read(self): return self.s.read()
-    dr = upload_file_to_drive(SF(out), output_filename, folder_type='datasets', user_id=current_user['_id'])
+    # `out` is a seekable BytesIO — pass it straight to the uploader, which wraps
+    # it in MediaIoBaseUpload (needs both .read() and .seek()).
+    dr = upload_file_to_drive(out, output_filename, folder_type='datasets', user_id=current_user['_id'])
     meta = save_dataset(user_id=current_user['_id'], filename=output_filename, filepath="", file_type='csv', drive_id=dr.get('id'))
     meta['_id'] = str(meta['_id'])
     ts = {'rows_before': br, 'rows_after': ar, 'cols_before': bc, 'cols_after': ac, 'operations_applied': len(operations), 'operations': [o.get('action') for o in operations]}
