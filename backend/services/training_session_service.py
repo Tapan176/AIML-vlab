@@ -209,6 +209,35 @@ def _upload_results_zip_chain(output_images, user_id, session_label):
     return (drive_url, drive_id)
 
 
+def _upload_predictions_chain(predictions_path, user_id, session_label):
+    """Upload the predictions CSV to Drive (per-session), then delete the local
+    file. Returns (drive_url, drive_id, filename); any field None on failure.
+
+    Predictions were previously written to a GLOBAL predictions/<model>.csv path
+    and downloaded by model name with no owner scoping — so they belonged to the
+    session/user only nominally. Uploading per-session to Drive (like the model
+    and results zip) makes them owner-scoped and removes the shared local file.
+    """
+    if not (predictions_path and os.path.exists(predictions_path)):
+        return (None, None, None)
+    filename = os.path.basename(predictions_path)
+    try:
+        drive_res = upload_file_to_drive(
+            predictions_path, filename,
+            folder_type='trained_models',
+            user_id=user_id,
+            subfolder=session_label,
+        )
+        drive_url = drive_res.get('webContentLink')
+        drive_id = drive_res.get('id')
+        if os.path.exists(predictions_path):
+            os.remove(predictions_path)
+        return (drive_url, drive_id, filename)
+    except Exception as e:
+        print(f"Warning: Failed to upload predictions to Drive: {e}")
+        return (None, None, filename)
+
+
 def update_session_results(session_id, results, output_images, model_path, predictions_path=None):
     """Update a training session with results after training completes.
 
@@ -227,11 +256,13 @@ def update_session_results(session_id, results, output_images, model_path, predi
     user_id = session.get('user_id') if session else None
     session_label = session.get('session_label', f'session_{session_id}') if session else f'session_{session_id}'
 
-    with ThreadPoolExecutor(max_workers=2) as ex:
+    with ThreadPoolExecutor(max_workers=3) as ex:
         f_model = ex.submit(_upload_model_chain, model_path, user_id, session_label)
         f_results = ex.submit(_upload_results_zip_chain, output_images, user_id, session_label)
+        f_preds = ex.submit(_upload_predictions_chain, predictions_path, user_id, session_label)
         trained_model_drive_url, trained_model_drive_id, upload_filename = f_model.result()
         results_zip_drive_url, results_zip_drive_id = f_results.result()
+        predictions_drive_url, predictions_drive_id, predictions_filename = f_preds.result()
 
     # Resolve the linked dataset's drive_id for easy reference
     dataset_drive_id = None
@@ -253,6 +284,7 @@ def update_session_results(session_id, results, output_images, model_path, predi
     # Add to results so frontend knows they are available
     results['trained_model_drive_id'] = trained_model_drive_id
     results['results_zip_drive_id'] = results_zip_drive_id
+    results['predictions_drive_id'] = predictions_drive_id
 
     # Build update dict, only include upload_filename if it was set
     update_dict = {
@@ -263,6 +295,9 @@ def update_session_results(session_id, results, output_images, model_path, predi
         'trained_model_drive_id': trained_model_drive_id,
         'results_zip_drive_url': results_zip_drive_url,
         'results_zip_drive_id': results_zip_drive_id,
+        'predictions_drive_url': predictions_drive_url,
+        'predictions_drive_id': predictions_drive_id,
+        'predictions_filename': predictions_filename,
         'dataset_drive_id': dataset_drive_id,
         'predictions_path': predictions_path,
         'status': 'completed',

@@ -91,7 +91,9 @@ export default function SimpleLinearRegression() {
 
             {results && (
                 <div className="download-section">
-                    <DownloadModelPredictions selectedModel="simple_linear_regression" extension=".csv" />
+                    {results.predictions_drive_id && (
+                        <DownloadModelPredictions extension=".csv" sessionId={results.session_id} />
+                    )}
                     {(results.trained_model_drive_id || !results.session_id) && (
                         <DownloadTrainedModel selectedModel="simple_linear_regression" extension=".pkl" sessionId={results.session_id} label="Download" />
                     )}

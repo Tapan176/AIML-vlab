@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from utils.saveTrainedModel import saveTrainedModel
 from utils.data_loader import load_data_with_fallback
 from utils.predictions_writer import save_predictions_csv
-from config import IMAGES_DIR, PREDICTIONS_DIR, ensure_dir
+from config import IMAGES_DIR, get_user_predictions_dir, ensure_dir
 
 
 def multivariateLinearRegression(request, validated_params=None, user_id=None, session_version=None):
@@ -42,7 +42,7 @@ def multivariateLinearRegression(request, validated_params=None, user_id=None, s
     mse = mean_squared_error(y_test, y_pred)
     r2 = r2_score(y_test, y_pred)
 
-    pred_dir = ensure_dir(PREDICTIONS_DIR)
+    pred_dir = ensure_dir(get_user_predictions_dir(user_id))
     predictions_output_file = os.path.join(pred_dir, 'multivariable_linear_regression.csv')
     save_predictions_csv(X_test, y_test, columnNames, y_pred, predictions_output_file)
 

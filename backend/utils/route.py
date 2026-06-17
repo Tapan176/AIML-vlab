@@ -1,7 +1,6 @@
 from flask import Blueprint, request, send_file, jsonify
 from utils.downloadFiles import get_model_path
 from utils.uploadFiles import handle_upload_file
-from utils.downloadPrediction import get_model_predictions
 from services.model_catalog import get_model_catalog, get_catalog_from_db, MODEL_CATALOG_VERSION
 
 utils_routes = Blueprint('utils_routes', __name__)
@@ -118,14 +117,30 @@ def download_model(current_user):
     download_name = os.path.basename(model_path)
     return send_file(model_path, as_attachment=True, download_name=download_name)
 
-@utils_routes.route('/download-model-predictions', methods=['GET'])
-@token_required(optional=True)
-def download_model_predictions(current_user):
+@utils_routes.route('/download-model-predictions/<session_id>', methods=['GET'])
+@token_required
+def download_model_predictions_session(current_user, session_id):
+    """Download a session's predictions CSV — owner-scoped, served from Drive.
+
+    Replaces the old query-param route that read a GLOBAL predictions/<model>.csv
+    with no ownership check (any user could fetch the last predictions for a
+    model type). Predictions are now uploaded per session like the trained model.
+    """
     try:
-        model_path = get_model_predictions(request)
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 400
-    return send_file(model_path, as_attachment=True)
+        session = get_session(session_id)
+        if session['user_id'] != current_user['_id']:
+            return jsonify({"error": "Unauthorized"}), 403
+
+        drive_id = session.get('predictions_drive_id')
+        if not drive_id:
+            return jsonify({"error": "Predictions not available for this session."}), 404
+
+        from services.google_drive_service import stream_file_from_drive
+        fh, mime_type = stream_file_from_drive(drive_id)
+        download_name = session.get('predictions_filename') or f"{session.get('session_label', 'model')}_predictions.csv"
+        return send_file(fh, as_attachment=True, download_name=download_name, mimetype=mime_type)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 404
 
 @utils_routes.route('/upload', methods=['POST'])
 @token_required
