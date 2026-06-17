@@ -88,7 +88,10 @@ async function handleResponse(res) {
     }
     if (!res.ok) {
         // Subscription quota hit — broadcast so a global upgrade modal can show.
-        if (res.status === 429 && data && data.error === 'quota_exceeded') {
+        // Covers both monthly run quotas and the per-account storage (dataset)
+        // cap so users get the friendly upgrade prompt instead of a raw error.
+        if (res.status === 429 && data &&
+            (data.error === 'quota_exceeded' || data.error === 'storage_quota_exceeded')) {
             try {
                 window.dispatchEvent(new CustomEvent('aiml:quota', { detail: data }));
             } catch (e) { /* non-browser env */ }

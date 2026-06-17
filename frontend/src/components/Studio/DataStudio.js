@@ -163,7 +163,12 @@ export default function DataStudio() {
             setActiveTab('manager'); // Switch back to view it
         } catch (err) {
             console.error(err);
-            alert(err.data?.error ? `Error: ${err.data.error}` : 'Preprocessing request failed.');
+            // Quota / storage-cap errors surface via the global UpgradeModal
+            // (api.js dispatches 'aiml:quota'); don't double-notify with an alert.
+            const code = err.data?.error;
+            if (code !== 'quota_exceeded' && code !== 'storage_quota_exceeded') {
+                alert(err.message || 'Preprocessing request failed.');
+            }
         } finally {
             setIsProcessing(false);
         }

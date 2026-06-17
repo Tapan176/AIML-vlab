@@ -14,6 +14,8 @@ function formatDate(value) {
 
 export default function UpgradeModal({ info, onClose }) {
     const resetDate = info ? formatDate(info.reset_at) : null;
+    const isStorage = info && info.error === 'storage_quota_exceeded';
+    const title = isStorage ? 'Storage limit reached' : 'Usage limit reached';
 
     return (
         <div className="upgrade-overlay" onClick={onClose}>
@@ -23,7 +25,7 @@ export default function UpgradeModal({ info, onClose }) {
                 aria-modal="true"
                 onClick={(e) => e.stopPropagation()}
             >
-                <h2 className="upgrade-title">Usage limit reached</h2>
+                <h2 className="upgrade-title">{title}</h2>
                 {info && info.message && (
                     <p className="upgrade-message">{info.message}</p>
                 )}
