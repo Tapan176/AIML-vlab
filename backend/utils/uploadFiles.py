@@ -3,6 +3,7 @@ import zipfile
 from werkzeug.utils import secure_filename
 import glob
 from concurrent.futures import ThreadPoolExecutor
+from utils.path_safety import safe_extract_zip
 
 def parse_csv(filepath):
     # Parse CSV file and return data as list of dictionaries
@@ -101,7 +102,7 @@ def handle_upload_file(request, user_id):
         extracted_file_path = os.path.join('static/uploads', 'extracted', remove_extension(filename))
         os.makedirs(extracted_path, exist_ok=True)
         with zipfile.ZipFile(filepath, 'r') as zip_ref:
-            zip_ref.extractall(extracted_path)
+            safe_extract_zip(zip_ref, extracted_path)
         
         image_links = get_image_links(os.path.join(extracted_path, remove_extension(filename), 'train'))
         

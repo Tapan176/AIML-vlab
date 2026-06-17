@@ -7,6 +7,7 @@ import os
 import zipfile
 import shutil
 from config import UPLOAD_DIR, ensure_dir
+from utils.path_safety import safe_extract_zip
 
 
 def resolve_image_dataset_path(user_id, filename=None, file_path=None):
@@ -154,7 +155,7 @@ def _extract_zip(zip_path, cache_dir, base_name):
     
     os.makedirs(temp_extract, exist_ok=True)
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-        zip_ref.extractall(temp_extract)
+        safe_extract_zip(zip_ref, temp_extract)
     
     # Determine the actual root contents
     extracted_items = [f for f in os.listdir(temp_extract) if not f.startswith('.') and f != '__MACOSX']

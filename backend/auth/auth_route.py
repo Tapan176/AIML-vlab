@@ -142,15 +142,24 @@ def handle_upload_profile_photo(current_user):
 
 @auth_routes.route('/profile-photo/<photo_id>', methods=['GET'])
 def get_profile_photo(photo_id):
-    """Retrieve profile photo from GridFS or via Google Drive proxy."""
+    """Retrieve a profile photo from GridFS or via the Google Drive proxy.
+
+    Profile photos are display assets rendered in <img> tags (which can't send
+    the auth header), so this stays unauthenticated — but the Drive branch only
+    proxies ids that are registered as some user's profile_photo_id. Otherwise
+    this endpoint could be abused to download ANY Drive file (datasets, trained
+    models) by id.
+    """
     try:
-        # Google Drive IDs are longer than MongoDB ObjectIDs (which are 24 hex characters)
+        db = get_db()
+        # Google Drive IDs are longer than MongoDB ObjectIDs (24 hex characters).
         if len(photo_id) > 24:
+            if not db.users.find_one({'profile_photo_id': photo_id}, {'_id': 1}):
+                return jsonify({"error": "Photo not found"}), 404
             from services.google_drive_service import stream_file_from_drive
             fh, mimetype = stream_file_from_drive(photo_id)
             return send_file(fh, mimetype=mimetype)
-            
-        db = get_db()
+
         fs = GridFS(db)
         grid_out = fs.get(ObjectId(photo_id))
         return send_file(io.BytesIO(grid_out.read()), mimetype=grid_out.content_type)
