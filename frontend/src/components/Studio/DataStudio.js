@@ -166,10 +166,10 @@ export default function DataStudio() {
             // Tell the subscription context to refresh usage (Data Studio runs
             // are metered under the 'datastudio' class).
             try { window.dispatchEvent(new CustomEvent('aiml:usage')); } catch (e) {}
+            // Add the new versioned dataset to the library, but KEEP the user's
+            // selected source dataset and their pipeline, and stay on this tab —
+            // so they can tweak/re-run without re-selecting or being yanked away.
             setDatasets([data.dataset, ...datasets]);
-            setSelectedPrepDataset('');
-            setPrepOperations([]);
-            setActiveTab('manager'); // Switch back to view it
         } catch (err) {
             console.error(err);
             // Quota / storage-cap errors surface via the global UpgradeModal
