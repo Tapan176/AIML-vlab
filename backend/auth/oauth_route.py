@@ -34,6 +34,10 @@ def _get_redirect_uri(provider):
     return f"{base.rstrip('/')}/api/auth/{provider}/callback"
 
 
+def _allowed_origins():
+    return [o.strip().rstrip('/') for o in (ALLOWED_ORIGINS or []) if o and o.strip()]
+
+
 def _frontend_origin():
     """Where the popup should post the token back to."""
     return (
@@ -43,8 +47,35 @@ def _frontend_origin():
     )
 
 
-def _find_or_create_user(email, first_name='', last_name='', oauth_provider='', oauth_id='', avatar_url=''):
-    """Find existing user by email or create a new one. Returns user dict."""
+def _resolve_frontend_origin(candidate):
+    """Return a SAFE frontend origin for delivering the minted JWT.
+
+    `candidate` is the `state` echoed back by the provider — fully attacker-
+    controllable (anyone can craft a provider auth URL with an arbitrary state),
+    so it is honored ONLY if it is in ALLOWED_ORIGINS. Otherwise we fall back to
+    the configured frontend. This prevents redirecting the token to an attacker
+    origin (token exfiltration / open redirect).
+    """
+    allowed = _allowed_origins()
+    if candidate:
+        c = candidate.replace('/api', '').rstrip('/')
+        if c in allowed:
+            return c
+    if FRONTEND_URL:
+        return FRONTEND_URL.rstrip('/')
+    return allowed[0] if allowed else 'http://localhost:3000'
+
+
+def _find_or_create_user(email, first_name='', last_name='', oauth_provider='', oauth_id='', avatar_url='', email_verified=False):
+    """Find existing user by email or create a new one. Returns user dict.
+
+    `email_verified` MUST reflect whether the provider asserted the email as
+    verified. We only auto-link an OAuth identity to a pre-existing (e.g.
+    password) account when the email is verified — otherwise an attacker could
+    register a provider account with a victim's (unverified) email and take over
+    the victim's account. Raises ValueError('oauth_email_unverified') if linking
+    is attempted with an unverified email.
+    """
     from mongoDb.connection import get_db
     from bson import ObjectId
     import bcrypt
@@ -69,6 +100,10 @@ def _find_or_create_user(email, first_name='', last_name='', oauth_provider='', 
         existing = db.users.find_one({'email': email.lower().strip()})
         if existing:
             existing['_id'] = str(existing['_id'])
+            # Linking a brand-new OAuth identity to an existing account requires
+            # a provider-verified email (anti-takeover).
+            if oauth_id and existing.get('oauth_id') != oauth_id and not email_verified:
+                raise ValueError("oauth_email_unverified")
             # Link OAuth to existing account
             if oauth_id:
                 db.users.update_one(
@@ -164,14 +199,18 @@ def google_callback():
 
     google_user = user_resp.json()
 
-    user = _find_or_create_user(
-        email=google_user.get('email'),
-        first_name=google_user.get('given_name', ''),
-        last_name=google_user.get('family_name', ''),
-        oauth_provider='google',
-        oauth_id=google_user.get('id'),
-        avatar_url=google_user.get('picture'),
-    )
+    try:
+        user = _find_or_create_user(
+            email=google_user.get('email'),
+            first_name=google_user.get('given_name', ''),
+            last_name=google_user.get('family_name', ''),
+            oauth_provider='google',
+            oauth_id=google_user.get('id'),
+            avatar_url=google_user.get('picture'),
+            email_verified=bool(google_user.get('verified_email') or google_user.get('email_verified')),
+        )
+    except ValueError as e:
+        return _oauth_error_response(str(e))
 
     jwt_token = generate_token(user)
     return _oauth_callback_response(jwt_token, user)
@@ -228,31 +267,39 @@ def github_callback():
 
     gh_user = user_resp.json()
 
-    # Get email (may need separate call)
-    email = gh_user.get('email')
+    # Resolve the email AND whether GitHub considers it verified. The public
+    # `gh_user.email` carries no verified flag, so always consult /user/emails
+    # to get the verified status of the primary email.
+    email = None
+    email_verified = False
+    email_resp = requests.get('https://api.github.com/user/emails', headers={
+        'Authorization': f'Bearer {access_token}',
+        'Accept': 'application/json',
+    })
+    if email_resp.ok:
+        emails = email_resp.json()
+        primary = [e for e in emails if e.get('primary')]
+        chosen = (primary or emails or [None])[0]
+        if chosen:
+            email = chosen.get('email')
+            email_verified = bool(chosen.get('verified'))
     if not email:
-        email_resp = requests.get('https://api.github.com/user/emails', headers={
-            'Authorization': f'Bearer {access_token}',
-            'Accept': 'application/json',
-        })
-        if email_resp.ok:
-            emails = email_resp.json()
-            primary = [e for e in emails if e.get('primary')]
-            if primary:
-                email = primary[0]['email']
-            elif emails:
-                email = emails[0]['email']
+        email = gh_user.get('email')  # last resort; treated as unverified
 
     name_parts = (gh_user.get('name') or gh_user.get('login', 'User')).split(' ', 1)
 
-    user = _find_or_create_user(
-        email=email,
-        first_name=name_parts[0],
-        last_name=name_parts[1] if len(name_parts) > 1 else '',
-        oauth_provider='github',
-        oauth_id=str(gh_user.get('id')),
-        avatar_url=gh_user.get('avatar_url'),
-    )
+    try:
+        user = _find_or_create_user(
+            email=email,
+            first_name=name_parts[0],
+            last_name=name_parts[1] if len(name_parts) > 1 else '',
+            oauth_provider='github',
+            oauth_id=str(gh_user.get('id')),
+            avatar_url=gh_user.get('avatar_url'),
+            email_verified=email_verified,
+        )
+    except ValueError as e:
+        return _oauth_error_response(str(e))
 
     jwt_token = generate_token(user)
     return _oauth_callback_response(jwt_token, user)
@@ -281,9 +328,10 @@ def _oauth_callback_response(jwt_token, user):
     (popup blocked / opened as a full redirect), we navigate to the frontend
     with the token in the URL hash so the SPA can still recover it.
     """
-    frontend_origin = (request.args.get('state') or FRONTEND_URL
-                       or (ALLOWED_ORIGINS[0] if ALLOWED_ORIGINS else 'http://localhost:3000'))
-    frontend_origin = frontend_origin.replace('/api', '').rstrip('/')
+    # Only ever deliver the token to an allow-listed origin (see
+    # _resolve_frontend_origin). Note the explicit target on postMessage and the
+    # removal of any '*' fallback — '*' would broadcast the JWT to any window.
+    frontend_origin = _resolve_frontend_origin(request.args.get('state'))
 
     return f"""<!DOCTYPE html>
 <html>
@@ -297,8 +345,7 @@ def _oauth_callback_response(jwt_token, user):
             var msg = {{ type: 'OAUTH_LOGIN', token: token, user: user }};
             try {{
                 if (window.opener && window.opener !== window) {{
-                    try {{ window.opener.postMessage(msg, target); }}
-                    catch (e) {{ window.opener.postMessage(msg, '*'); }}
+                    window.opener.postMessage(msg, target);
                     window.close();
                     return;
                 }}
@@ -310,6 +357,34 @@ def _oauth_callback_response(jwt_token, user):
     <p>Login successful! This window will close automatically.</p>
 </body>
 </html>"""
+
+
+def _oauth_error_response(code):
+    """Render a small popup page for a failed OAuth login (e.g. an unverified
+    email that can't be auto-linked), then return the user to the login page."""
+    target = _resolve_frontend_origin(request.args.get('state'))
+    messages = {
+        "oauth_email_unverified": (
+            "Your provider account's email isn't verified, so we can't link it "
+            "to an existing account. Verify your email with the provider, or log "
+            "in with your password."
+        ),
+    }
+    msg = messages.get(code, "OAuth login failed. Please try again.")
+    return f"""<!DOCTYPE html>
+<html>
+<head><title>Login Failed</title></head>
+<body>
+    <script>
+        (function() {{
+            var target = {json.dumps(target)};
+            setTimeout(function() {{ window.location.href = target + '/login'; }}, 4000);
+        }})();
+    </script>
+    <p>{msg}</p>
+    <p>Redirecting back to login…</p>
+</body>
+</html>""", 400
 
 
 # ── OAuth Config Endpoint ─────────────────────────────────────────────────

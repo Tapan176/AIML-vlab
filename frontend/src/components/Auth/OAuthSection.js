@@ -1,6 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { API_URL } from '../../constants';
 
+// The OAuth popup HTML is served by the backend, so its postMessage arrives
+// with the backend's origin. Only accept the token from that exact origin.
+const API_ORIGIN = (() => {
+    try { return new URL(API_URL).origin; } catch (e) { return ''; }
+})();
+
 /**
  * "Or continue with" social-login block, shared by the Login and SignUp pages.
  *
@@ -24,6 +30,10 @@ export default function OAuthSection({ onError }) {
 
     // Popup flow: backend postMessages the token back to this window.
     const handleOAuthMessage = useCallback((event) => {
+        // Reject messages from any origin other than our backend — otherwise a
+        // malicious page could inject a token and log the user into an attacker
+        // account (login-CSRF / token injection).
+        if (API_ORIGIN && event.origin !== API_ORIGIN) return;
         if (event.data && event.data.type === 'OAUTH_LOGIN' && event.data.token) {
             localStorage.setItem('aiml_token', event.data.token);
             window.location.href = '/dashboard';
