@@ -37,6 +37,7 @@ from services.subscription_service import (
     set_user_subscription,
     find_user_by_stripe_customer,
     find_user_by_customer,
+    mark_webhook_event,
 )
 
 subscription_routes = Blueprint('subscription_routes', __name__)
@@ -244,6 +245,9 @@ def billing_webhook():
         sig = request.headers.get('X-Signature', '')
         if not ls.verify_webhook(raw, sig):
             return jsonify({"error": "invalid_signature"}), 400
+        # Replay guard: identical (replayed) body yields the same signature.
+        if not mark_webhook_event('lemonsqueezy', sig):
+            return jsonify({"received": True, "duplicate": True}), 200
         try:
             evt = ls.parse_event(request.get_json(silent=True) or {})
             _handle_ls_event(evt)
@@ -261,6 +265,9 @@ def billing_webhook():
         event = stripe.Webhook.construct_event(raw, sig, STRIPE_WEBHOOK_SECRET)
     except Exception as e:
         return jsonify({"error": f"invalid_signature: {e}"}), 400
+    # Replay guard on the Stripe event id (evt_…).
+    if not mark_webhook_event('stripe', event.get('id')):
+        return jsonify({"received": True, "duplicate": True}), 200
     try:
         _handle_stripe_event(stripe, event)
     except Exception as e:

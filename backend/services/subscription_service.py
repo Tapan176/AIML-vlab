@@ -320,6 +320,9 @@ def set_user_subscription(user_id, plan_id, status="active", stripe_customer_id=
     db = get_db()
     cust = customer_id or stripe_customer_id
     subid = subscription_id or stripe_subscription_id
+    # Defense-in-depth: only ever persist a known plan id.
+    if plan_id not in PLANS:
+        plan_id = "free"
     sub = {
         "plan": plan_id or "free",
         "status": status,
@@ -344,6 +347,32 @@ def set_user_subscription(user_id, plan_id, status="active", stripe_customer_id=
     except Exception:
         pass
     return sub
+
+
+def mark_webhook_event(provider, event_id):
+    """Idempotency / replay guard for payment webhooks.
+
+    Records a (provider, event_id) pair and returns True only the FIRST time it
+    is seen; a duplicate (a replayed webhook) returns False so the caller can
+    skip re-processing. When no stable id is available the caller passes the
+    request signature, which is a sound idempotency key (identical body → same
+    HMAC). Returns True if `event_id` is falsy (can't dedup; still signed)."""
+    if not event_id:
+        return True
+    db = get_db()
+    coll = db.webhook_events
+    try:
+        coll.create_index([("provider", 1), ("event_id", 1)], unique=True,
+                          name="uniq_provider_event")
+    except Exception:
+        pass
+    try:
+        coll.insert_one({"provider": provider, "event_id": str(event_id),
+                         "at": datetime.utcnow()})
+        return True
+    except Exception:
+        # DuplicateKeyError → we've already processed this event.
+        return False
 
 
 def find_user_by_stripe_customer(customer_id):
