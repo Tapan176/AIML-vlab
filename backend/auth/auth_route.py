@@ -4,6 +4,7 @@ Auth routes — login, signup, password management, user profile.
 from flask import Blueprint, request, jsonify
 from auth.authController import login, signup, forgot_password, reset_password
 from auth.auth_middleware import token_required
+from extensions import limiter
 from services.user_service import get_user_by_id, update_user_profile, change_password, delete_user, update_profile_photo
 import io
 from gridfs import GridFS
@@ -15,6 +16,7 @@ auth_routes = Blueprint('auth_routes', __name__)
 
 
 @auth_routes.route('/login', methods=['POST'])
+@limiter.limit("10 per minute")
 def handle_login():
     try:
         data = request.get_json()
@@ -30,6 +32,7 @@ def handle_login():
 
 
 @auth_routes.route('/signup', methods=['POST'])
+@limiter.limit("10 per minute")
 def handle_signup():
     try:
         data = request.get_json()
@@ -51,6 +54,7 @@ def handle_signup():
 
 
 @auth_routes.route('/forgot-password', methods=['POST'])
+@limiter.limit("5 per minute")
 def handle_forgot_password():
     try:
         data = request.get_json()
@@ -66,6 +70,7 @@ def handle_forgot_password():
 
 
 @auth_routes.route('/reset-password', methods=['POST'])
+@limiter.limit("5 per minute")
 def handle_reset_password():
     try:
         data = request.get_json()
@@ -102,6 +107,7 @@ def handle_update_profile(current_user):
 
 
 @auth_routes.route('/change-password', methods=['PUT'])
+@limiter.limit("10 per minute")
 @token_required
 def handle_change_password(current_user):
     """Change current user's password."""

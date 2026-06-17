@@ -3,10 +3,9 @@ import os
 from utils.path_safety import safe_join, validate_extension, ALLOWED_MODEL_EXTENSIONS
 
 
-def get_model_path(request):
+def get_model_path(request, current_user):
     model_name = request.args.get('model_name')
     extension = request.args.get('extension', '.pkl')
-    user_id = request.args.get('user_id')
     version = request.args.get('version')
 
     if not model_name:
@@ -18,8 +17,9 @@ def get_model_path(request):
     if version:
         filename_base = f"{model_name}_v{version}"
 
-    root = TRAINED_MODELS_DIR
-    if user_id:
-        root = os.path.join(TRAINED_MODELS_DIR, str(user_id))
+    # Always scope to the authenticated user. Previously a request-supplied
+    # `user_id` selected the directory, so anyone could download another user's
+    # model by guessing their id + model name (IDOR).
+    root = os.path.join(TRAINED_MODELS_DIR, str(current_user['_id']))
 
     return safe_join(root, filename_base + extension)

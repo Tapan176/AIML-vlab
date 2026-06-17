@@ -66,8 +66,15 @@ def handle_upload_file(request, user_id):
         return ({'error': 'No selected file'})
 
     filename = secure_filename(file.filename)
+
+    # Server-side extension allowlist — the upload pipeline only handles tabular
+    # CSV and image ZIP archives. Reject anything else rather than storing
+    # arbitrary attacker-named files.
+    if not filename.lower().endswith(('.csv', '.zip')):
+        return ({'error': 'Unsupported file type. Upload a .csv or a .zip of images.'})
+
     filepath = os.path.join('static/uploads', filename)
-    
+
     # Ensure upload directory exists
     os.makedirs('static/uploads', exist_ok=True)
     

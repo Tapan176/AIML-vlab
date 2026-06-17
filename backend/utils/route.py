@@ -104,11 +104,11 @@ def get_result_images(current_user, session_id):
 
 
 @utils_routes.route('/download-trained-model', methods=['GET'])
-@token_required(optional=True)
+@token_required
 def download_model(current_user):
     import os
     try:
-        model_path = get_model_path(request)
+        model_path = get_model_path(request, current_user)
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
 

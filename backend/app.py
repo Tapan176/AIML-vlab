@@ -10,9 +10,8 @@ matplotlib.use('Agg')
 
 from flask import Flask, send_from_directory
 from flask_cors import CORS
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
 
+from extensions import limiter
 from mongoDb.connection import init_db, get_db
 
 # import routes
@@ -53,13 +52,9 @@ CORS(app, resources={r"/*": {
     "supports_credentials": True,
 }})
 
-# Set up global rate limiting (in-memory for now, use Redis in production)
-limiter = Limiter(
-    get_remote_address,
-    app=app,
-    default_limits=["2000 per day", "500 per hour"],
-    storage_uri="memory://"
-)
+# Bind the shared rate limiter (defined in extensions.py so blueprints can apply
+# per-route limits). In-memory storage for now — use Redis in production.
+limiter.init_app(app)
 
 # Exempt OPTIONS preflight requests from rate limiting at the limiter level
 @limiter.request_filter
