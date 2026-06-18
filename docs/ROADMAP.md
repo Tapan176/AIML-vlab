@@ -28,11 +28,14 @@
 ## 2. Current constraints / decisions
 
 - **Free services only for now.** No paid object storage, no managed Redis, no worker fleet yet. 1M-user architecture is parked (see git history / prior session for the full design if needed).
-- **⚠️ Large-dataset vs free-storage tension.** Goal mentions 5–10 GB datasets, but:
-  - `MAX_UPLOAD_SIZE_MB` is currently **50 MB**.
-  - Google Drive free = 15 GB **total, shared across all users** via one OAuth token — cannot hold multiple large datasets, and is rate-limited.
-  - Free S3-likes: Cloudflare R2 (10 GB total, no egress), Backblaze B2 (10 GB) — still can't hold many 5–10 GB files.
-  - **Plan:** keep a small free-tier dataset cap (e.g. 50–200 MB) that fits free storage; gate large datasets behind a paid tier later, OR process-and-discard (keep only derived/sampled data + metadata, never persist the raw 10 GB), OR "bring-your-own-storage" (user supplies their own Drive/S3 creds). Decide before raising the cap.
+- **Storage = 2 Google Drive accounts, ~5 TB each (~10 TB total).** Capacity is NOT the blocker anymore — ~10 TB holds well over a thousand 5–10 GB datasets. The real limits are throughput/ops, not space:
+  - **Per-account Drive limits regardless of plan:** ~750 GB/day upload **per account** (2 accounts → ~1.5 TB/day), per-user API rate limits (~12k queries/100s), one OAuth token per account (bounded concurrency).
+  - **App-side blockers for multi-GB files (must fix before raising the cap):**
+    - `MAX_UPLOAD_SIZE_MB` = **50 MB** today, and `MAX_CONTENT_LENGTH` rejects large bodies.
+    - Current upload path buffers the whole file to local server disk (`static/uploads`) before pushing to Drive — a 5–10 GB file will exhaust the (free) web instance's disk/memory. Needs **streaming / resumable upload** (chunked, ideally straight to Drive) instead of full-buffer.
+  - **Multi-account plan (storage adapter):** shard by `user_id` hash → account A or B (keeps a user's data on one account; doubles capacity AND daily-upload/API budget). Store the chosen account id (e.g. `drive_account: 'A'|'B'`) on each dataset/session record so downloads hit the right account. Both accounts need their own credentials/token + refresh handling. `google_drive_service.py` currently assumes ONE token — generalize it to pick the account per request.
+  - **Caveats:** using personal Drive accounts as an app backend is fine at this scale but is against Google Drive ToS for large-scale "app storage/CDN" use — acceptable for now, revisit if it grows. Keep the per-plan dataset **count/size caps** so a single user can't burn a day's upload quota.
+  - **Sequence:** (1) generalize storage service to 2-account sharding + record the account; (2) streaming/resumable upload; (3) raise `MAX_UPLOAD_SIZE_MB` + `MAX_CONTENT_LENGTH` to the new target.
 
 ---
 
