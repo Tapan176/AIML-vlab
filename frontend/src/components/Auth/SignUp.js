@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { COUNTRY_CODES } from '../../constants';
 import OAuthSection from './OAuthSection';
+import OtpVerify from './OtpVerify';
 import './Auth.css';
 
 const SignUp = () => {
@@ -12,6 +13,7 @@ const SignUp = () => {
     });
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [otpEmail, setOtpEmail] = useState(null); // set → show OTP step
     const navigate = useNavigate();
     const { signup } = useAuth();
 
@@ -35,13 +37,28 @@ const SignUp = () => {
 
         setLoading(true);
         try {
-            await signup(formData);
-            navigate('/lab');
+            const data = await signup(formData);
+            if (data?.otp_required) {
+                setOtpEmail(data.email || formData.email);
+            } else {
+                navigate('/lab');
+            }
         } catch (err) {
             setError(err.message || 'Signup failed');
         }
         setLoading(false);
     };
+
+    if (otpEmail) {
+        return (
+            <OtpVerify
+                email={otpEmail}
+                purpose="signup"
+                onVerified={() => navigate('/lab')}
+                onBack={() => setOtpEmail(null)}
+            />
+        );
+    }
 
     return (
         <div className="auth-container">

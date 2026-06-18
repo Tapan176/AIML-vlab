@@ -56,6 +56,14 @@ export const AuthProvider = ({ children }) => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [fetchCurrentUser]);
 
+    // Persist a freshly issued JWT + user into context + localStorage.
+    const _applySession = (data) => {
+        localStorage.setItem(TOKEN_KEY, data.token);
+        setToken(data.token);
+        setUser(data.user);
+        return data;
+    };
+
     const login = async (email, password) => {
         const res = await fetch(`${API_URL}/login`, {
             method: 'POST',
@@ -65,10 +73,11 @@ export const AuthProvider = ({ children }) => {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Login failed');
 
-        localStorage.setItem(TOKEN_KEY, data.token);
-        setToken(data.token);
-        setUser(data.user);
-        return data;
+        // OTP gate: backend confirmed credentials and emailed a code. Don't set
+        // a session yet — the caller collects the OTP and calls verifyOtp().
+        if (data.otp_required) return data;
+
+        return _applySession(data);
     };
 
     const signup = async (formData) => {
@@ -80,9 +89,37 @@ export const AuthProvider = ({ children }) => {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Signup failed');
 
-        localStorage.setItem(TOKEN_KEY, data.token);
-        setToken(data.token);
-        setUser(data.user);
+        // OTP gate (see login).
+        if (data.otp_required) return data;
+
+        return _applySession(data);
+    };
+
+    // Verify an emailed OTP to complete signup/login. purpose: 'signup'|'login'.
+    const verifyOtp = async (email, code, purpose) => {
+        const res = await fetch(`${API_URL}/verify-otp`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, code, purpose })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Verification failed');
+        return _applySession(data);
+    };
+
+    // Re-issue an OTP (subject to a server-side cooldown).
+    const resendOtp = async (email, purpose) => {
+        const res = await fetch(`${API_URL}/resend-otp`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, purpose })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            const err = new Error(data.error || 'Could not resend code');
+            err.retryAfter = data.retry_after;
+            throw err;
+        }
         return data;
     };
 
@@ -145,6 +182,8 @@ export const AuthProvider = ({ children }) => {
         isAuthenticated: !!user && !!token,
         login,
         signup,
+        verifyOtp,
+        resendOtp,
         logout,
         updateProfile,
         uploadProfilePhoto,

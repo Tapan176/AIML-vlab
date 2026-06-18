@@ -20,6 +20,7 @@ import AdminLayout from './components/Admin/AdminLayout';
 import DatasetLibrary from './components/Dataset/DatasetLibrary';
 import DataStudio from './components/Studio/DataStudio';
 import PricingPage from './components/Subscription/PricingPage';
+import Checkout from './components/Subscription/Checkout';
 import './App.css';
 
 function App() {
@@ -35,6 +36,11 @@ function App() {
                         <Routes>
                             <Route path="/" element={<LandingPage />} />
                             <Route path="/pricing" element={<PricingPage />} />
+                            <Route path="/checkout" element={
+                                <ProtectedRoute>
+                                    <Checkout />
+                                </ProtectedRoute>
+                            } />
                             <Route path="/lab" element={
                                 <ProtectedRoute>
                                     <Home />

@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { API_URL } from '../../constants';
 import api from '../../services/api';
 import UsageWidget from '../Subscription/UsageWidget';
+import ManageSubscription from '../Subscription/ManageSubscription';
 import './ProfilePage.css';
 
 const ProfilePage = () => {
@@ -64,6 +65,9 @@ const ProfilePage = () => {
 
             {/* Subscription usage (self-hides unless the feature flag is on) */}
             <UsageWidget />
+
+            {/* Manage subscription + billing history (self-hides when disabled) */}
+            <ManageSubscription />
 
             <div className="profile-stats">
                 <div className="stat-card">

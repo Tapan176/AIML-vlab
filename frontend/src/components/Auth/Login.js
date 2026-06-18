@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import OAuthSection from './OAuthSection';
+import OtpVerify from './OtpVerify';
 import './Auth.css';
 
 const Login = () => {
@@ -9,7 +10,10 @@ const Login = () => {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [otpEmail, setOtpEmail] = useState(null); // set → show OTP step
     const navigate = useNavigate();
+    const [params] = useSearchParams();
+    const nextUrl = params.get('next');
     const { login, isAuthenticated, user } = useAuth();
 
     // Auto-redirect if already logged in across tabs
@@ -23,6 +27,12 @@ const Login = () => {
         }
     }, [isAuthenticated, user, navigate]);
 
+    const routeAfterAuth = (data) => {
+        if (data?.user?.role === 'admin') navigate('/admin');
+        else if (nextUrl) navigate(nextUrl);
+        else navigate('/dashboard');
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
@@ -30,16 +40,27 @@ const Login = () => {
 
         try {
             const data = await login(email, password);
-            if (data?.user?.role === 'admin') {
-                navigate('/admin');
+            if (data?.otp_required) {
+                setOtpEmail(data.email || email);
             } else {
-                navigate('/dashboard');
+                routeAfterAuth(data);
             }
         } catch (err) {
             setError(err.message || 'Login failed. Please try again.');
         }
         setLoading(false);
     };
+
+    if (otpEmail) {
+        return (
+            <OtpVerify
+                email={otpEmail}
+                purpose="login"
+                onVerified={routeAfterAuth}
+                onBack={() => setOtpEmail(null)}
+            />
+        );
+    }
 
     return (
         <div className="auth-container">

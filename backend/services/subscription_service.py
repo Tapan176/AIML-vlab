@@ -31,6 +31,8 @@ from config import (
     STRIPE_PRICE_TEAM,
     LEMONSQUEEZY_VARIANT_PRO,
     LEMONSQUEEZY_VARIANT_TEAM,
+    RAZORPAY_PRICE_PRO_INR,
+    RAZORPAY_PRICE_TEAM_INR,
 )
 from mongoDb.connection import get_db
 
@@ -304,6 +306,31 @@ def plan_for_variant_id(variant_id):
     if vid and LEMONSQUEEZY_VARIANT_TEAM and vid == str(LEMONSQUEEZY_VARIANT_TEAM):
         return "team"
     return None
+
+
+# ── Pricing for invoices/bills ──────────────────────────────────────────────
+
+def inr_price_for_plan(plan_id):
+    """Monthly INR price (major units, ₹) shown on the bill for a Razorpay plan."""
+    return {"pro": RAZORPAY_PRICE_PRO_INR, "team": RAZORPAY_PRICE_TEAM_INR}.get(plan_id, 0)
+
+
+def usd_price_for_plan(plan_id):
+    """Monthly USD price (major units) from the in-code PLANS catalog."""
+    return (PLANS.get(plan_id) or {}).get("price", 0)
+
+
+def find_user_by_subscription_id(subscription_id):
+    """Locate the local user for a provider subscription id (webhook reconciliation)."""
+    if not subscription_id:
+        return None
+    sid = str(subscription_id)
+    return get_db().users.find_one({
+        "$or": [
+            {"subscription.subscription_id": sid},
+            {"subscription.stripe_subscription_id": sid},
+        ]
+    })
 
 
 def set_user_subscription(user_id, plan_id, status="active", stripe_customer_id=None,

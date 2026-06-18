@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useSubscription } from '../../context/SubscriptionContext';
@@ -35,10 +36,10 @@ export default function PricingPage() {
     const [paymentsEnabled, setPaymentsEnabled] = useState(false);
     const [provider, setProvider] = useState(null);
     const [currency, setCurrency] = useState('USD');
-    const [busyPlan, setBusyPlan] = useState(null);
     const [error, setError] = useState(null);
     const { isAuthenticated } = useAuth();
     const { entitlements } = useSubscription();
+    const navigate = useNavigate();
     const currentPlan = entitlements?.plan || 'free';
     const formatPrice = makePriceFormatter(currency);
     const providerLabel = provider === 'lemonsqueezy'
@@ -69,28 +70,15 @@ export default function PricingPage() {
         return () => { active = false; };
     }, []);
 
-    const handleSelectPlan = async (planId) => {
+    const handleSelectPlan = (planId) => {
         setError(null);
         if (planId === 'free' || planId === currentPlan) return;
         if (!isAuthenticated) {
-            window.location.href = '/login';
+            navigate(`/login?next=/checkout?plan=${planId}`);
             return;
         }
-        setBusyPlan(planId);
-        try {
-            const res = await api.post('/billing/checkout', { plan: planId });
-            if (res && res.url) {
-                window.location.href = res.url; // redirect to the provider's hosted checkout
-            } else {
-                setError('Could not start checkout. Please try again.');
-            }
-        } catch (e) {
-            setError(e?.data?.error === 'payments_not_configured'
-                ? 'Payments are not configured yet.'
-                : (e?.message || 'Checkout failed.'));
-        } finally {
-            setBusyPlan(null);
-        }
+        // Go to the order/review page (shows the itemized bill before payment).
+        navigate(`/checkout?plan=${planId}`);
     };
 
     const handleManageBilling = async () => {
@@ -163,14 +151,12 @@ export default function PricingPage() {
                                     <button
                                         type="button"
                                         className="plan-cta"
-                                        disabled={!paymentsEnabled || busyPlan === plan.id}
+                                        disabled={!paymentsEnabled}
                                         onClick={() => handleSelectPlan(plan.id)}
                                     >
                                         {!paymentsEnabled
                                             ? 'Coming soon'
-                                            : busyPlan === plan.id
-                                                ? 'Redirecting…'
-                                                : `Upgrade to ${plan.name}`}
+                                            : `Upgrade to ${plan.name}`}
                                     </button>
                                 ) : (
                                     <button type="button" className="plan-cta" disabled>

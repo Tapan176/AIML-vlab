@@ -118,6 +118,56 @@ LEMONSQUEEZY_VARIANT_TEAM = os.getenv('LEMONSQUEEZY_VARIANT_TEAM', None)
 # Where LS Checkout returns the user after success (frontend URL).
 LEMONSQUEEZY_REDIRECT_URL = os.getenv('LEMONSQUEEZY_REDIRECT_URL', None)  # e.g. https://app/profile?status=success
 
+# --- Razorpay (payments — India) --------------------------------------------
+# Razorpay is the domestic (India) provider. It has a free/test mode and accepts
+# UPI / Indian cards / netbanking. We use it for buyers detected in India and
+# fall back to the international provider (Lemon Squeezy / Stripe) elsewhere.
+# All optional; when RAZORPAY_KEY_ID is unset the India branch reports "not
+# configured" and the app routes everyone to the international provider.
+RAZORPAY_KEY_ID = os.getenv('RAZORPAY_KEY_ID', None)            # rzp_test_… / rzp_live_…
+RAZORPAY_KEY_SECRET = os.getenv('RAZORPAY_KEY_SECRET', None)
+RAZORPAY_WEBHOOK_SECRET = os.getenv('RAZORPAY_WEBHOOK_SECRET', None)
+# Razorpay Subscription Plan IDs (one per paid plan), created in the dashboard.
+RAZORPAY_PLAN_PRO = os.getenv('RAZORPAY_PLAN_PRO', None)        # plan_…
+RAZORPAY_PLAN_TEAM = os.getenv('RAZORPAY_PLAN_TEAM', None)      # plan_…
+# Monthly price in paise (INR * 100) shown on the bill for each plan.
+RAZORPAY_PRICE_PRO_INR = int(os.getenv('RAZORPAY_PRICE_PRO_INR', '799'))
+RAZORPAY_PRICE_TEAM_INR = int(os.getenv('RAZORPAY_PRICE_TEAM_INR', '2499'))
+
+# --- Payment routing (one interface, two behaviours) ------------------------
+# A buyer in India is routed to PAYMENT_PROVIDER_DOMESTIC; everyone else to
+# PAYMENT_PROVIDER_INTL. Country is detected from the CDN geo-IP header (see
+# /billing/locale) and can be overridden by the client only for DISPLAY — the
+# server re-derives it server-side when creating a real checkout.
+PAYMENT_PROVIDER_DOMESTIC = os.getenv('PAYMENT_PROVIDER_DOMESTIC', 'razorpay').lower()
+PAYMENT_PROVIDER_INTL = os.getenv('PAYMENT_PROVIDER_INTL', PAYMENT_PROVIDER).lower()
+
+# --- Email (free SMTP — invoices, OTP, password reset) ----------------------
+# Works with any SMTP provider that has a free tier: Gmail (App Password),
+# Brevo/Sendinblue (300/day free), Mailtrap (testing), etc. When SMTP_HOST is
+# unset, emails are logged to the console instead of sent (safe dev default) so
+# the OTP/invoice flows still work end-to-end locally without a mail account.
+SMTP_HOST = os.getenv('SMTP_HOST', None)
+SMTP_PORT = int(os.getenv('SMTP_PORT', '587'))
+SMTP_USER = os.getenv('SMTP_USER', None)
+SMTP_PASSWORD = os.getenv('SMTP_PASSWORD', None)
+SMTP_USE_TLS = os.getenv('SMTP_USE_TLS', 'true').lower() == 'true'
+EMAIL_FROM = os.getenv('EMAIL_FROM', SMTP_USER or 'no-reply@aiml-vlab.local')
+EMAIL_FROM_NAME = os.getenv('EMAIL_FROM_NAME', 'AIML Lab')
+
+# --- OTP (email verification on signup / login) -----------------------------
+# When OTP_ENABLED=true, signup and login require a one-time code emailed to the
+# user before a JWT is issued. Off by default so existing flows are unchanged
+# until you flip it on in .env.
+OTP_ENABLED = os.getenv('OTP_ENABLED', 'false').lower() == 'true'
+OTP_LENGTH = int(os.getenv('OTP_LENGTH', '6'))
+OTP_TTL_MINUTES = int(os.getenv('OTP_TTL_MINUTES', '10'))
+OTP_MAX_ATTEMPTS = int(os.getenv('OTP_MAX_ATTEMPTS', '5'))
+OTP_RESEND_COOLDOWN_SECONDS = int(os.getenv('OTP_RESEND_COOLDOWN_SECONDS', '60'))
+# App URL used in invoice/OTP email bodies (links + branding). Falls back to
+# FRONTEND_URL (defined below) at use-time via the email service if unset here.
+APP_PUBLIC_URL = os.getenv('APP_PUBLIC_URL', None) or os.getenv('FRONTEND_URL', None) or 'http://localhost:3000'
+
 # --- HuggingFace ---
 HF_TOKEN = os.getenv('HF_TOKEN', None)  # Optional — needed for gated models
 # Shared on-disk cache for base models pulled from the HF Hub, so a given base

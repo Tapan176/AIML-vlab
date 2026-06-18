@@ -354,3 +354,218 @@
     width: auto;
     margin: 0 auto;
 }
+
+/* --- Checkout / order page ----------------------------------------------- */
+.checkout-page {
+    max-width: 540px;
+    margin: 2.5rem auto;
+    padding: 0 1rem;
+}
+
+.checkout-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    box-shadow: var(--shadow-md);
+    padding: 2rem;
+    color: var(--text-primary);
+}
+
+.checkout-title {
+    margin: 0 0 0.25rem;
+    font-size: 1.5rem;
+}
+
+.checkout-sub {
+    margin: 0 0 1.5rem;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+}
+
+.checkout-bill {
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 0.75rem;
+}
+
+.bill-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.85rem 1.1rem;
+    font-size: 0.95rem;
+}
+
+.bill-row + .bill-row {
+    border-top: 1px solid var(--border-color);
+}
+
+.bill-header {
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+}
+
+.bill-total {
+    font-weight: 700;
+    font-size: 1.05rem;
+    background: var(--bg-secondary);
+}
+
+.checkout-tax {
+    margin: 0 0 1.25rem;
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+}
+
+.checkout-billed-to {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 0;
+    border-top: 1px dashed var(--border-color);
+    margin-bottom: 1.25rem;
+    font-size: 0.9rem;
+}
+
+.checkout-billed-to .muted {
+    color: var(--text-secondary);
+}
+
+.checkout-pay-btn {
+    width: 100%;
+    padding: 0.9rem;
+    font-size: 1rem;
+    margin-bottom: 1rem;
+}
+
+.checkout-back {
+    display: inline-block;
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+}
+
+.checkout-back:hover {
+    color: var(--accent);
+}
+
+.checkout-fineprint {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    line-height: 1.5;
+    margin: 0;
+}
+
+/* --- Billing history (Profile) ------------------------------------------- */
+.billing-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin: 1.25rem auto;
+    max-width: 720px;
+    color: var(--text-primary);
+}
+
+.billing-section h2 {
+    margin: 0 0 0.25rem;
+    font-size: 1.15rem;
+}
+
+.billing-plan-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    padding: 0.85rem 0;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 1rem;
+}
+
+.billing-plan-name {
+    font-weight: 700;
+    font-size: 1.05rem;
+}
+
+.billing-status {
+    display: inline-block;
+    padding: 0.15rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: var(--success-soft, rgba(34, 197, 94, 0.15));
+    color: var(--success, #16a34a);
+    margin-left: 0.5rem;
+}
+
+.billing-actions {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+}
+
+.billing-btn {
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.billing-btn.primary {
+    background: var(--gradient-primary, var(--accent));
+    color: var(--text-on-accent);
+    border-color: transparent;
+}
+
+.billing-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.invoice-list {
+    list-style: none;
+    margin: 0.75rem 0 0;
+    padding: 0;
+}
+
+.invoice-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.7rem 0;
+    border-top: 1px solid var(--border-color);
+    font-size: 0.9rem;
+}
+
+.invoice-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.invoice-num {
+    font-weight: 600;
+}
+
+.invoice-date {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+
+.invoice-empty {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin: 0.5rem 0 0;
+}

@@ -2,7 +2,10 @@
 Auth routes — login, signup, password management, user profile.
 """
 from flask import Blueprint, request, jsonify
-from auth.authController import login, signup, forgot_password, reset_password
+from auth.authController import (
+    login, signup, forgot_password, reset_password,
+    verify_login_otp, verify_signup_otp, resend_otp,
+)
 from auth.auth_middleware import token_required
 from extensions import limiter
 from services.user_service import get_user_by_id, update_user_profile, change_password, delete_user, update_profile_photo
@@ -51,6 +54,60 @@ def handle_signup():
         error_message = str(e)
         status = 409 if error_message == 'user_already_exists' else 500
         return jsonify({"error": error_message}), status
+
+
+# ── OTP email verification (signup / login) ─────────────────────────────────
+
+@auth_routes.route('/verify-otp', methods=['POST'])
+@limiter.limit("15 per minute")
+def handle_verify_otp():
+    """Verify an emailed OTP and complete signup/login.
+
+    Body: {email, code, purpose: 'signup'|'login'}. On success returns the same
+    {user, token} shape as login/signup so the client can store the JWT.
+    """
+    try:
+        data = request.get_json(silent=True) or {}
+        email = data.get('email')
+        code = data.get('code')
+        purpose = data.get('purpose')
+        if not email or not code or purpose not in ('signup', 'login'):
+            return jsonify({"error": "email, code and purpose are required"}), 400
+
+        if purpose == 'signup':
+            result = verify_signup_otp(email, code)
+        else:
+            result = verify_login_otp(email, code)
+        return jsonify(result), 200
+    except Exception as e:
+        msg = str(e)
+        # Map OTP failures to 400 (client retryable) vs 500 (server).
+        otp_errors = {
+            'otp_incorrect', 'otp_expired', 'otp_not_found',
+            'otp_too_many_attempts', 'invalid_otp', 'user_not_found',
+        }
+        status = 400 if msg in otp_errors else 500
+        return jsonify({"error": msg}), status
+
+
+@auth_routes.route('/resend-otp', methods=['POST'])
+@limiter.limit("5 per minute")
+def handle_resend_otp():
+    """Re-issue an OTP (subject to a per-account cooldown)."""
+    try:
+        data = request.get_json(silent=True) or {}
+        email = data.get('email')
+        purpose = data.get('purpose')
+        if not email or purpose not in ('signup', 'login'):
+            return jsonify({"error": "email and purpose are required"}), 400
+        result = resend_otp(email, purpose)
+        return jsonify(result), 200
+    except Exception as e:
+        msg = str(e)
+        if msg.startswith('otp_cooldown:'):
+            retry = msg.split(':', 1)[1]
+            return jsonify({"error": "otp_cooldown", "retry_after": int(retry)}), 429
+        return jsonify({"error": msg}), 400
 
 
 @auth_routes.route('/forgot-password', methods=['POST'])
