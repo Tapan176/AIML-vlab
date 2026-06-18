@@ -17,7 +17,10 @@ pip install -r requirements.txt         # production/CPU — tensorflow-cpu + to
 
 python app.py                           # dev server at http://127.0.0.1:5050
 python -m migrations.migration_runner   # apply pending DB migrations explicitly (app.py also runs them on startup)
+python -m pytest                        # run the backend test-suite (needs requirements-dev.txt: pytest + mongomock)
 ```
+
+The Flask app is built by an **application factory** — `create_app()` in `backend/app.py`. Importing `app` has no side effects (no DB connect, no migrations); those happen inside `create_app()`. Production runs `gunicorn "app:create_app()"` (see Dockerfile); `python app.py` calls the factory for the dev server. Tests call `create_app(testing=True, init_database=False, ...)` and inject an in-memory `mongomock` DB via `mongoDb.connection.init_db(client_factory=...)` — see `backend/tests/conftest.py`.
 
 **Requirements file layout** (see `backend/requirements-*.txt`):
 - `requirements-base.txt` — shared deps (flask, pymongo, numpy/pandas/sklearn, xgboost, opencv-headless). Included by the others via `-r`; don't install directly.

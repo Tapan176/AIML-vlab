@@ -100,7 +100,7 @@ EXPOSE 5050
 #   GUNICORN_THREADS — threads per worker (default 1; raise to 2-4 for I/O-heavy routes)
 #   GUNICORN_TIMEOUT — seconds before a worker is killed (default 300 for long training jobs)
 CMD ["sh", "-c", \
-     "gunicorn app:app \
+     "gunicorn 'app:create_app()' \
       --bind 0.0.0.0:${PORT:-5050} \
       --workers ${WEB_CONCURRENCY:-2} \
       --threads ${GUNICORN_THREADS:-1} \

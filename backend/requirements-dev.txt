@@ -26,3 +26,10 @@ torchvision>=0.18,<1
 
 # --- Object Detection — Ultralytics / YOLO ----------------------------------
 ultralytics>=8.0,<9
+
+
+# --- Testing (pytest + in-memory Mongo) -------------------------------------
+#  Dev/CI only — not installed in production images. `mongomock` lets the
+#  test-suite run against an in-memory database with no real MongoDB server.
+pytest>=8.0,<9
+mongomock>=4.1,<5
