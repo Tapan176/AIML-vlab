@@ -4,153 +4,21 @@ from copy import deepcopy
 
 from config import DEFAULT_HYPERPARAMS
 from services.hyperparam_validator import VALIDATION_SCHEMAS
+from services.hyperparam_models import build_param_labels, build_param_notes
 
 
 MODEL_CATALOG_VERSION = 3
 
 
-PARAM_LABELS = {
-    "C": "C",
-    "alpha": "Alpha",
-    "augment": "Augment",
-    "batch_size": "Batch size",
-    "criterion": "Criterion",
-    "degree": "Polynomial degree",
-    "disc_lr": "Discriminator learning rate",
-    "eps": "Epsilon (eps)",
-    "epochs": "Epochs",
-    "gamma": "Gamma",
-    "imgsz": "Image size (imgsz)",
-    "init": "Initialization strategy",
-    "kernel": "Kernel",
-    "learning_rate": "Learning rate",
-    "log_resolution": "Log2 resolution",
-    "loss": "Loss function",
-    "lr0": "Initial learning rate (lr0)",
-    "lrf": "Final LR multiplier (lrf)",
-    "max_depth": "Max depth",
-    "max_features": "Max features",
-    "max_iter": "Max iterations",
-    "metric": "Distance metric",
-    "min_samples": "Minimum samples",
-    "min_samples_leaf": "Min samples per leaf",
-    "min_samples_split": "Min samples to split",
-    "momentum": "Momentum",
-    "mosaic": "Mosaic augmentation",
-    "n_clusters": "Number of clusters",
-    "n_estimators": "Number of estimators",
-    "n_init": "Number of initializations",
-    "n_neighbors": "Number of neighbors",
-    "optimizer": "Optimizer",
-    "p": "Minkowski power (p)",
-    "r1_penalty": "R1 penalty",
-    "random_state": "Random state",
-    "sequence_length": "Sequence length",
-    "solver": "Solver",
-    "test_size": "Test split",
-    "validation_split": "Validation split",
-    "var_smoothing": "Variance smoothing",
-    "w_dim": "W latent dimension",
-    "warmup_epochs": "Warmup epochs",
-    "weight_decay": "Weight decay",
-    "weights": "Neighbor weights",
-    "z_dim": "Z latent dimension",
-    # Fine-tuning
-    "model_name": "Base Model",
-    "max_length": "Max Token Length",
-    "warmup_steps": "Warmup Steps",
-    "freeze_base": "Freeze Base Layers",
-}
+# PARAM_LABELS / PARAM_NOTES are DERIVED — do not hand-edit. The single source of
+# truth is the Pydantic models in ``services/hyperparam_models.py``: each field's
+# ``title`` is its UI label (flat PARAM_LABELS, keyed by param name) and each
+# field's ``description`` is its help text (nested PARAM_NOTES, keyed by
+# model_code then param name). OPTION_NOTES / ACTIVATION_NOTES below have no
+# field-level equivalent and stay authored here.
+PARAM_LABELS = build_param_labels()
 
-PARAM_NOTES = {
-    "simple_linear_regression": {
-        "test_size": "Fraction of rows reserved for holdout evaluation before fitting the regression line.",
-        "random_state": "Seed used for the train/test split so repeated runs are reproducible.",
-    },
-    "multivariable_linear_regression": {
-        "test_size": "Fraction of rows reserved for holdout evaluation before fitting the regression model.",
-        "random_state": "Seed used for the train/test split so repeated runs are reproducible.",
-    },
-    "logistic_regression": {
-        "C": "Inverse regularization strength. Smaller values regularize harder and usually reduce overfitting.",
-        "solver": "Optimization algorithm used to fit the logistic regression coefficients.",
-        "max_iter": "Upper bound on solver iterations before convergence stops.",
-        "test_size": "Fraction of rows reserved for holdout evaluation.",
-        "random_state": "Seed used for the split and for solvers that rely on randomization.",
-    },
-    "knn": {
-        "n_neighbors": "How many nearest training samples vote when predicting the class of a new point.",
-        "metric": "Distance function used to decide which points count as nearest neighbors.",
-        "p": "Only affects the Minkowski metric: 1 behaves like Manhattan distance and 2 behaves like Euclidean distance.",
-        "weights": "Whether every neighbor votes equally or closer neighbors get more influence.",
-        "test_size": "Fraction of rows reserved for holdout evaluation.",
-        "random_state": "Seed used for the train/test split.",
-    },
-    "decision_tree": {
-        "criterion": "Split quality function used to choose the next branch in the tree.",
-        "max_depth": "Maximum number of split levels. Null removes the depth cap completely.",
-        "min_samples_split": "Smallest sample count a node must contain before the tree is allowed to split it.",
-        "min_samples_leaf": "Smallest sample count allowed in any terminal leaf after a split.",
-        "test_size": "Fraction of rows reserved for holdout evaluation.",
-        "random_state": "Seed used for the split and any stochastic behavior inside the estimator.",
-    },
-    "random_forest": {
-        "n_estimators": "How many decision trees are trained in the ensemble.",
-        "criterion": "Split quality function used inside every tree.",
-        "max_depth": "Maximum depth of each tree. Null removes the cap.",
-        "min_samples_split": "Smallest sample count a node must contain before a tree can split it.",
-        "test_size": "Fraction of rows reserved for holdout evaluation.",
-        "random_state": "Seed used for the split and forest randomness.",
-    },
-    "svm": {
-        "kernel": "Kernel function that defines the separating surface between classes.",
-        "C": "Penalty for margin violations. Larger values fit the training data more aggressively.",
-        "gamma": "Kernel coefficient for rbf, poly, and sigmoid kernels.",
-        "degree": "Polynomial order used only when the kernel is set to poly.",
-        "test_size": "Fraction of rows reserved for holdout evaluation.",
-        "random_state": "Seed used for the split and any randomized estimator behavior.",
-    },
-    "naive_bayes": {
-        "var_smoothing": "Small positive value added to feature variances so GaussianNB remains numerically stable.",
-        "test_size": "Fraction of rows reserved for holdout evaluation.",
-        "random_state": "Seed used for the train/test split.",
-    },
-    "k_means": {
-        "n_clusters": "How many clusters the algorithm will try to discover.",
-        "init": "Strategy used to place the initial centroids before iterative refinement starts.",
-        "max_iter": "Maximum Lloyd updates allowed for one initialization run.",
-        "n_init": "How many separate centroid initializations are tried before the best run is kept.",
-        "random_state": "Seed used when initialization depends on randomness.",
-    },
-    "dbscan": {
-        "eps": "Maximum neighborhood radius for two points to count as density-connected.",
-        "min_samples": "Minimum neighborhood size required for a point to become a core point.",
-        "metric": "Distance function used when DBSCAN measures neighborhood radius.",
-    },
-    "gradient_boosting": {
-        "n_estimators": "How many shallow trees are added sequentially to correct previous errors.",
-        "learning_rate": "Shrinkage applied to each boosting step. Smaller values slow training but can generalize better.",
-        "max_depth": "Maximum depth for each boosting tree.",
-        "test_size": "Fraction of rows reserved for holdout evaluation.",
-    },
-    "xgboost": {
-        "n_estimators": "How many boosted trees are trained.",
-        "learning_rate": "Shrinkage applied to each boosting step.",
-        "max_depth": "Maximum tree depth for each boosted estimator.",
-        "test_size": "Fraction of rows reserved for holdout evaluation.",
-    },
-    "sentiment_analysis": {
-        "max_features": "Vocabulary cap for the TF-IDF vectorizer. Higher values keep more unique n-grams.",
-        "max_iter": "Maximum iterations allowed for the logistic regression classifier.",
-        "C": "Inverse regularization strength for the logistic regression classifier.",
-        "test_size": "Fraction of text rows reserved for holdout evaluation.",
-    },
-    "text_classification": {
-        "max_features": "Vocabulary cap for the count vectorizer.",
-        "alpha": "Laplace smoothing strength for Multinomial Naive Bayes.",
-        "test_size": "Fraction of text rows reserved for holdout evaluation.",
-    },
-}
+PARAM_NOTES = build_param_notes()
 
 OPTION_NOTES = {
     ("logistic_regression", "solver"): {
@@ -210,68 +78,6 @@ ACTIVATION_NOTES = {
     "leaky_relu": "ReLU variant that keeps a small negative slope so units do not die completely.",
     "prelu": "Parametric ReLU with a learned negative slope.",
 }
-
-PARAM_NOTES.update(
-    {
-        "ann": {
-            "epochs": "Maximum full passes through the training split before early stopping can halt training.",
-            "batch_size": "Number of rows processed before every optimizer update.",
-            "optimizer": "Weight update algorithm used during backpropagation.",
-            "loss": "Objective function that determines the output layer shape and how prediction error is measured.",
-            "learning_rate": "Base step size passed into the selected optimizer.",
-            "validation_split": "Fraction of the training split reserved internally for validation during each epoch.",
-            "test_size": "Fraction of rows reserved for the final holdout test set.",
-        },
-        "cnn": {
-            "epochs": "Maximum training epochs before patience-based early stopping can stop the run.",
-            "batch_size": "Number of images loaded per optimizer update.",
-            "optimizer": "Weight update algorithm used during backpropagation.",
-            "loss": "Objective function used to train the classifier head. This must stay compatible with the selected class mode.",
-            "learning_rate": "Base step size passed into the selected optimizer.",
-            "momentum": "Only used by SGD. Adds inertia so updates keep moving in the previous direction.",
-        },
-        "resnet": {
-            "epochs": "Maximum training epochs before early stopping can stop the run.",
-            "batch_size": "Number of images loaded per optimizer update.",
-            "optimizer": "Weight update algorithm used during fine-tuning.",
-            "loss": "Objective function used for the final classification layer. Keep it aligned with the selected class mode.",
-            "learning_rate": "Base step size passed into the selected optimizer.",
-        },
-        "lstm": {
-            "epochs": "Maximum sequence-training epochs before early stopping can stop the run.",
-            "batch_size": "Number of sequences processed per optimizer update.",
-            "optimizer": "Weight update algorithm used during sequence training.",
-            "loss": "Regression loss for linear mode, or the requested classification loss when classification mode is selected.",
-            "validation_split": "Fraction of the generated sequence set reserved internally for validation each epoch.",
-            "sequence_length": "Sliding window length used when converting the tabular sequence into supervised training samples.",
-            "learning_rate": "Base step size passed into the selected optimizer.",
-        },
-        "yolo": {
-            "epochs": "Maximum detector training epochs.",
-            "batch_size": "Number of images per optimizer step.",
-            "imgsz": "Square image resolution used during training and validation.",
-            "optimizer": "Ultralytics optimizer selection. Case matters here because the backend forwards the exact string.",
-            "lr0": "Initial learning rate at the start of training.",
-            "lrf": "Final learning rate multiplier used by the scheduler relative to lr0.",
-            "momentum": "Momentum term used by supported optimizers.",
-            "weight_decay": "L2-style regularization applied to model weights.",
-            "warmup_epochs": "How many early epochs are spent warming up the optimizer schedule.",
-            "augment": "Whether Ultralytics data augmentation is enabled.",
-            "mosaic": "Strength of mosaic augmentation between 0 and 1.",
-        },
-        "stylegan": {
-            "epochs": "Maximum adversarial training epochs.",
-            "batch_size": "Number of images loaded into each GAN optimization step.",
-            "z_dim": "Dimensionality of the random input noise vector.",
-            "w_dim": "Dimensionality of the intermediate latent W space produced by the mapping network.",
-            "log_resolution": "Log2 of the generated output resolution. For example, 7 means 128x128 images.",
-            "learning_rate": "Generator and mapping-network learning rate.",
-            "optimizer": "Optimizer family used for generator and discriminator training.",
-            "disc_lr": "Learning rate used for the discriminator. If omitted, it falls back to the generator learning rate.",
-            "r1_penalty": "Strength of the R1 regularization term applied to real-image gradients.",
-        },
-    }
-)
 
 OPTION_NOTES.update(
     {
@@ -336,34 +142,6 @@ OPTION_NOTES.update(
         ("stylegan", "optimizer"): {
             "adam": "Adam with StyleGAN-style betas for both generator and discriminator.",
             "rmsprop": "RMSProp for both generator and discriminator.",
-        },
-    }
-)
-
-# ── 🆕 Fine-Tuning notes ─────────────────────────────────────────
-_FINETUNE_TEXT_NOTES = {
-    "model_name": "Which pretrained checkpoint to start from. Larger checkpoints can be more accurate but train slower and need more memory.",
-    "epochs": "How many full passes over your text the model fine-tunes for. 2–4 is usually enough; more can overfit small datasets.",
-    "batch_size": "How many text examples are processed per optimizer step. Lower it if you hit out-of-memory errors.",
-    "learning_rate": "Step size for fine-tuning. Transformers like very small rates (around 2e-5); larger values often destabilize training.",
-    "max_length": "Maximum number of tokens kept per text sample. Longer captures more context but costs more memory and time; shorter truncates long inputs.",
-    "warmup_steps": "Number of initial steps where the learning rate ramps up from zero, which can stabilize the start of fine-tuning.",
-    "weight_decay": "L2-style regularization on the weights. A small value (around 0.01) helps reduce overfitting.",
-    "test_size": "Fraction of rows held out to validate accuracy after fine-tuning.",
-    "freeze_base": "When enabled, only the new classification head trains and the transformer backbone stays frozen — faster and safer for small datasets.",
-}
-PARAM_NOTES.update(
-    {
-        "bert_finetune": dict(_FINETUNE_TEXT_NOTES),
-        "distilbert_finetune": dict(_FINETUNE_TEXT_NOTES),
-        "vit_finetune": {
-            "model_name": "Which pretrained Vision Transformer checkpoint to start from. Larger variants can be more accurate but train slower.",
-            "epochs": "How many full passes over your images the model fine-tunes for. A few epochs is usually enough for transfer learning.",
-            "batch_size": "How many images are processed per optimizer step. Lower it if you run out of GPU/CPU memory.",
-            "learning_rate": "Step size for fine-tuning. ViT fine-tuning uses very small rates (around 2e-5).",
-            "weight_decay": "L2-style regularization on the weights to reduce overfitting.",
-            "test_size": "Fraction of images held out to validate accuracy after fine-tuning.",
-            "freeze_base": "When enabled, only the new classification head trains and the ViT encoder stays frozen — recommended for small datasets.",
         },
     }
 )

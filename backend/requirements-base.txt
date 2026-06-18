@@ -34,6 +34,14 @@ PyJWT>=2.8,<3
 python-dotenv>=1.0,<2
 
 
+# --- Validation / Schemas ---------------------------------------------------
+#  Single source of truth for ML model hyperparameters lives in
+#  services/hyperparam_models.py as Pydantic v2 models; config.py +
+#  services/hyperparam_validator.py + services/model_catalog.py derive the legacy
+#  DEFAULT_HYPERPARAMS / VALIDATION_SCHEMAS / PARAM_LABELS / PARAM_NOTES from them.
+pydantic>=2.6,<3
+
+
 # --- Payments ---------------------------------------------------------------
 stripe>=9.0,<13
 
