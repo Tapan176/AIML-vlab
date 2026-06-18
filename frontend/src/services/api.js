@@ -13,12 +13,12 @@
  * never served after a mutation. Call clearCache() on logout.
  */
 
-import { API_URL } from '../constants';
+import { API_URL, TOKEN_KEY } from '../constants';
 
 const API_BASE = API_URL;
 
 function getToken() {
-    return localStorage.getItem('aiml_token');
+    return localStorage.getItem(TOKEN_KEY);
 }
 
 function getHeaders(includeAuth = true, isJson = true) {
@@ -81,7 +81,7 @@ async function handleResponse(res) {
     const data = await parseBody(res);
     if (res.status === 401) {
         // Token expired — clear and redirect
-        localStorage.removeItem('aiml_token');
+        localStorage.removeItem(TOKEN_KEY);
         clearCache();
         window.location.href = '/login';
         throw new Error('Session expired');

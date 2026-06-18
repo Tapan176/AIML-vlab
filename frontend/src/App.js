@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { MotionConfig } from 'framer-motion';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { SubscriptionProvider } from './context/SubscriptionContext';
@@ -26,6 +27,7 @@ function App() {
         <ThemeProvider>
             <AuthProvider>
                 <Router>
+                    <MotionConfig reducedMotion="user">
                     <UIDialogProvider>
                     <SubscriptionProvider>
                     <Navbar />
@@ -81,6 +83,7 @@ function App() {
                     </div>
                     </SubscriptionProvider>
                     </UIDialogProvider>
+                    </MotionConfig>
                 </Router>
             </AuthProvider>
         </ThemeProvider>

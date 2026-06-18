@@ -7,6 +7,7 @@ import DownloadResultsZip from '../DownloadResultsZip/DownloadResultsZip';
 import HyperparamPanel from '../shared/HyperparamPanel';
 import LstmHiddenLayer from '../HiddenLayers/LstmHiddenLayer';
 import ModelInfoPanel from '../shared/ModelInfoPanel';
+import TrainingChart from '../shared/TrainingChart';
 import useDatasetCache from '../../hooks/useDatasetCache';
 import { formatMetric } from '../../utils/formatMetric';
 import '../ModelCss/ModelPage.css';
@@ -14,7 +15,7 @@ import '../ModelCss/ModelPage.css';
 const MODEL_CODE = 'lstm';
 
 export default function LSTM() {
-    const { hyperparams: replayHyperparams, restoredResults, liveStatus, liveLogs } = useReplaySession(MODEL_CODE);
+    const { hyperparams: replayHyperparams, restoredResults, liveStatus, liveLogs, liveMetrics } = useReplaySession(MODEL_CODE);
     const [layers, setLayers] = useState([
         { type: 'lstm', units: 128, return_sequences: true, dropout: 0.2 },
         { type: 'lstm', units: 64, return_sequences: false, dropout: 0.2 },
@@ -27,7 +28,19 @@ export default function LSTM() {
     const [error, setError] = useState('');
     const [infoOpen, setInfoOpen] = useState(false);
     const [logs, setLogs] = useState([]);
+    const [metrics, setMetrics] = useState([]);
+    const [runningSessionId, setRunningSessionId] = useState(null);
+    const [cancelling, setCancelling] = useState(false);
     const { datasetData, handleDatasetSelect } = useDatasetCache(MODEL_CODE);
+
+    const cancelTraining = async () => {
+        if (!runningSessionId) return;
+        setCancelling(true);
+        try {
+            const { default: api } = await import('../../services/api');
+            await api.post(`/training-sessions/${runningSessionId}/cancel`);
+        } catch (e) { /* best-effort */ }
+    };
 
     // Replay restore: a completed session's results, or the live progress of a
     // session still training (re-opened from the Dashboard).
@@ -38,6 +51,9 @@ export default function LSTM() {
     useEffect(() => {
         if (replayActive && liveLogs.length > 0) setLogs(liveLogs);
     }, [replayActive, liveLogs]);
+    useEffect(() => {
+        if (replayActive && liveMetrics.length > 0) setMetrics(liveMetrics);
+    }, [replayActive, liveMetrics]);
 
     const lossOptions = classMode === 'linear'
         ? ['mse', 'mae', 'huber']
@@ -56,7 +72,10 @@ export default function LSTM() {
         setLoading(true);
         setError('');
         setLogs([]);
+        setMetrics([]);
         setResults(null);
+        setRunningSessionId(null);
+        setCancelling(false);
         try {
             const bodyPayload = {
                 filePath: datasetData?.extracted_file_path || datasetData?.filepath || datasetData?.path || datasetData?.filename,
@@ -71,7 +90,7 @@ export default function LSTM() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('aiml_token')}`
+                    'Authorization': `Bearer ${localStorage.getItem(constants.TOKEN_KEY)}`
                 },
                 body: JSON.stringify(bodyPayload)
             });
@@ -98,7 +117,15 @@ export default function LSTM() {
                         if (event.startsWith('data: ')) {
                             try {
                                 const parsed = JSON.parse(event.replace('data: ', ''));
-                                if (parsed.log) {
+                                if (parsed.session_id && parsed.status === 'started') {
+                                    setRunningSessionId(parsed.session_id);
+                                }
+                                if (parsed.metrics) {
+                                    setMetrics(prev => [...prev, parsed.metrics]);
+                                }
+                                if (parsed.status === 'cancelled') {
+                                    setLogs(prev => [...prev, parsed.log || 'Training cancelled.']);
+                                } else if (parsed.log) {
                                     setLogs(prev => [...prev, parsed.log]);
                                 } else if (parsed.status === 'completed' || parsed.status === 'training_complete') {
                                     setResults(parsed);
@@ -175,6 +202,16 @@ export default function LSTM() {
                     ⏳ This training session is still in progress — showing live progress below. Results will appear automatically when it finishes.
                 </div>
             )}
+
+            {loading && runningSessionId && (
+                <div style={{ marginTop: '16px' }}>
+                    <button type="button" className="btn-cancel-training" onClick={cancelTraining} disabled={cancelling}>
+                        {cancelling ? '⏳ Cancelling…' : '🛑 Cancel training'}
+                    </button>
+                </div>
+            )}
+
+            <TrainingChart metrics={metrics} />
 
             {(logs.length > 0 || replayActive) && (
                 <div className="terminal-container" style={{ marginTop: '20px', background: 'var(--terminal-bg)', color: 'var(--terminal-text)', padding: '15px', borderRadius: '8px', fontFamily: 'monospace', height: '300px', overflowY: 'auto' }}>

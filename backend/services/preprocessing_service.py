@@ -224,10 +224,6 @@ def _ensure_unique_filename(user_id, base_filename):
         nf = f"{name}_processed_v{counter}.{ext}" if ext else f"{name}_processed_v{counter}"; counter += 1
     return nf
 
-def ensure_unique_filename(user_id, base_filename):
-    """Backward-compatible wrapper."""
-    return _ensure_unique_filename(user_id, base_filename)
-
 def perform_preprocessing(current_user, dataset_id, operations):
     """Retrieve dataset, apply operations chain, save as new versioned dataset in Drive.
     

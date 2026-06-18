@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
 import ShowDataset from '../Dataset/ShowDataset';
 import CachedDatasetBadge from '../shared/CachedDatasetBadge';
@@ -66,8 +66,8 @@ const FinetuneDistilBERT = () => {
         setLogs(['🚀 Starting DistilBERT fine-tuning...']);
 
         try {
-            const { API_URL } = await import('../../constants');
-            const token = localStorage.getItem('aiml_token');
+            const { API_URL, TOKEN_KEY } = await import('../../constants');
+            const token = localStorage.getItem(TOKEN_KEY);
 
             const response = await fetch(`${API_URL}/finetune/distilbert`, {
                 method: 'POST',

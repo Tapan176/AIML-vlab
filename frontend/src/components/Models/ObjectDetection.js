@@ -50,7 +50,7 @@ export default function ObjectDetection() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('aiml_token')}`
+                    'Authorization': `Bearer ${localStorage.getItem(constants.TOKEN_KEY)}`
                 },
                 body: JSON.stringify(bodyPayload)
             });

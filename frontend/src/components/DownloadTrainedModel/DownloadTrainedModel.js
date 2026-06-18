@@ -3,7 +3,7 @@ import constants from '../../constants';
 export default function DownloadTrainedModel({ selectedModel, extension, sessionId, label }) {
     const downloadTrainedModel = async () => {
         try {
-            const token = localStorage.getItem('aiml_token');
+            const token = localStorage.getItem(constants.TOKEN_KEY);
             const endpoint = sessionId 
                 ? `${constants.API_BASE_URL}/download-trained-model/${sessionId}`
                 : `${constants.API_BASE_URL}/download-trained-model?model_name=${selectedModel}&extension=${extension}`;

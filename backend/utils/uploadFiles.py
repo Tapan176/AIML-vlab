@@ -16,28 +16,6 @@ def parse_csv(filepath):
             csv_data.append({header: value for header, value in zip(headers, values)})
     return csv_data
 
-# def get_image_links(directory):
-#     # Get image links from directory (you may implement your logic to get image links)
-#     image_links = []
-#     print(directory)
-#     for root, dirs, files in os.walk(directory):
-#         print(root)
-#         print(files)
-#         for filename in files:
-#             if filename.endswith('.jpg') or filename.endswith('.png'):
-#                 image_links.append(os.path.join(root, filename))
-#     return image_links
-
-# def get_image_links(directory):
-#     # Get image links from directory using glob
-#     print(directory)
-#     image_links = []
-#     file_patterns = ['*.jpg', '*.jpeg', '*.png']  # Add more patterns if needed
-#     for pattern in file_patterns:
-#         files = glob.glob(os.path.join(directory, '**', pattern), recursive=True)
-#         image_links.extend(files)
-#     return image_links
-
 def get_image_links(directory):
     # Get image links from directory using ThreadPoolExecutor
     image_links = []

@@ -308,7 +308,7 @@ export default function ImageAnnotation() {
     const saveToCloud = async () => {
         if (images.length === 0) { notify('No images to save.', 'warning'); return; }
 
-        const token = localStorage.getItem('aiml_token');
+        const token = localStorage.getItem(constants.TOKEN_KEY);
         if (!token) {
             notify('Please sign in to save annotations to cloud.', 'warning');
             return;

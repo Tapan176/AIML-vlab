@@ -348,7 +348,56 @@ def mark_session_running(session_id):
         {'$set': {
             'status': 'running',
             'progress_logs': [],
+            'progress_metrics': [],
+            'cancel_requested': False,
             'started_at': datetime.utcnow(),
+        }}
+    )
+
+
+def request_session_cancel(session_id, user_id):
+    """Flag a running session for cancellation (owner-checked).
+
+    The SSE streaming loop checks this flag between chunks and stops the
+    generator, then records the session as 'cancelled'. Returns True if the
+    flag was set on a session the user owns, else raises.
+    """
+    db = get_db()
+    session = db.training_sessions.find_one({'_id': ObjectId(session_id)})
+    if not session:
+        raise Exception("session_not_found")
+    if session.get('user_id') != str(user_id):
+        raise Exception("unauthorized")
+    db.training_sessions.update_one(
+        {'_id': ObjectId(session_id)},
+        {'$set': {'cancel_requested': True}}
+    )
+    return True
+
+
+def is_cancel_requested(session_id):
+    """Cheap check used by the SSE loop between chunks. Best-effort: any error
+    (e.g. transient DB blip) returns False so we don't kill a healthy run."""
+    db = get_db()
+    try:
+        doc = db.training_sessions.find_one(
+            {'_id': ObjectId(session_id)},
+            {'cancel_requested': 1},
+        )
+        return bool(doc and doc.get('cancel_requested'))
+    except Exception:
+        return False
+
+
+def mark_session_cancelled(session_id):
+    """Record a session as cancelled by the user (terminal state)."""
+    db = get_db()
+    db.training_sessions.update_one(
+        {'_id': ObjectId(session_id)},
+        {'$set': {
+            'status': 'cancelled',
+            'cancelled_at': datetime.utcnow(),
+            'cancel_requested': False,
         }}
     )
 
@@ -368,6 +417,34 @@ def append_session_progress(session_id, log_line):
             'progress_logs': {
                 '$each': [str(log_line)],
                 '$slice': -MAX_PROGRESS_LOGS,
+            }
+        }}
+    )
+
+
+# Cap the per-epoch metric points the same way as logs — an epoch chart never
+# needs more than the last few hundred points to be useful, and it keeps the
+# session document bounded for very long runs.
+MAX_PROGRESS_METRICS = 500
+
+
+def append_session_metric(session_id, metric):
+    """Append one structured per-epoch metric point to the session.
+
+    `metric` is a small dict like {epoch, total_epochs, loss, accuracy,
+    val_loss, val_accuracy}. Stored under `progress_metrics` so a reconnecting
+    client (Dashboard replay) can re-draw the live training chart. Best-effort:
+    silently ignores falsy/invalid input.
+    """
+    if not metric or not isinstance(metric, dict):
+        return
+    db = get_db()
+    db.training_sessions.update_one(
+        {'_id': ObjectId(session_id)},
+        {'$push': {
+            'progress_metrics': {
+                '$each': [metric],
+                '$slice': -MAX_PROGRESS_METRICS,
             }
         }}
     )
@@ -393,6 +470,7 @@ def get_session_progress(session_id):
         'version': session.get('version'),
         'status': session.get('status'),
         'logs': session.get('progress_logs', []),
+        'metrics': session.get('progress_metrics', []),
         'results': session.get('results'),
         'error': session.get('error'),
         'trained_model_drive_id': session.get('trained_model_drive_id'),

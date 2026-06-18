@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { API_URL } from '../../constants';
+import { useState, useEffect, useCallback } from 'react';
+import { API_URL, TOKEN_KEY } from '../../constants';
 
 // The OAuth popup HTML is served by the backend, so its postMessage arrives
 // with the backend's origin. Only accept the token from that exact origin.
@@ -35,7 +35,7 @@ export default function OAuthSection({ onError }) {
         // account (login-CSRF / token injection).
         if (API_ORIGIN && event.origin !== API_ORIGIN) return;
         if (event.data && event.data.type === 'OAUTH_LOGIN' && event.data.token) {
-            localStorage.setItem('aiml_token', event.data.token);
+            localStorage.setItem(TOKEN_KEY, event.data.token);
             window.location.href = '/dashboard';
         }
     }, []);
@@ -50,7 +50,7 @@ export default function OAuthSection({ onError }) {
         const hash = window.location.hash || '';
         const match = hash.match(/oauth_token=([^&]+)/);
         if (match) {
-            localStorage.setItem('aiml_token', decodeURIComponent(match[1]));
+            localStorage.setItem(TOKEN_KEY, decodeURIComponent(match[1]));
             window.history.replaceState(null, '', window.location.pathname); // scrub token from URL
             window.location.href = '/dashboard';
         }

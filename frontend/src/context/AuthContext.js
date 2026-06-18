@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { API_URL } from '../constants';
+import { API_URL, TOKEN_KEY } from '../constants';
 import api, { clearCache } from '../services/api';
 
 const AuthContext = createContext(null);
@@ -12,7 +12,7 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
-    const [token, setToken] = useState(localStorage.getItem('aiml_token'));
+    const [token, setToken] = useState(localStorage.getItem(TOKEN_KEY));
     const [loading, setLoading] = useState(true);
 
     // Rehydrate user session from stored token
@@ -29,7 +29,7 @@ export const AuthProvider = ({ children }) => {
             setToken(storedToken);
         } catch (err) {
             // Token expired/invalid or network error — drop it and stay logged out.
-            localStorage.removeItem('aiml_token');
+            localStorage.removeItem(TOKEN_KEY);
             setToken(null);
             setUser(null);
         }
@@ -41,7 +41,7 @@ export const AuthProvider = ({ children }) => {
         
         // Listen for storage events to sync authentication state across multiple tabs
         const handleStorageChange = (e) => {
-            if (e.key === 'aiml_token') {
+            if (e.key === TOKEN_KEY) {
                 if (e.newValue) {
                     fetchCurrentUser(e.newValue);
                 } else {
@@ -65,7 +65,7 @@ export const AuthProvider = ({ children }) => {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Login failed');
 
-        localStorage.setItem('aiml_token', data.token);
+        localStorage.setItem(TOKEN_KEY, data.token);
         setToken(data.token);
         setUser(data.user);
         return data;
@@ -80,14 +80,14 @@ export const AuthProvider = ({ children }) => {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Signup failed');
 
-        localStorage.setItem('aiml_token', data.token);
+        localStorage.setItem(TOKEN_KEY, data.token);
         setToken(data.token);
         setUser(data.user);
         return data;
     };
 
     const logout = () => {
-        localStorage.removeItem('aiml_token');
+        localStorage.removeItem(TOKEN_KEY);
         clearCache(); // so the next user never sees the previous user's cached lists
         setToken(null);
         setUser(null);

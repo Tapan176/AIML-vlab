@@ -347,21 +347,3 @@ def _get_categories():
 def get_model_meta(model_code):
     """Get metadata for a single model. Returns None if not found."""
     return MODELS.get(model_code)
-
-
-def get_model_component_name(model_code):
-    """Maps model_code to the React component name expected by the frontend."""
-    # Most codes match 1:1; outliers are listed here
-    OVERRIDES = {
-        'yolo': 'ObjectDetection',
-    }
-    if model_code in OVERRIDES:
-        return OVERRIDES[model_code]
-    # Convert snake_case to PascalCase: 'simple_linear_regression' → 'SimpleLinearRegression'
-    return ''.join(word.capitalize() for word in model_code.split('_'))
-
-
-def get_model_import_path(model_code):
-    """Returns the dynamic import path for the React component."""
-    component_name = get_model_component_name(model_code)
-    return f"../Models/{component_name}"

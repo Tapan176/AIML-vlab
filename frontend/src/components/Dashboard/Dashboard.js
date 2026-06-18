@@ -10,6 +10,11 @@ import { useModelRegistry, getModelExtension } from '../../hooks/useModelRegistr
 import { truncateName } from '../../utils/truncateName';
 import usePagination from '../../hooks/usePagination';
 import Pagination from '../shared/Pagination';
+import RunComparison from './RunComparison';
+import PredictModal from './PredictModal';
+import Leaderboard from './Leaderboard';
+import OnboardingModal, { ONBOARDING_DISMISSED_KEY } from '../Onboarding/OnboardingModal';
+import { SkeletonCard, SkeletonRows } from '../shared/Skeleton';
 import './Dashboard.css';
 
 const Dashboard = () => {
@@ -23,7 +28,25 @@ const Dashboard = () => {
     const [feedbackType, setFeedbackType] = useState('general');
     const [toast, setToast] = useState(null); // { type: 'success' | 'error', message: string }
     const [confirmDelete, setConfirmDelete] = useState(null); // { sessionId, modelCode } or null
+    // Run-comparison (D2): which sessions are ticked, and whether the modal is open.
+    const [compareIds, setCompareIds] = useState([]);
+    const [showCompare, setShowCompare] = useState(false);
+    // Predict-on-new-data (D3): the session whose model we're predicting with.
+    const [predictSession, setPredictSession] = useState(null);
+    // First-run onboarding (D4): shown once when a brand-new user has no runs.
+    const [showOnboarding, setShowOnboarding] = useState(false);
     const registry = useModelRegistry();
+
+    const toggleCompare = (id) => {
+        setCompareIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    };
+
+    // A classical model (predict-on-new-data supported): not streaming + not fine-tuning.
+    const isClassical = (modelCode) => {
+        const m = registry?.models?.[modelCode];
+        if (!m) return false;
+        return !m.streaming && m.category !== 'Fine-Tuning';
+    };
 
     useEffect(() => {
         const fetchData = async () => {
@@ -32,8 +55,6 @@ const Dashboard = () => {
                 // training run (which doesn't go through api.*) shows up here.
                 const sessionsRes = await api.get('/training-sessions', { force: true });
                 const datasetsRes = await api.get('/user-datasets', { force: true });
-
-                console.log('Sessions raw response:', sessionsRes);
 
                 // Be defensive about response shape:
                 // - { sessions: [...] }
@@ -57,11 +78,15 @@ const Dashboard = () => {
                     datasetsData = datasetsRes.data.datasets;
                 }
 
-                console.log('Parsed sessions count:', sessionsData.length);
-                console.log('Parsed datasets count:', datasetsData.length);
-
                 setSessions(sessionsData);
                 setDatasets(datasetsData);
+
+                // First-run onboarding: only for a genuinely new user (no
+                // sessions yet) who hasn't dismissed it before.
+                try {
+                    const dismissed = localStorage.getItem(ONBOARDING_DISMISSED_KEY);
+                    if (!dismissed && sessionsData.length === 0) setShowOnboarding(true);
+                } catch (e) {}
             } catch (err) {
                 console.error('Failed to fetch dashboard data:', err);
                 setSessions([]);
@@ -154,9 +179,23 @@ const Dashboard = () => {
 
     if (loading) {
         return (
-            <div className="loading-screen">
-                <div className="spinner"></div>
-                <p>Loading dashboard...</p>
+            <div className="dashboard">
+                <div className="dashboard-header">
+                    <div>
+                        <h1>Dashboard</h1>
+                        <p>Loading your workspace…</p>
+                    </div>
+                </div>
+                <div className="dashboard-section">
+                    <h2>Recent Training Sessions</h2>
+                    <SkeletonRows rows={5} cols={5} />
+                </div>
+                <div className="dashboard-section">
+                    <h2>Your Datasets</h2>
+                    <div className="datasets-grid">
+                        {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} lines={2} />)}
+                    </div>
+                </div>
             </div>
         );
     }
@@ -228,7 +267,19 @@ const Dashboard = () => {
 
             {/* Recent Sessions */}
             <div className="dashboard-section">
-                <h2>Recent Training Sessions</h2>
+                <div className="section-header-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                    <h2 style={{ margin: 0 }}>Recent Training Sessions</h2>
+                    {sessions.length > 1 && (
+                        <button
+                            className="btn-compare-runs"
+                            onClick={() => setShowCompare(true)}
+                            disabled={compareIds.length < 2}
+                            title={compareIds.length < 2 ? 'Tick at least two runs to compare' : 'Compare selected runs'}
+                        >
+                            ⚖️ Compare{compareIds.length > 0 ? ` (${compareIds.length})` : ''}
+                        </button>
+                    )}
+                </div>
                 {sessions.length === 0 ? (
                     <div className="empty-state">
                         <p>No training sessions yet. Head to the <a href="/lab">Lab</a> to train your first model!</p>
@@ -238,6 +289,7 @@ const Dashboard = () => {
                         <table>
                             <thead>
                                 <tr>
+                                    <th style={{ width: '34px', textAlign: 'center' }} title="Select to compare">⚖️</th>
                                     <th>Model</th>
                                     <th>Version</th>
                                     <th>Status</th>
@@ -251,7 +303,15 @@ const Dashboard = () => {
                             </thead>
                             <tbody>
                                 {sessionsPage.pageItems.map((s) => (
-                                    <tr key={s._id}>
+                                    <tr key={s._id} className={compareIds.includes(s._id) ? 'row-selected-compare' : ''}>
+                                        <td style={{ textAlign: 'center' }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={compareIds.includes(s._id)}
+                                                onChange={() => toggleCompare(s._id)}
+                                                title="Select for comparison"
+                                            />
+                                        </td>
                                         <td className="model-cell">
                                             <span className="model-badge" title={s.model_code}>{s.model_code}</span>
                                         </td>
@@ -286,6 +346,16 @@ const Dashboard = () => {
                                             )}
                                         </td>
                                         <td className="action-cell">
+                                            {s.status === 'completed' && isClassical(s.model_code) && (
+                                                <button
+                                                    className="btn-replay-session"
+                                                    onClick={() => setPredictSession(s)}
+                                                    title="Predict on new data with this model"
+                                                    style={{ marginRight: 6 }}
+                                                >
+                                                    🔮
+                                                </button>
+                                            )}
                                             <button 
                                                 className="btn-replay-session"
                                                 onClick={() => handleReplaySession(s)}
@@ -319,6 +389,9 @@ const Dashboard = () => {
                 )}
             </div>
 
+            {/* Per-dataset leaderboard (D5) */}
+            <Leaderboard sessions={sessions} />
+
             {/* Datasets */}
             <div className="dashboard-section">
                 <h2>Your Datasets</h2>
@@ -351,6 +424,27 @@ const Dashboard = () => {
                     </>
                 )}
             </div>
+
+            {/* Run comparison modal (D2) */}
+            {showCompare && (
+                <RunComparison
+                    sessions={sessions.filter(s => compareIds.includes(s._id))}
+                    onClose={() => setShowCompare(false)}
+                />
+            )}
+
+            {/* Predict-on-new-data modal (D3) */}
+            {predictSession && (
+                <PredictModal
+                    session={predictSession}
+                    onClose={() => setPredictSession(null)}
+                />
+            )}
+
+            {/* First-run onboarding (D4) */}
+            {showOnboarding && (
+                <OnboardingModal onClose={() => setShowOnboarding(false)} />
+            )}
 
             {/* Feedback Modal */}
             {showFeedback && (

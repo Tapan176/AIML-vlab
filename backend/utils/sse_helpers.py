@@ -22,7 +22,50 @@ from services.training_session_service import (
     update_session_error,
     mark_session_running,
     append_session_progress,
+    append_session_metric,
+    is_cancel_requested,
+    mark_session_cancelled,
 )
+
+
+def epoch_event(epoch, total_epochs, *, loss=None, accuracy=None,
+                val_loss=None, val_accuracy=None, extra_log=None):
+    """Build an SSE chunk carrying BOTH a human log line and structured metrics.
+
+    The `metrics` field powers the live training chart on the frontend; the
+    `log` field keeps the existing text console working unchanged. Any metric
+    left as None is omitted from the payload (so e.g. an unsupervised model can
+    emit just `loss`). Returns a ready-to-yield `data: {...}\n\n` string.
+
+    Centralising the chunk shape here means every streaming trainer emits the
+    same schema, so the chart + persistence layer never have to special-case a
+    particular model.
+    """
+    metrics = {'epoch': int(epoch), 'total_epochs': int(total_epochs)}
+    if loss is not None:
+        metrics['loss'] = round(float(loss), 6)
+    if accuracy is not None:
+        metrics['accuracy'] = round(float(accuracy), 6)
+    if val_loss is not None:
+        metrics['val_loss'] = round(float(val_loss), 6)
+    if val_accuracy is not None:
+        metrics['val_accuracy'] = round(float(val_accuracy), 6)
+
+    if extra_log:
+        log = extra_log
+    else:
+        parts = [f"Epoch [{epoch}/{total_epochs}]"]
+        if loss is not None:
+            parts.append(f"loss: {loss:.4f}")
+        if accuracy is not None:
+            parts.append(f"accuracy: {accuracy:.4f}")
+        if val_loss is not None:
+            parts.append(f"val_loss: {val_loss:.4f}")
+        if val_accuracy is not None:
+            parts.append(f"val_accuracy: {val_accuracy:.4f}")
+        log = " - ".join(parts) if len(parts) > 1 else parts[0]
+
+    return f"data: {json.dumps({'log': log, 'metrics': metrics})}\n\n"
 
 
 def _extract_log_line(chunk):
@@ -39,6 +82,23 @@ def _extract_log_line(chunk):
         parsed = json.loads(payload)
         if isinstance(parsed, dict) and parsed.get('log'):
             return parsed['log']
+    except Exception:
+        pass
+    return None
+
+
+def _extract_metric(chunk):
+    """Best-effort pull of a structured per-epoch metric dict out of a chunk.
+
+    Returns the `metrics` dict (for persistence) or None when absent.
+    """
+    try:
+        payload = chunk.replace('data: ', '').strip()
+        if not payload:
+            return None
+        parsed = json.loads(payload)
+        if isinstance(parsed, dict) and isinstance(parsed.get('metrics'), dict):
+            return parsed['metrics']
     except Exception:
         pass
     return None
@@ -105,9 +165,25 @@ def run_sse_training(
     mark_session_running(session_id)
 
     def generate():
+        # Only poll the cancel flag every few chunks to keep the DB load low
+        # (training emits many log lines per epoch).
+        cancel_check_every = 3
+        chunk_count = 0
+        # Tell the client its session id up front so a Cancel button can target
+        # this run (the completion payload also carries it, but that's too late
+        # to cancel). Harmless to ignore for clients that don't use it.
+        yield f"data: {json.dumps({'session_id': session_id, 'status': 'started'})}\n\n"
         try:
             results_data = {}
             for chunk in make_chunks_iter(validated_params, user_id, session_version):
+                # Cooperative cancellation: if the user asked to stop, close the
+                # trainer generator and record the run as cancelled. Checked
+                # between chunks so it takes effect within an epoch boundary.
+                chunk_count += 1
+                if chunk_count % cancel_check_every == 0 and is_cancel_requested(session_id):
+                    mark_session_cancelled(session_id)
+                    yield f"data: {json.dumps({'log': '🛑 Training cancelled by user.', 'status': 'cancelled', 'session_id': session_id})}\n\n"
+                    return
                 # Capture the 'training_complete' payload so we can pass it to
                 # update_session_results. Other chunks are just passed through.
                 if 'status' in chunk and 'training_complete' in chunk:
@@ -122,6 +198,14 @@ def run_sse_training(
                 if log_line:
                     try:
                         append_session_progress(session_id, log_line)
+                    except Exception:
+                        pass
+                # Persist structured per-epoch metrics so a reconnecting client
+                # (Dashboard replay) can re-draw the live training chart.
+                metric = _extract_metric(chunk)
+                if metric:
+                    try:
+                        append_session_metric(session_id, metric)
                     except Exception:
                         pass
                 yield chunk

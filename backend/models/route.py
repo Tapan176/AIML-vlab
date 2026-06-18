@@ -67,29 +67,6 @@ MODEL_FUNCTIONS = {
     # XGBoost omitted — handled via lazy import
 }
 
-# Map model codes to route paths
-MODEL_ROUTES = {
-    'simple_linear_regression': '/linear-regression',
-    'multivariable_linear_regression': '/multivariable-linear-regression',
-    'logistic_regression': '/logistic-regression',
-    'decision_tree': '/decision-tree',
-    'random_forest': '/random-forest',
-    'knn': '/knn',
-    'svm': '/support-vector-machine',
-    'naive_bayes': '/naive-bayes',
-    'k_means': '/k-means',
-    'dbscan': '/dbscan',
-    'cnn': '/cnn',
-    'ann': '/ann',
-    'gradient_boosting': '/gradient-boosting',
-    'xgboost': '/xgboost',
-    'sentiment_analysis': '/sentiment-analysis',
-    'text_classification': '/text-classification',
-    'resnet': '/resnet',
-    'lstm': '/lstm',
-    'yolo': '/yolo',
-}
-
 
 def _train_model(model_code, request_obj, current_user=None):
     """Generic model training handler with hyperparameter validation and session tracking."""
@@ -538,6 +515,56 @@ def delete_session_route(current_user, session_id):
         if error_msg == 'session_not_found':
             return jsonify({"error": "Session not found"}), 404
         return jsonify({"error": error_msg}), 500
+
+
+@model_routes.route('/training-sessions/<session_id>/cancel', methods=['POST'])
+@token_required
+def cancel_session_route(current_user, session_id):
+    """Request cancellation of a running streaming-training session.
+
+    Sets a flag the SSE loop checks between chunks; the run stops at the next
+    boundary and is recorded as 'cancelled'. Owner-scoped.
+    """
+    from services.training_session_service import request_session_cancel
+    try:
+        request_session_cancel(session_id, current_user['_id'])
+        return jsonify({"message": "Cancellation requested."}), 200
+    except Exception as e:
+        msg = str(e)
+        if msg == 'unauthorized':
+            return jsonify({"error": "Unauthorized"}), 403
+        if msg == 'session_not_found':
+            return jsonify({"error": "Session not found"}), 404
+        return jsonify({"error": msg}), 500
+
+
+@model_routes.route('/predict/<session_id>', methods=['POST'])
+@token_required
+def predict_on_new_data(current_user, session_id):
+    """Run batch prediction on an uploaded CSV using a session's trained model.
+
+    Classical scikit-learn models only (see services/prediction_service.py).
+    Expects a multipart upload with a `file` field (CSV). Returns predictions
+    (and class probabilities when available). Owner-scoped via the session.
+    """
+    from services.prediction_service import predict_with_session, read_uploaded_csv
+
+    file = request.files.get('file')
+    if not file:
+        return jsonify({"error": "No CSV file uploaded (expected form field 'file')."}), 400
+
+    try:
+        df = read_uploaded_csv(file)
+        result = predict_with_session(session_id, current_user['_id'], df)
+        return jsonify(_sanitize_for_json(result)), 200
+    except PermissionError:
+        return jsonify({"error": "Unauthorized"}), 403
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except FileNotFoundError as e:
+        return jsonify({"error": str(e)}), 404
+    except Exception as e:
+        return jsonify({"error": f"Prediction failed: {e}"}), 500
 
 
 @model_routes.route('/model-schema/<model_code>', methods=['GET'])

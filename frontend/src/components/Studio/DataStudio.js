@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faTrash, faDatabase, faMagic, faTags, faChartBar, faCodeBranch, faSave, faFolderOpen } from '@fortawesome/free-solid-svg-icons';
+import { faTrash, faDatabase, faMagic, faTags, faChartBar, faCodeBranch, faSave, faFolderOpen, faPlay } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../../context/AuthContext';
 import { useUI } from '../../context/UIDialog';
 import ShowDataset from '../Dataset/ShowDataset';
@@ -9,11 +10,16 @@ import ImageAnnotation from './ImageAnnotation';
 import { truncateName } from '../../utils/truncateName';
 import usePagination from '../../hooks/usePagination';
 import Pagination from '../shared/Pagination';
+import { useModelRegistry } from '../../hooks/useModelRegistry';
+import { setTrainHandoff } from '../../utils/trainHandoff';
+import { ROUTES } from '../../constants';
 import './DataStudio.css';
 
 export default function DataStudio() {
     const { isAuthenticated } = useAuth();
     const { notify, confirm } = useUI();
+    const navigate = useNavigate();
+    const registry = useModelRegistry();
     const [datasets, setDatasets] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('manager'); // 'manager', 'preprocessing', 'annotation'
@@ -25,6 +31,8 @@ export default function DataStudio() {
     const [templates, setTemplates] = useState({});
     const [savedPipelines, setSavedPipelines] = useState([]);
     const [pipelineName, setPipelineName] = useState('');
+    // Most recent preprocessing output, used by the "Train on this output" CTA.
+    const [lastOutput, setLastOutput] = useState(null);
 
     // Profiling State
     const [profileDataset, setProfileDataset] = useState('');
@@ -36,6 +44,17 @@ export default function DataStudio() {
     const [diffB, setDiffB] = useState('');
     const [diffResult, setDiffResult] = useState(null);
     const [diffing, setDiffing] = useState(false);
+
+    // "Train on this output" handoff State. `trainTarget` holds the dataset
+    // descriptor the user wants to train on; the modal then picks a model.
+    const [trainTarget, setTrainTarget] = useState(null);   // {filename, dataset_id, drive_id, file_type}
+    const [trainModelCode, setTrainModelCode] = useState('');
+
+    // "Apply pipeline to dataset" State (D8). `applyPipeline` holds the saved
+    // pipeline being applied; the modal picks the target dataset.
+    const [applyPipeline, setApplyPipeline] = useState(null);   // {name, operations?}
+    const [applyDatasetId, setApplyDatasetId] = useState('');
+    const [applying, setApplying] = useState(false);
 
     // Paginate the Data Manager dataset list (same pattern as the Datasets
     // Library) so the table doesn't grow into an endless scroll.
@@ -125,6 +144,70 @@ export default function DataStudio() {
         setDiffing(false);
     };
 
+    // ── "Train on this output" handoff (D7) ──────────────────────────────
+    // Open the model picker for a chosen dataset descriptor.
+    const openTrainPicker = (dataset) => {
+        if (!dataset || !dataset.filename) return;
+        setTrainTarget({
+            filename: dataset.filename,
+            dataset_id: dataset._id || dataset.dataset_id || null,
+            drive_id: dataset.drive_id || null,
+            file_type: dataset.file_type || null,
+        });
+        setTrainModelCode('');
+    };
+
+    // Stash the dataset for the Lab and navigate. An empty model code means
+    // "any model" — the first model page the user opens will claim it.
+    const confirmTrain = () => {
+        if (!trainTarget) return;
+        setTrainHandoff({ ...trainTarget, model_code: trainModelCode || undefined });
+        if (trainModelCode) {
+            try { sessionStorage.setItem('auto_select_model', trainModelCode); } catch (e) {}
+        }
+        setTrainTarget(null);
+        navigate(ROUTES.LAB);
+    };
+
+    // ── "Apply pipeline to dataset" (D8) ─────────────────────────────────
+    // Open the dataset picker for a saved pipeline.
+    const openApplyPipeline = async (pipeline) => {
+        try {
+            // We need the pipeline's operations; the list endpoint only returns
+            // op_count, so fetch the full pipeline by name.
+            const full = await api.get(`/pipelines/${encodeURIComponent(pipeline.name)}`);
+            setApplyPipeline({ name: pipeline.name, operations: full.operations || [] });
+            setApplyDatasetId('');
+        } catch {
+            notify('Failed to load pipeline operations.', 'error');
+        }
+    };
+
+    // Run the saved pipeline against the chosen dataset directly (no detour
+    // through the editor), producing a new versioned dataset.
+    const confirmApplyPipeline = async () => {
+        if (!applyPipeline || !applyDatasetId || !applyPipeline.operations?.length) return;
+        setApplying(true);
+        try {
+            const data = await api.post('/datasets/preprocess', {
+                dataset_id: applyDatasetId,
+                operations: applyPipeline.operations,
+            });
+            notify(`Generated new dataset: ${data.dataset?.filename}`, 'success');
+            try { window.dispatchEvent(new CustomEvent('aiml:usage')); } catch (e) {}
+            setDatasets(prev => [data.dataset, ...prev]);
+            setApplyPipeline(null);
+            setApplyDatasetId('');
+        } catch (err) {
+            const code = err.data?.error;
+            if (code !== 'quota_exceeded' && code !== 'storage_quota_exceeded') {
+                notify(err.message || 'Failed to apply pipeline.', 'error');
+            }
+        } finally {
+            setApplying(false);
+        }
+    };
+
     const handleDatasetUploadDirect = (data) => {
         if (data && data.filename) {
             fetchDatasets();
@@ -170,6 +253,9 @@ export default function DataStudio() {
             // selected source dataset and their pipeline, and stay on this tab —
             // so they can tweak/re-run without re-selecting or being yanked away.
             setDatasets([data.dataset, ...datasets]);
+            // Remember the freshly produced dataset so the user can jump
+            // straight into the Lab and train on it ("Train on this output").
+            setLastOutput(data.dataset || null);
         } catch (err) {
             console.error(err);
             // Quota / storage-cap errors surface via the global UpgradeModal
@@ -263,7 +349,12 @@ export default function DataStudio() {
                                                 <td title={d.filename} style={{ maxWidth: '260px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.filename}</td>
                                                 <td><span className={`badge badge-${d.file_type}`}>{d.file_type.toUpperCase()}</span></td>
                                                 <td>{new Date(d.uploaded_at).toLocaleString()}</td>
-                                                <td>
+                                                <td style={{ display: 'flex', gap: '6px' }}>
+                                                    {d.file_type === 'csv' && (
+                                                        <button className="btn-train-handoff" onClick={() => openTrainPicker(d)} title="Train a model on this dataset">
+                                                            <FontAwesomeIcon icon={faPlay} /> Train
+                                                        </button>
+                                                    )}
                                                     <button className="btn-delete" onClick={() => handleDelete(d._id, d.filename)}>
                                                         <FontAwesomeIcon icon={faTrash} /> Delete
                                                     </button>
@@ -351,7 +442,22 @@ export default function DataStudio() {
                             >
                                 {isProcessing ? '⏳ Processing Dataset...' : '▶ Run Pipeline Generator'}
                             </button>
-                            
+
+                            {/* Train-on-output handoff: appears once a run produced a dataset. */}
+                            {lastOutput && lastOutput.file_type === 'csv' && (
+                                <div style={{ marginTop: '14px', padding: '14px', background: 'rgba(52,199,89,0.08)', border: '1px solid rgba(52,199,89,0.25)', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                                    <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                                        ✅ Ready: <strong title={lastOutput.filename}>{truncateName(lastOutput.filename, 36)}</strong>
+                                    </span>
+                                    <button
+                                        onClick={() => openTrainPicker(lastOutput)}
+                                        style={{ padding: '8px 16px', background: 'var(--accent)', color: 'var(--text-on-accent)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}
+                                    >
+                                        <FontAwesomeIcon icon={faPlay} /> Train on this output
+                                    </button>
+                                </div>
+                            )}
+
                             {/* Pipeline Templates */}
                             <div className="prep-actions" style={{ marginTop: '16px' }}>
                                 <h4>Quick Templates</h4>
@@ -474,14 +580,19 @@ export default function DataStudio() {
                                 <p style={{ color: 'var(--text-secondary)' }}>No saved pipelines yet. Create one in the Preprocessing tab.</p>
                             ) : (
                                 <table className="dataset-table">
-                                    <thead><tr><th>Name</th><th>Operations</th><th>Updated</th><th>Action</th></tr></thead>
+                                    <thead><tr><th>Name</th><th>Operations</th><th>Updated</th><th>Actions</th></tr></thead>
                                     <tbody>
                                         {savedPipelines.map(p => (
                                             <tr key={p._id}>
                                                 <td><strong>{p.name}</strong></td>
                                                 <td>{p.op_count}</td>
                                                 <td>{new Date(p.updated_at).toLocaleString()}</td>
-                                                <td><button className="btn-delete" onClick={() => handleLoadPipeline(p.name)}>Load</button></td>
+                                                <td style={{ display: 'flex', gap: '6px' }}>
+                                                    <button className="btn-apply-pipeline" onClick={() => openApplyPipeline(p)} title="Run this pipeline on a dataset">
+                                                        <FontAwesomeIcon icon={faPlay} /> Apply to…
+                                                    </button>
+                                                    <button className="btn-delete" onClick={() => handleLoadPipeline(p.name)}>Load</button>
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -563,6 +674,62 @@ export default function DataStudio() {
                     )}
                 </div>
             </div>
+
+            {/* ── "Train on this output" model picker modal (D7) ── */}
+            {trainTarget && (
+                <div className="studio-modal-overlay" onClick={() => setTrainTarget(null)}>
+                    <div className="studio-modal" onClick={e => e.stopPropagation()}>
+                        <h3>Train a model</h3>
+                        <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
+                            Dataset: <strong title={trainTarget.filename}>{truncateName(trainTarget.filename, 40)}</strong>
+                        </p>
+                        <label style={{ display: 'block', marginTop: '12px', marginBottom: '6px', fontSize: '13px' }}>Choose a model (optional):</label>
+                        <select className="form-control" value={trainModelCode} onChange={e => setTrainModelCode(e.target.value)}>
+                            <option value="">Let me pick in the Lab</option>
+                            {registry && Object.entries(registry.categories).map(([cat, info]) => (
+                                <optgroup key={cat} label={info.name}>
+                                    {info.models.map(code => (
+                                        <option key={code} value={code}>
+                                            {registry.models[code]?.icon || ''} {registry.models[code]?.name || code}
+                                        </option>
+                                    ))}
+                                </optgroup>
+                            ))}
+                        </select>
+                        <div style={{ marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                            <button className="btn-modal-cancel" onClick={() => setTrainTarget(null)}>Cancel</button>
+                            <button className="btn-modal-confirm" onClick={confirmTrain}>
+                                <FontAwesomeIcon icon={faPlay} /> Open in Lab
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── "Apply pipeline to dataset" picker modal (D8) ── */}
+            {applyPipeline && (
+                <div className="studio-modal-overlay" onClick={() => !applying && setApplyPipeline(null)}>
+                    <div className="studio-modal" onClick={e => e.stopPropagation()}>
+                        <h3>Apply pipeline</h3>
+                        <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
+                            Pipeline: <strong>{applyPipeline.name}</strong> ({applyPipeline.operations?.length || 0} ops)
+                        </p>
+                        <label style={{ display: 'block', marginTop: '12px', marginBottom: '6px', fontSize: '13px' }}>Target dataset:</label>
+                        <select className="form-control" value={applyDatasetId} onChange={e => setApplyDatasetId(e.target.value)}>
+                            <option value="">-- Choose a CSV dataset --</option>
+                            {datasets.filter(d => d.file_type === 'csv').map(d => (
+                                <option key={d._id} value={d._id} title={d.filename}>{truncateName(d.filename, 42)}</option>
+                            ))}
+                        </select>
+                        <div style={{ marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                            <button className="btn-modal-cancel" onClick={() => setApplyPipeline(null)} disabled={applying}>Cancel</button>
+                            <button className="btn-modal-confirm" onClick={confirmApplyPipeline} disabled={applying || !applyDatasetId}>
+                                {applying ? '⏳ Applying...' : <><FontAwesomeIcon icon={faPlay} /> Apply</>}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

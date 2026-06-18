@@ -71,10 +71,7 @@ const Navbar = () => {
                             <button 
                                 className="avatar-btn" 
                                 type="button"
-                                onClick={(e) => {
-                                    console.log("Avatar clicked, toggling dropdown. Current state:", dropdownOpen);
-                                    setDropdownOpen(prev => !prev);
-                                }}
+                                onClick={() => setDropdownOpen(prev => !prev)}
                             >
                                 {user?.profile_photo_id ? (
                                     <img src={`${API_URL}/profile-photo/${user.profile_photo_id}`} alt="Avatar" className="avatar" style={{ objectFit: 'cover' }} />

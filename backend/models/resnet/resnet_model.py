@@ -2,6 +2,7 @@ import os
 import json
 import time
 import tempfile
+from utils.sse_helpers import epoch_event
 from keras.applications import ResNet50
 from keras.models import Sequential
 from keras.layers import Dense, Flatten, GlobalAveragePooling2D, Dropout
@@ -154,7 +155,8 @@ def train_resnet(request, validated_params, hidden_layer_array=None, class_mode=
                 last_val_accuracy = val_acc
                 last_val_loss = val_loss
 
-                yield f"data: {json.dumps({'log': f'Epoch [{epoch}/{epochs}] loss: {train_loss:.4f} - accuracy: {train_acc:.4f} - val_loss: {val_loss:.4f} - val_accuracy: {val_acc:.4f}'})}\n\n"
+                yield epoch_event(epoch, epochs, loss=train_loss, accuracy=train_acc,
+                                  val_loss=val_loss, val_accuracy=val_acc)
 
                 # Use cross-platform temp directory for weights
                 temp_weights_path = os.path.join(tempfile.gettempdir(), f'best_resnet_weights_{user_id or "guest"}.h5')

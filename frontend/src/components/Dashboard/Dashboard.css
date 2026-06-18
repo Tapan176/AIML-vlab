@@ -233,6 +233,30 @@
     border-bottom-color: var(--accent);
 }
 
+/* Run-comparison (D2) selection + button */
+.sessions-table tbody tr.row-selected-compare td {
+    background: var(--accent-soft, rgba(34, 211, 238, 0.1));
+}
+.btn-compare-runs {
+    background: var(--accent-soft, rgba(34, 211, 238, 0.12));
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+}
+.btn-compare-runs:hover:not(:disabled) {
+    background: var(--accent);
+    color: var(--text-on-accent);
+}
+.btn-compare-runs:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 .sessions-table tr:last-child td {
     border-bottom: none;
 }

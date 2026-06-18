@@ -4,7 +4,7 @@ export default function DownloadModelPredictions({ extension, sessionId }) {
     const downloadModelPredictions = async () => {
         if (!sessionId) return;
         try {
-            const token = localStorage.getItem('aiml_token');
+            const token = localStorage.getItem(constants.TOKEN_KEY);
             const response = await fetch(
                 `${constants.API_BASE_URL}/download-model-predictions/${sessionId}`,
                 { headers: token ? { Authorization: `Bearer ${token}` } : {} }

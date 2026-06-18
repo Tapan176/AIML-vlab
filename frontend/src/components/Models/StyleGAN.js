@@ -53,7 +53,7 @@ export default function StyleGAN() {
                 dataset_id: datasetData?.dataset_id || null,
                 hyperparams
             };
-            const token = localStorage.getItem('aiml_token');
+            const token = localStorage.getItem(constants.TOKEN_KEY);
             const response = await fetch(`${constants.API_URL}/stylegan`, {
                 method: 'POST',
                 headers: {

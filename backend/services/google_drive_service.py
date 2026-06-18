@@ -208,14 +208,11 @@ def upload_file_to_drive(file_obj, filename, folder_type='datasets', user_id=Non
         user_data_id = get_or_create_subfolder(service, root_id, 'UserData')
         user_folder_id = get_or_create_subfolder(service, user_data_id, str(user_id))
         parent_folder_id = get_or_create_subfolder(service, user_folder_id, folder_type)
-        print(f"DEBUG DIR: root={root_id} -> UserData={user_data_id} -> {user_id}={user_folder_id} -> {folder_type}={parent_folder_id}", flush=True)
         if subfolder:
             parent_folder_id = get_or_create_subfolder(service, parent_folder_id, subfolder)
-            print(f"DEBUG DIR: subfolder={subfolder} -> {parent_folder_id}", flush=True)
     else:
         # Fallback for anonymous uploads: AIML_VLab_Data / {folder_type}
         parent_folder_id = get_or_create_subfolder(service, root_id, folder_type)
-        print(f"DEBUG DIR: Anonymous -> folder_type={folder_type} -> {parent_folder_id}", flush=True)
 
     # 100MB chunks for scalable massive file streaming
     CHUNK_SIZE = 100 * 1024 * 1024 

@@ -6,6 +6,7 @@ import {
     useCallback
 } from 'react';
 import api from '../services/api';
+import { TOKEN_KEY } from '../constants';
 import UpgradeModal from '../components/Subscription/UpgradeModal';
 
 const SubscriptionContext = createContext(null);
@@ -35,7 +36,7 @@ export const SubscriptionProvider = ({ children }) => {
     // on AND a token exists (a 401 from api.get hard-redirects to /login).
     const refresh = useCallback(async () => {
         if (!enabled) return;
-        if (!localStorage.getItem('aiml_token')) return;
+        if (!localStorage.getItem(TOKEN_KEY)) return;
         try {
             const data = await api.get('/subscription/me', { force: true });
             setEntitlements(data);

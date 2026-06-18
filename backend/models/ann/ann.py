@@ -130,6 +130,7 @@ def train_ann(request, validated_params=None, user_id=None, session_version=None
     # Train
     import json
     import time
+    from utils.sse_helpers import epoch_event
     yield f"data: {json.dumps({'log': 'Compiling Artificial Neural Network Architecture...'})}\n\n"
 
     # Train
@@ -161,7 +162,8 @@ def train_ann(request, validated_params=None, user_id=None, session_version=None
         last_val_accuracy = val_acc
         last_val_loss = val_loss
 
-        yield f"data: {json.dumps({'log': f'Epoch [{epoch}/{total_epochs}] loss: {train_loss:.4f} - accuracy: {train_acc:.4f} - val_loss: {val_loss:.4f} - val_accuracy: {val_acc:.4f}'})}\n\n"
+        yield epoch_event(epoch, total_epochs, loss=train_loss, accuracy=train_acc,
+                          val_loss=val_loss, val_accuracy=val_acc)
 
         # Use cross-platform temp directory for weights
         temp_weights_path = os.path.join(tempfile.gettempdir(), f'best_ann_weights_{user_id or "guest"}.h5')

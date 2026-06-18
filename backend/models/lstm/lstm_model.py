@@ -4,6 +4,7 @@ import time
 import tempfile
 import pandas as pd
 import numpy as np
+from utils.sse_helpers import epoch_event
 from sklearn.preprocessing import MinMaxScaler
 from keras.models import Sequential
 from keras.layers import LSTM, Dense, Dropout
@@ -237,7 +238,14 @@ def train_lstm(request, validated_params, hidden_layer_array=None, class_mode='c
                     log_parts.append(f'mae: {train_mae:.4f} - val_mae: {val_mae:.4f}')
                     last_metrics['rmse'] = float(np.sqrt(val_loss))  # Approximate RMSE from MSE loss
 
-                yield f"data: {json.dumps({'log': ' - '.join(log_parts)})}\n\n"
+                # Emit a structured metric point (for the live chart) alongside
+                # the model-specific text log built above.
+                yield epoch_event(
+                    epoch, epochs,
+                    loss=train_loss, val_loss=val_loss,
+                    accuracy=last_metrics.get('accuracy'),
+                    extra_log=' - '.join(log_parts),
+                )
 
                 # Early stopping with cross-platform temp directory
                 temp_weights_path = os.path.join(tempfile.gettempdir(), f'best_lstm_weights_{user_id or "guest"}.h5')

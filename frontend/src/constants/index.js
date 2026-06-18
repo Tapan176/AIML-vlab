@@ -3,6 +3,10 @@ import { API_URL as _API_URL } from '../config';
 // Re-export so the rest of the app imports from constants, not config directly
 export const API_URL = _API_URL;
 
+// localStorage key for the JWT. Single source of truth so the key isn't
+// duplicated as a string literal across the app.
+export const TOKEN_KEY = 'aiml_token';
+
 // Route constants
 export const ROUTES = {
     HOME: '/',
@@ -69,5 +73,5 @@ export const COUNTRY_CODES = [
 
 // Default export for backwards compatibility with model components
 // that use: import constants from '../../constants'; constants.API_BASE_URL
-const constants = { API_URL, API_BASE_URL: API_URL, ROUTES, MODEL_CATEGORIES };
+const constants = { API_URL, API_BASE_URL: API_URL, TOKEN_KEY, ROUTES, MODEL_CATEGORIES };
 export default constants;

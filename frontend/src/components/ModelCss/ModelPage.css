@@ -259,6 +259,45 @@
     margin-top: 12px;
 }
 
+/* ── Cancel training button ── */
+.btn-cancel-training {
+    background: var(--danger-soft, rgba(239, 68, 68, 0.12));
+    color: var(--danger);
+    border: 1px solid var(--danger);
+    padding: 8px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+.btn-cancel-training:hover:not(:disabled) {
+    background: var(--danger);
+    color: var(--text-on-accent);
+}
+.btn-cancel-training:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* ── Live training charts (TrainingChart.js) ── */
+.training-charts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 16px;
+    margin: 16px 0;
+}
+.training-chart-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 14px 14px 6px;
+}
+.training-chart-title {
+    margin: 0 0 8px;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
 .metric-item {
     background: var(--bg-card);
     border: 1px solid var(--border-color);

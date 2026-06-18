@@ -44,6 +44,7 @@ export default function useReplaySession(modelCode) {
     const [restoredResults, setRestoredResults] = useState(null);
     const [liveStatus, setLiveStatus] = useState(replay && ACTIVE_STATUSES.includes(replay.status) ? replay.status : null);
     const [liveLogs, setLiveLogs] = useState([]);
+    const [liveMetrics, setLiveMetrics] = useState([]);
     const [restoring, setRestoring] = useState(!!replay && replay.status === 'completed');
 
     const pollRef = useRef(null);
@@ -65,6 +66,7 @@ export default function useReplaySession(modelCode) {
                 if (cancelled) return;
 
                 if (Array.isArray(data.logs)) setLiveLogs(data.logs);
+                if (Array.isArray(data.metrics)) setLiveMetrics(data.metrics);
                 setLiveStatus(data.status);
 
                 if (data.status === 'completed') {
@@ -142,6 +144,7 @@ export default function useReplaySession(modelCode) {
         restoredResults,    // completed-session results (normalised), or null
         liveStatus,         // 'running' | 'pending' | 'completed' | 'failed' | null
         liveLogs,           // accumulated progress log lines for live runs
+        liveMetrics,        // accumulated per-epoch metric points for live runs
         restoring,          // true while we're fetching a completed session's results
         isReplaying: !!replay,
     };

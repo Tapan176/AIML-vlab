@@ -1,0 +1,113 @@
+.onb-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1200;
+    padding: 20px;
+}
+.onb-modal {
+    position: relative;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 18px;
+    width: 100%;
+    max-width: 720px;
+    padding: 32px 28px 24px;
+    box-shadow: 0 28px 70px rgba(0, 0, 0, 0.45);
+}
+.onb-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+.onb-close:hover {
+    background: var(--bg-hover, rgba(127, 127, 127, 0.08));
+}
+.onb-hero {
+    text-align: center;
+    margin-bottom: 24px;
+}
+.onb-hero-icon {
+    font-size: 2.6rem;
+    margin-bottom: 8px;
+}
+.onb-hero h2 {
+    margin: 0 0 6px;
+}
+.onb-hero p {
+    margin: 0;
+    color: var(--text-secondary);
+}
+.onb-steps {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
+    margin-bottom: 24px;
+}
+.onb-step {
+    background: var(--bg-secondary, var(--bg-card));
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+}
+.onb-step-icon {
+    font-size: 1.6rem;
+    margin-bottom: 6px;
+}
+.onb-step h4 {
+    margin: 0 0 6px;
+    font-size: 0.98rem;
+}
+.onb-step p {
+    margin: 0;
+    font-size: 0.84rem;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+.onb-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+.onb-btn-primary {
+    background: var(--accent);
+    color: var(--text-on-accent);
+    border: none;
+    padding: 11px 22px;
+    border-radius: 10px;
+    font-weight: 700;
+    cursor: pointer;
+}
+.onb-btn-secondary {
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    padding: 11px 22px;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.onb-btn-primary:hover { filter: brightness(1.05); }
+.onb-btn-secondary:hover { background: var(--accent-soft, rgba(34, 211, 238, 0.1)); }
+.onb-skip {
+    display: block;
+    margin: 14px auto 0;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    cursor: pointer;
+    text-decoration: underline;
+}

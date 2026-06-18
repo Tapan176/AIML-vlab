@@ -26,3 +26,10 @@ backend/trainedModels
 backend/predictions
 scripts/
 backend/static/images
+
+# Internal planning / setup docs — kept locally (to zip), excluded from the
+# public/prod repo. The data file docs/model_catalog.mongoimport.json stays.
+docs/ROADMAP.md
+docs/PAYMENT_SETUP.md
+docs/OPTIMIZATION_RECOMMENDATIONS.md
+docs/SUBSCRIPTION_MODEL_PLAN.md

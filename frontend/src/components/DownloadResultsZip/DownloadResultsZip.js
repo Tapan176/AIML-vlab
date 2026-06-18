@@ -3,7 +3,7 @@ import constants from '../../constants';
 export default function DownloadResultsZip({ sessionId, label }) {
     const downloadResultsZip = async () => {
         try {
-            const token = localStorage.getItem('aiml_token');
+            const token = localStorage.getItem(constants.TOKEN_KEY);
             const endpoint = `${constants.API_BASE_URL}/download-results-zip/${sessionId}`;
             
             const response = await fetch(endpoint, {
