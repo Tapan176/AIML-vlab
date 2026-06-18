@@ -62,6 +62,12 @@ The `REACT_APP_API_URL` is **baked into the React bundle at build time** via Doc
 - **Synchronous (classical ML):** routes use `_train_model()`. Models registered in `MODEL_FUNCTIONS`.
 - **SSE-streaming (deep learning):** CNN, ANN, ResNet, LSTM, YOLO, StyleGAN each have their own route that yields `text/event-stream` chunks. These **lazy-import TensorFlow/PyTorch/Ultralytics inside the route function** to keep startup time low and avoid protobuf conflicts (see `os.environ['PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION'] = 'python'` at the top of `app.py`). When adding a new deep-learning model, follow this lazy-import pattern.
 
+### Background jobs & rate limiting (Redis — optional, Phase 2)
+- **Both degrade gracefully when `REDIS_URL` is unset/unreachable**, so local dev and the free tier run with no Redis: the rate limiter uses in-memory storage and training runs synchronously in-request (the original behaviour).
+- **Rate limiting:** `backend/extensions.py::_resolve_storage_uri()` points `flask-limiter` at `REDIS_URL` when reachable (shared across gunicorn workers), else falls back to `memory://`.
+- **Training queue:** `backend/jobs/` — `queue.py` (`get_queue()`/`enqueue_training()`, both return `None` when Redis is absent) and `tasks.py` (`run_training_job(payload)`, the RQ worker entry; mirrors `_train_model`'s persist half but runs out-of-process via the `JobRequest` shim). Run a worker with `rq worker training` (see the `worker` service in `docker-compose.yml`).
+- **Opt-in:** `_train_model()` only enqueues when `TRAINING_ASYNC=true` **and** a queue is reachable, returning `202 {session_id, status:"queued"}`; otherwise it runs synchronously. Clients poll `GET /api/training-sessions/<id>/progress`. **Not yet enabled** — the frontend still expects synchronous results; flipping the flag requires the frontend polling work (see `docs/IMPLEMENTATION_PLAN.md`, Phase 2).
+
 ### Hyperparameter system (3 sources of truth, all must stay in sync)
 - `backend/config.py` → `DEFAULT_HYPERPARAMS[model_code]` — the default values.
 - `backend/services/hyperparam_validator.py` → `VALIDATION_SCHEMAS[model_code]` — type/range/enum validation.

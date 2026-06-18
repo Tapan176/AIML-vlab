@@ -20,6 +20,14 @@ gunicorn>=21.2,<23
 pymongo>=4.6,<5
 
 
+# --- Background jobs / cache (Redis + RQ training queue) ---------------------
+#  Optional at runtime: when REDIS_URL is unset the app falls back to in-memory
+#  rate limiting and synchronous training (see config.REDIS_URL / TRAINING_ASYNC).
+#  Imported lazily, so they only need to be reachable when Redis is actually used.
+redis>=5.0,<6
+rq>=1.16,<2
+
+
 # --- Auth & Security --------------------------------------------------------
 bcrypt>=4.1,<5
 PyJWT>=2.8,<3

@@ -4,6 +4,7 @@ Supports hyperparameter tuning, user-scoped storage, and training sessions.
 """
 from flask import Blueprint, request, jsonify
 import math
+from config import TRAINING_ASYNC
 from auth.auth_middleware import token_required
 from services.hyperparam_validator import validate_hyperparams, get_model_schema
 from services.training_session_service import create_session, update_session_results, update_session_error, get_user_sessions, get_session, delete_session, get_session_progress
@@ -102,6 +103,25 @@ def _train_model(model_code, request_obj, current_user=None):
         data['user_id'] = user_id
         data['session_id'] = session_id
         data['session_version'] = session['version']
+
+    # Async path (opt-in via TRAINING_ASYNC): enqueue the run and return 202 so
+    # the request doesn't block on training. The client polls
+    # /training-sessions/<session_id>/progress for logs/metrics/results. Only
+    # applies to logged-in runs (anonymous has no session to track); falls back
+    # to synchronous execution when the queue is unavailable (e.g. no Redis).
+    if session_id and TRAINING_ASYNC:
+        from jobs.queue import enqueue_training
+        job = enqueue_training({
+            'model_code': model_code,
+            'session_id': session_id,
+            'user_id': user_id,
+            'session_version': session['version'],
+            'params': validated_params,
+            'request_json': data,
+        })
+        if job is not None:
+            return jsonify({"session_id": session_id, "status": "queued"}), 202
+        # queue unavailable → fall through to synchronous execution below
 
     try:
         # Call the model's training function

@@ -28,8 +28,10 @@ torchvision>=0.18,<1
 ultralytics>=8.0,<9
 
 
-# --- Testing (pytest + in-memory Mongo) -------------------------------------
-#  Dev/CI only — not installed in production images. `mongomock` lets the
-#  test-suite run against an in-memory database with no real MongoDB server.
+# --- Testing (pytest + in-memory Mongo + fake Redis) ------------------------
+#  Dev/CI only — not installed in production images. `mongomock` gives an
+#  in-memory MongoDB and `fakeredis` an in-memory Redis, so the test-suite runs
+#  with no real MongoDB / Redis servers.
 pytest>=8.0,<9
 mongomock>=4.1,<5
+fakeredis>=2.20,<3

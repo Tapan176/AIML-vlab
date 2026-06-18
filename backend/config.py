@@ -63,6 +63,20 @@ FLASK_PORT = int(os.getenv('FLASK_PORT', '5050'))
 FLASK_DEBUG = os.getenv('FLASK_DEBUG', 'false').lower() == 'true'
 ALLOWED_ORIGINS = os.getenv('ALLOWED_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000,http://localhost:5050,http://127.0.0.1:5050').split(',')
 
+# --- Background jobs / Redis (Phase 2) --------------------------------------
+# REDIS_URL powers two things when set: the flask_limiter storage (so per-IP
+# rate limits are shared across gunicorn workers instead of per-process) and
+# the RQ training queue. When unset, both gracefully fall back — the limiter
+# uses in-memory storage and training runs synchronously in-request — so local
+# dev and the free tier work with no Redis at all.
+REDIS_URL = os.getenv('REDIS_URL', None)
+# Opt-in master switch for offloading model training to the RQ worker. Default
+# OFF: training runs synchronously in the request exactly as before. When true
+# AND a queue is reachable, classical training is enqueued and the route returns
+# 202 + a session_id for the client to poll. Falls back to sync if the queue is
+# unavailable. See docs/IMPLEMENTATION_PLAN.md, Phase 2.
+TRAINING_ASYNC = os.getenv('TRAINING_ASYNC', 'false').lower() == 'true'
+
 # --- Subscription / Quotas ---
 # Master switch. When false (default) the app behaves exactly as before:
 # no quotas are enforced and the subscription UI stays hidden. Flip to true

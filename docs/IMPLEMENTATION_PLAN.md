@@ -78,7 +78,26 @@ auth + validation + quota covered; app still serves under gunicorn unchanged.
 
 ---
 
-## Phase 2 — Background job queue + Redis rate-limit *(highest impact)*
+## Phase 2 — Background job queue + Redis rate-limit *(highest impact)* — 🟡 INFRA DONE, ROLLOUT PENDING
+
+**Status — landed & tested on `backend/flask-improvements` (38 tests passing):**
+- ✅ `REDIS_URL` + `TRAINING_ASYNC` config; `redis`+`rq` deps (base), `fakeredis` (dev).
+- ✅ Redis-backed `flask-limiter` with graceful fallback to `memory://` (`extensions.py`).
+- ✅ `backend/jobs/` — `queue.py` (`get_queue`/`enqueue_training`, return `None` when no
+  Redis) + `tasks.py` (`run_training_job` + `JobRequest` shim).
+- ✅ Flag-gated async path in `_train_model` (returns `202 {session_id}`), falls back to
+  sync when the queue is down.
+- ✅ `redis` + `rq worker` services in `docker-compose.yml`.
+
+**Remaining to actually turn it on (the rollout):**
+1. Frontend: make the classical model pages poll `/training-sessions/<id>/progress`
+   instead of awaiting a synchronous result (the replay hook already polls — reuse it).
+2. Verify enqueue→worker→poll end-to-end against a **real** Redis + `rq worker` (couldn't
+   run locally — Windows dev has no Redis; RQ workers need `fork`, so use Linux/Docker or
+   `SimpleWorker`).
+3. Extend beyond classical: XGBoost route, then the SSE deep-learning models (these read
+   `request.files`/stream, so they need more than the `JobRequest` shim).
+4. Flip `TRAINING_ASYNC=true` once 1–3 are done; retire in-request execution.
 
 **Goal:** training returns instantly and runs out-of-process; rate limits work across
 workers.

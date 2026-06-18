@@ -13,6 +13,13 @@ services:
     environment:
       - FLASK_ENV=production
       - PORT=5050
+      # Shared Redis enables cross-worker rate limiting immediately. Training
+      # stays SYNCHRONOUS until TRAINING_ASYNC=true is set here AND the frontend
+      # polls /training-sessions/<id>/progress (see docs/IMPLEMENTATION_PLAN.md).
+      - REDIS_URL=redis://redis:6379/0
+      # - TRAINING_ASYNC=true
+    depends_on:
+      - redis
     volumes:
       # Persist runtime data across container restarts
       - backend_uploads:/app/static/uploads
@@ -35,8 +42,40 @@ services:
       - backend
     restart: unless-stopped
 
+  # Redis — rate-limiter storage (used immediately) and the RQ training queue.
+  redis:
+    image: redis:7-alpine
+    container_name: aiml_redis
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  # RQ worker — runs queued training jobs out-of-process. Only does work when
+  # the backend enqueues (TRAINING_ASYNC=true); harmless/idle otherwise. Reuses
+  # the backend image and the same artifact volumes + .env (Mongo, Drive creds).
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: aiml_worker
+    command: ["rq", "worker", "training"]
+    env_file:
+      - ./backend/.env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - redis
+    volumes:
+      - backend_uploads:/app/static/uploads
+      - backend_models:/app/trainedModels
+      - backend_images:/app/static/images
+      - backend_predictions:/app/predictions
+    restart: unless-stopped
+
 volumes:
   backend_uploads:
   backend_models:
   backend_images:
   backend_predictions:
+  redis_data:
