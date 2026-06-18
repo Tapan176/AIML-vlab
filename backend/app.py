@@ -17,6 +17,8 @@ from mongoDb.connection import init_db
 # import routes
 from models.route import model_routes
 from utils.route import utils_routes
+from datasets.route import datasets_routes
+from pipelines.route import pipelines_routes
 from auth.auth_route import auth_routes
 from auth.oauth_route import oauth_routes
 from admin.admin_route import admin_routes
@@ -113,6 +115,8 @@ def create_app(*, testing=False, init_database=True, run_migrations_on_start=Tru
     # Register blueprints with /api prefix for Vercel serverless compatibility
     app.register_blueprint(model_routes, url_prefix='/api')
     app.register_blueprint(utils_routes, url_prefix='/api')
+    app.register_blueprint(datasets_routes, url_prefix='/api')
+    app.register_blueprint(pipelines_routes, url_prefix='/api')
     app.register_blueprint(auth_routes, url_prefix='/api')
     app.register_blueprint(oauth_routes, url_prefix='/api')
     app.register_blueprint(admin_routes, url_prefix='/api/admin')
