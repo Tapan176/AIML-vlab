@@ -68,12 +68,11 @@ The `REACT_APP_API_URL` is **baked into the React bundle at build time** via Doc
 - **Training queue:** `backend/jobs/` — `queue.py` (`get_queue()`/`enqueue_training()`, both return `None` when Redis is absent) and `tasks.py` (`run_training_job(payload)`, the RQ worker entry; mirrors `_train_model`'s persist half but runs out-of-process via the `JobRequest` shim). Run a worker with `rq worker training` (see the `worker` service in `docker-compose.yml`).
 - **Opt-in:** `_train_model()` only enqueues when `TRAINING_ASYNC=true` **and** a queue is reachable, returning `202 {session_id, status:"queued"}`; otherwise it runs synchronously. Clients poll `GET /api/training-sessions/<id>/progress`. **Not yet enabled** — the frontend still expects synchronous results; flipping the flag requires the frontend polling work (see `docs/IMPLEMENTATION_PLAN.md`, Phase 2).
 
-### Hyperparameter system (3 sources of truth, all must stay in sync)
-- `backend/config.py` → `DEFAULT_HYPERPARAMS[model_code]` — the default values.
-- `backend/services/hyperparam_validator.py` → `VALIDATION_SCHEMAS[model_code]` — type/range/enum validation.
-- `backend/services/model_catalog.py` → `PARAM_LABELS`, `PARAM_NOTES` — UI labels and help text.
-
-The frontend fetches the schema from `GET /api/model-schema/<model_code>` and renders inputs dynamically via `frontend/src/components/shared/HyperparamPanel.js`. Adding/changing a hyperparam means updating all three places.
+### Hyperparameter system (single Pydantic source of truth)
+- **`backend/services/hyperparam_models.py`** is the ONE source of truth: one Pydantic v2 `BaseModel` per `model_code` (registry `HYPERPARAM_MODELS`), where each field encodes its default, range (`ge`/`le`), enum (`Literal`), nullability (`Optional`), UI label (`Field(title=...)`) and help text (`Field(description=...)`).
+- The legacy structures are now **derived** from those models for backward compatibility — do not hand-edit them: `config.DEFAULT_HYPERPARAMS`, `services/hyperparam_validator.VALIDATION_SCHEMAS`, and `services/model_catalog.PARAM_LABELS`/`PARAM_NOTES`.
+- `services/hyperparam_validator.validate_hyperparams()` and `get_model_schema()` delegate to the Pydantic models but keep their original return shapes (so callers and the frontend are unchanged).
+- The frontend fetches the schema from `GET /api/model-schema/<model_code>` and renders inputs dynamically via `frontend/src/components/shared/HyperparamPanel.js`. **Adding/changing a hyperparam = editing only the Pydantic model.**
 
 ### Storage strategy
 - **Datasets and trained models live in Google Drive** (`backend/services/google_drive_service.py`), keyed by `drive_id` in MongoDB. Local filesystem is fallback only.
@@ -98,17 +97,17 @@ The frontend fetches the schema from `GET /api/model-schema/<model_code>` and re
 ### Backend conventions
 - **Never use `os.getenv` or `os.environ` outside `backend/config.py`.** Import named constants from `config`.
 - All Flask blueprints are registered with `/api` prefix (e.g. `/api/linear-regression`, `/api/login`) — this matches the Vercel serverless deployment pattern and the docker-compose `REACT_APP_API_URL=http://localhost:5050/api` setting.
+- **Blueprint layout:** `models/route.py` = model training/sessions; `datasets/route.py` = dataset upload/preview/profile/diff/versions/annotations; `pipelines/route.py` = preprocessing-pipeline CRUD; `utils/route.py` = misc (downloads, feedback, model catalog/registry, public config). Note `models/` holds **ML training code, not DB models** (there is no ORM).
 - Rate limiting via `flask_limiter` is configured globally in `app.py`. OPTIONS preflight is exempted both at the limiter level and at `before_request` to keep CORS working.
 - When returning JSON containing model metrics, run results through `_sanitize_for_json()` in `models/route.py` — sklearn often produces `NaN`/`Infinity` which break strict JSON parsers. The frontend `api.js` also has a fallback that sanitizes `NaN` → `null` on parse failure.
 
 ### Adding a new ML model — checklist
-1. Add model code to `MODEL_CODES` and a default entry to `DEFAULT_HYPERPARAMS` in `backend/config.py`.
-2. Add validation schema in `backend/services/hyperparam_validator.py`.
-3. Add labels + per-param notes in `backend/services/model_catalog.py`.
-4. Create `backend/models/<newModel>/<newModel>.py` with the standard signature returning the standard result dict.
-5. Register in `MODEL_FUNCTIONS` and `MODEL_ROUTES` in `backend/models/route.py`, add a route handler (use `_train_model` for sync, or the SSE pattern for deep learning).
-6. Add a React component in `frontend/src/components/Models/<NewModel>.js` and wire it into navigation/routes.
-7. Add the model code to the appropriate category in `MODEL_CATEGORIES` (`frontend/src/constants/index.js`).
+1. Add the model code to `MODEL_CODES` in `backend/config.py`.
+2. Add one Pydantic model for it in `backend/services/hyperparam_models.py` (defaults, ranges, enums, labels, notes) and register it in `HYPERPARAM_MODELS`. This single model supplies validation, defaults, schema, and UI labels — the old `DEFAULT_HYPERPARAMS`/`VALIDATION_SCHEMAS`/`PARAM_LABELS`/`PARAM_NOTES` are derived automatically.
+3. Create `backend/models/<newModel>/<newModel>.py` with the standard signature returning the standard result dict.
+4. Register in `MODEL_FUNCTIONS` and `MODEL_ROUTES` in `backend/models/route.py`, add a route handler (use `_train_model` for sync, or the SSE pattern for deep learning).
+5. Add a React component in `frontend/src/components/Models/<NewModel>.js` and wire it into navigation/routes.
+6. Add the model code to the appropriate category in `MODEL_CATEGORIES` (`frontend/src/constants/index.js`).
 
 ## Environment & secrets
 

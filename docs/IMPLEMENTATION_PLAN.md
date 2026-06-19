@@ -140,7 +140,15 @@ rate limits hold across >1 worker.
 
 ---
 
-## Phase 3 — Pydantic validation (collapse the 3-way sync)
+## Phase 3 — Pydantic validation (collapse the 3-way sync) — ✅ DONE
+
+**Status:** Implemented on `backend/flask-improvements`. `backend/services/hyperparam_models.py`
+is now the single Pydantic v2 source of truth (one `BaseModel` per model_code,
+registry `HYPERPARAM_MODELS`); `config.DEFAULT_HYPERPARAMS`,
+`hyperparam_validator.VALIDATION_SCHEMAS`, and `model_catalog.PARAM_LABELS`/`PARAM_NOTES`
+are all **derived** from it. `validate_hyperparams()`/`get_model_schema()` keep their exact
+return shapes (frontend unchanged); a golden-snapshot diff confirmed byte-for-byte parity.
+**127 tests passing** (38 → +84 new model tests, +5 from Phase 4).
 
 **Goal:** one source of truth per model for hyperparams.
 
@@ -164,7 +172,14 @@ unchanged; the three dicts collapse to one definition per model.
 
 ---
 
-## Phase 4 — Backend route reorganization
+## Phase 4 — Backend route reorganization — ✅ DONE
+
+**Status:** Implemented on `backend/flask-improvements`. Dataset endpoints (upload, preview,
+profile, diff, versions, folder-images, preprocess, save-annotations, delete, default) moved
+to `backend/datasets/route.py`; pipeline CRUD to `backend/pipelines/route.py`; both registered
+under `/api` in `create_app()` so **every path is unchanged** (frontend unaffected). `utils/route.py`
+keeps only misc endpoints (downloads, feedback, model catalog/registry, public config). Route
+count unchanged (99); `tests/test_route_layout.py` asserts the moved paths still resolve.
 
 **Goal:** routes grouped by domain, not misfiled under "utils".
 
