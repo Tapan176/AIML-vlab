@@ -31,6 +31,17 @@ function renderMetricValue(value, format) {
  */
 export default function ModelPage({ modelCode }) {
   const config = MODEL_PAGE_CONFIG[modelCode];
+  // Guard against a model wired into Home.js but missing a config entry — show a
+  // clear message instead of a cryptic "cannot destructure undefined" crash.
+  // Safe before hooks: modelCode is fixed for a mounted page, so this branch is
+  // stable across renders.
+  if (!config) {
+    return (
+      <div className="model-page">
+        <div className="model-error">❌ Unknown model "{modelCode}" — add an entry to modelPageConfig.js.</div>
+      </div>
+    );
+  }
   const {
     endpoint,
     title,

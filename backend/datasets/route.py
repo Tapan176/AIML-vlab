@@ -562,6 +562,10 @@ def save_annotations(current_user):
         dataset_name = request.form.get('dataset_name', '').strip()
         source_dataset_id = request.form.get('source_dataset_id', '').strip()
 
+        from datetime import datetime
+        from services.google_drive_service import upload_file_to_drive
+        from services.dataset_service import save_dataset
+
         # Build a stable, human-readable base filename for version grouping
         if dataset_name:
             base = dataset_name.replace(' ', '_').replace('.zip', '').replace('.csv', '')
@@ -569,10 +573,6 @@ def save_annotations(current_user):
         else:
             base = 'annotation_project'
             filename = f"annotations_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
-
-        from datetime import datetime
-        from services.google_drive_service import upload_file_to_drive
-        from services.dataset_service import save_dataset
 
         # Upload to Drive under annotations subfolder (per-user isolated)
         drive_res = upload_file_to_drive(

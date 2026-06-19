@@ -56,6 +56,14 @@ def run_training_job(payload):
     failures are caught and recorded on the session as 'failed' rather than
     re-raised, so a crash never leaves the session stuck in 'running'.
     """
+    # The RQ worker runs this in its own process where create_app()/init_db()
+    # never executed, so the module-level Mongo handle is still None. Initialise
+    # it on first use (idempotent) so the worker is self-sufficient however it
+    # was launched (`rq worker training`).
+    from mongoDb.connection import get_db, init_db
+    if get_db() is None:
+        init_db()
+
     from services.training_session_service import (
         mark_session_running,
         update_session_results,
