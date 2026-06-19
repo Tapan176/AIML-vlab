@@ -14,9 +14,11 @@
  * epoch over SSE) and for a replayed run (loaded from the session record), so
  * the Dashboard replay re-draws the chart for free.
  */
+import { memo } from 'react';
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
+import useThrottledValue from '../../hooks/useThrottledValue';
 
 const LOSS_COLOR = '#ef4444';
 const VAL_LOSS_COLOR = '#f59e0b';
@@ -66,30 +68,40 @@ function MiniChart({ title, data, series }) {
     );
 }
 
-export default function TrainingChart({ metrics }) {
-    if (!Array.isArray(metrics) || metrics.length === 0) return null;
+function TrainingChart({ metrics }) {
+    // Throttle the redraw: a live run appends a metric point every epoch, but a
+    // couple of repaints per second is plenty for the eye. The trailing commit
+    // guarantees the chart settles on the full dataset when the run finishes.
+    const data = useThrottledValue(metrics, 400);
+
+    if (!Array.isArray(data) || data.length === 0) return null;
 
     // Only plot panels we actually have data for.
-    const hasLoss = metrics.some(m => m.loss != null || m.val_loss != null);
-    const hasAcc = metrics.some(m => m.accuracy != null || m.val_accuracy != null);
+    const hasLoss = data.some(m => m.loss != null || m.val_loss != null);
+    const hasAcc = data.some(m => m.accuracy != null || m.val_accuracy != null);
     if (!hasLoss && !hasAcc) return null;
 
     const lossSeries = [];
-    if (metrics.some(m => m.loss != null)) lossSeries.push({ key: 'loss', name: 'train loss', color: LOSS_COLOR });
-    if (metrics.some(m => m.val_loss != null)) lossSeries.push({ key: 'val_loss', name: 'val loss', color: VAL_LOSS_COLOR });
+    if (data.some(m => m.loss != null)) lossSeries.push({ key: 'loss', name: 'train loss', color: LOSS_COLOR });
+    if (data.some(m => m.val_loss != null)) lossSeries.push({ key: 'val_loss', name: 'val loss', color: VAL_LOSS_COLOR });
 
     const accSeries = [];
-    if (metrics.some(m => m.accuracy != null)) accSeries.push({ key: 'accuracy', name: 'train acc', color: ACC_COLOR });
-    if (metrics.some(m => m.val_accuracy != null)) accSeries.push({ key: 'val_accuracy', name: 'val acc', color: VAL_ACC_COLOR });
+    if (data.some(m => m.accuracy != null)) accSeries.push({ key: 'accuracy', name: 'train acc', color: ACC_COLOR });
+    if (data.some(m => m.val_accuracy != null)) accSeries.push({ key: 'val_accuracy', name: 'val acc', color: VAL_ACC_COLOR });
 
     return (
         <div className="training-charts">
             {hasLoss && lossSeries.length > 0 && (
-                <MiniChart title="📉 Loss" data={metrics} series={lossSeries} />
+                <MiniChart title="📉 Loss" data={data} series={lossSeries} />
             )}
             {hasAcc && accSeries.length > 0 && (
-                <MiniChart title="📈 Accuracy" data={metrics} series={accSeries} />
+                <MiniChart title="📈 Accuracy" data={data} series={accSeries} />
             )}
         </div>
     );
 }
+
+// Memoised: the DL pages re-render on every streamed *log* line (many per
+// epoch), but `metrics` only changes once per epoch — memo skips all the
+// log-driven renders so recharts only re-runs when there's actually new data.
+export default memo(TrainingChart);
