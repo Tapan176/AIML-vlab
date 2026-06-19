@@ -44,24 +44,44 @@ export default function useHyperparamCache(modelCode, seed) {
     // Skip persisting the very first render so an empty initial form doesn't
     // clobber a freshly-seeded cache before HyperparamPanel has filled defaults.
     const firstRun = useRef(true);
+    const writeTimerRef = useRef(null);
+    const latestRef = useRef(hyperparams);
+    latestRef.current = hyperparams;
+
+    const persist = useCallback((val) => {
+        try {
+            if (val && Object.keys(val).length > 0) {
+                localStorage.setItem(cacheKey(modelCode), JSON.stringify(val));
+            }
+        } catch (e) {
+            // Storage full / disabled — non-fatal; form still works in-memory.
+        }
+    }, [modelCode]);
 
     useEffect(() => {
         if (firstRun.current) {
             firstRun.current = false;
             // Still persist a non-empty seed so a refresh right after replay keeps it.
-            if (seed && Object.keys(seed).length > 0) {
-                try { localStorage.setItem(cacheKey(modelCode), JSON.stringify(seed)); } catch (e) {}
-            }
+            if (seed && Object.keys(seed).length > 0) persist(seed);
             return;
         }
-        try {
-            if (hyperparams && Object.keys(hyperparams).length > 0) {
-                localStorage.setItem(cacheKey(modelCode), JSON.stringify(hyperparams));
-            }
-        } catch (e) {
-            // Storage full / disabled — non-fatal; form still works in-memory.
+        // Debounce: number inputs fire onChange on every keystroke; coalesce the
+        // writes so a burst of edits hits localStorage once, not on every key.
+        if (writeTimerRef.current) clearTimeout(writeTimerRef.current);
+        writeTimerRef.current = setTimeout(() => {
+            persist(latestRef.current);
+            writeTimerRef.current = null;
+        }, 300);
+    }, [hyperparams, modelCode, seed, persist]);
+
+    // Flush a pending write on unmount so an edit made <300ms before navigating
+    // away (SPA route change) isn't lost.
+    useEffect(() => () => {
+        if (writeTimerRef.current) {
+            clearTimeout(writeTimerRef.current);
+            persist(latestRef.current);
         }
-    }, [hyperparams, modelCode, seed]);
+    }, [persist]);
 
     // Accepts either a value or an updater fn, like useState's setter.
     const setHyperparams = useCallback((next) => {
