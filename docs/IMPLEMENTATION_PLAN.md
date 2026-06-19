@@ -198,7 +198,17 @@ holds only helpers.
 
 ---
 
-## Phase 5 — CRA → Vite
+## Phase 5 — CRA → Vite — ✅ DONE
+
+**Status:** Migrated on `backend/flask-improvements`. `react-scripts` removed (−1313 packages);
+added `vite` + `@vitejs/plugin-react` + `vitest` + `jsdom`. `frontend/vite.config.js` keeps the
+output at `build/` (so `vercel.json` + the frontend Dockerfile are unchanged) and configures
+esbuild to parse `src/**/*.js` as JSX (automatic runtime, since components don't `import React`).
+`public/index.html` → root `index.html` (module script, `%PUBLIC_URL%` stripped); env var
+`REACT_APP_API_URL` → `VITE_API_URL` (only `src/config.js` reads it); Docker/compose build args
+renamed. Dead CRA `App.test.js` replaced by a Vitest smoke test. **Verified locally:** `npm run
+build` green (1124 modules → `build/`), `npm test` green, `npm run dev` boots in ~345 ms on :3000.
+Note: the main chunk is ~881 kB — bundle-splitting is deferred to Phase 7 (lazy routes).
 
 **Goal:** replace the unmaintained `react-scripts` toolchain.
 

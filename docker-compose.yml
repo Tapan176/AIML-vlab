@@ -33,8 +33,8 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        # This tells React where the backend API lives (baked in at build time)
-        REACT_APP_API_URL: http://localhost:5050/api
+        # Tells the React app where the backend API lives (baked into the Vite bundle at build time)
+        VITE_API_URL: http://localhost:5050/api
     container_name: aiml_frontend
     ports:
       - "3000:80"

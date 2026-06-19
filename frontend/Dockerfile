@@ -3,9 +3,9 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# Accept backend API URL as a build argument (CRA embeds env vars at build time)
-ARG REACT_APP_API_URL=http://localhost:5050/api
-ENV REACT_APP_API_URL=$REACT_APP_API_URL
+# Accept backend API URL as a build argument (Vite embeds VITE_* env vars at build time)
+ARG VITE_API_URL=http://localhost:5050/api
+ENV VITE_API_URL=$VITE_API_URL
 
 # Install dependencies (copying package files first for Docker layer caching)
 COPY package.json package-lock.json ./

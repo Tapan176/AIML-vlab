@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-AIML-vlab is a web-based AI/ML virtual lab where users can train and experiment with ~20 ML models (regression, classification, clustering, neural networks, NLP, generative) through an interactive UI. Stack: **React (CRA) frontend + Flask backend + MongoDB**, with Google Drive used as the primary cloud store for datasets and trained models.
+AIML-vlab is a web-based AI/ML virtual lab where users can train and experiment with ~20 ML models (regression, classification, clustering, neural networks, NLP, generative) through an interactive UI. Stack: **React (Vite) frontend + Flask backend + MongoDB**, with Google Drive used as the primary cloud store for datasets and trained models.
 
 ## Common Commands
 
@@ -30,14 +30,16 @@ The Flask app is built by an **application factory** — `create_app()` in `back
 
 The Dockerfile defaults to `requirements.txt`. Switch via `docker build --build-arg REQUIREMENTS_FILE=requirements-dev.txt .` (rarely needed) or `--build-arg REQUIREMENTS_FILE=requirements.railway.txt .` for RAM-constrained platforms.
 
-### Frontend (React)
+### Frontend (React + Vite)
 ```bash
 cd frontend
 npm install
-npm start          # dev server at http://localhost:3000
-npm run build      # production build to frontend/build/
-npm test           # react-scripts test (CRA)
+npm run dev        # Vite dev server at http://localhost:3000 (npm start also works)
+npm run build      # production build to frontend/build/ (outDir kept as build/, not Vite's dist/)
+npm run preview    # serve the production build locally
+npm test           # vitest run
 ```
+Build config is `frontend/vite.config.js`. Because CRA put JSX in `.js` files (no `import React`), esbuild is configured to parse `src/**/*.js` as JSX with the automatic runtime — keep new components matching that or they won't transform.
 
 ### One-shot dev launch (Windows)
 ```cmd
@@ -48,7 +50,7 @@ server.bat         # opens frontend + backend in separate cmd windows
 ```bash
 docker compose up --build              # backend on :5050, frontend (nginx) on :3000
 ```
-The `REACT_APP_API_URL` is **baked into the React bundle at build time** via Docker build args — changing it requires a rebuild.
+The `VITE_API_URL` is **baked into the React bundle at build time** via Docker build args — changing it requires a rebuild.
 
 ## Architecture
 
@@ -90,13 +92,13 @@ The `REACT_APP_API_URL` is **baked into the React bundle at build time** via Doc
 - **Migrations** in `backend/migrations/00X_*.py` — each exports an `up(db)` function. They run automatically on app startup via `migration_runner.run_migrations()`. Use the next sequential prefix (`004_*.py`) for new migrations.
 
 ### Frontend conventions
-- **Never use `process.env` outside `frontend/src/config.js`.** Everything else imports `API_URL` (and other constants) from `frontend/src/constants/index.js`. There is also a `constants` default export with `API_BASE_URL = API_URL` for legacy components.
+- **Never read env vars (`import.meta.env`) outside `frontend/src/config.js`.** Vite only exposes vars prefixed `VITE_` (e.g. `VITE_API_URL`). Everything else imports `API_URL` (and other constants) from `frontend/src/constants/index.js`. There is also a `constants` default export with `API_BASE_URL = API_URL` for legacy components.
 - All routes wrapped in `<ProtectedRoute>` require an authenticated user (`frontend/src/components/Auth/ProtectedRoute.js`).
 - `AuthContext` (`frontend/src/context/AuthContext.js`) hits `/me` on mount to rehydrate the user; it also listens to the `storage` event so login/logout sync across tabs.
 
 ### Backend conventions
 - **Never use `os.getenv` or `os.environ` outside `backend/config.py`.** Import named constants from `config`.
-- All Flask blueprints are registered with `/api` prefix (e.g. `/api/linear-regression`, `/api/login`) — this matches the Vercel serverless deployment pattern and the docker-compose `REACT_APP_API_URL=http://localhost:5050/api` setting.
+- All Flask blueprints are registered with `/api` prefix (e.g. `/api/linear-regression`, `/api/login`) — this matches the Vercel serverless deployment pattern and the docker-compose `VITE_API_URL=http://localhost:5050/api` setting.
 - **Blueprint layout:** `models/route.py` = model training/sessions; `datasets/route.py` = dataset upload/preview/profile/diff/versions/annotations; `pipelines/route.py` = preprocessing-pipeline CRUD; `utils/route.py` = misc (downloads, feedback, model catalog/registry, public config). Note `models/` holds **ML training code, not DB models** (there is no ORM).
 - Rate limiting via `flask_limiter` is configured globally in `app.py`. OPTIONS preflight is exempted both at the limiter level and at `before_request` to keep CORS working.
 - When returning JSON containing model metrics, run results through `_sanitize_for_json()` in `models/route.py` — sklearn often produces `NaN`/`Infinity` which break strict JSON parsers. The frontend `api.js` also has a fallback that sanitizes `NaN` → `null` on parse failure.
@@ -112,7 +114,7 @@ The `REACT_APP_API_URL` is **baked into the React bundle at build time** via Doc
 ## Environment & secrets
 
 - `backend/.env` (gitignored) — see `backend/.env.example` for keys. `MONGO_URI`, `JWT_SECRET`, `ALLOWED_ORIGINS`, and Google Drive credentials (`GOOGLE_CREDENTIALS_JSON`/`GOOGLE_TOKEN_JSON` as raw JSON for Vercel, or `_PATH` variants pointing to local files) are the critical ones.
-- `frontend/.env` — only `REACT_APP_API_URL` (read once at build time by CRA).
+- `frontend/.env` — only `VITE_API_URL` (read at build time by Vite; must keep the `VITE_` prefix to be exposed).
 - `backend/credentials.json` and `backend/token.json` are gitignored and required for Google Drive OAuth; `generate_drive_token.py` is the helper to bootstrap `token.json`.
 
 ## Deployment notes
