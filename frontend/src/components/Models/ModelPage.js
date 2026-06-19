@@ -67,7 +67,7 @@ export default function ModelPage({ modelCode }) {
   const [hyperparams, setHyperparams] = useHyperparamCache(cacheKey, replayHyperparams);
   const [infoOpen, setInfoOpen] = useState(false);
   const { datasetData, handleDatasetSelect } = useDatasetCache(cacheKey);
-  const { train, loading, error, results: freshResults } = useModelTrain(endpoint);
+  const { train, loading, error, progress, results: freshResults } = useModelTrain(endpoint);
   // Prefer a fresh run's results; otherwise fall back to the replayed
   // (previously completed) session's restored results.
   const results = freshResults || restoredResults;
@@ -139,6 +139,17 @@ export default function ModelPage({ modelCode }) {
         <HyperparamPanel modelCode={modelCode} hyperparams={hyperparams} onChange={(n, v) => setHyperparams((p) => ({ ...p, [n]: v }))} />
         <button type="submit" className="btn-run" disabled={loading}>{loading ? runBusy : runIdle}</button>
       </form>
+
+      {/* Async (queued) training feedback — only appears when TRAINING_ASYNC is
+          on and the backend offloaded this run to the worker. The hook polls
+          the session until it finishes, then results render normally below. */}
+      {loading && progress && (
+        <div className="model-info-banner" style={{ marginTop: '16px', padding: '12px 16px', borderRadius: '8px', background: 'var(--warning-soft)', border: '1px solid var(--warning)', color: 'var(--warning)' }}>
+          {progress.status === 'queued'
+            ? '⏳ Training queued — waiting for a worker to pick it up…'
+            : '⚙️ Training in progress — results will appear automatically when it finishes.'}
+        </div>
+      )}
 
       {error && <div className="model-error">❌ {error}</div>}
 

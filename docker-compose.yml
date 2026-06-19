@@ -13,11 +13,13 @@ services:
     environment:
       - FLASK_ENV=production
       - PORT=5050
-      # Shared Redis enables cross-worker rate limiting immediately. Training
-      # stays SYNCHRONOUS until TRAINING_ASYNC=true is set here AND the frontend
-      # polls /training-sessions/<id>/progress (see docs/IMPLEMENTATION_PLAN.md).
+      # Shared Redis enables cross-worker rate limiting AND the RQ training
+      # queue. With TRAINING_ASYNC=true, classical training is offloaded to the
+      # `worker` service and the route returns 202 + session_id; the frontend
+      # polls /training-sessions/<id>/progress until it finishes. Falls back to
+      # synchronous training if Redis is unreachable.
       - REDIS_URL=redis://redis:6379/0
-      # - TRAINING_ASYNC=true
+      - TRAINING_ASYNC=true
     depends_on:
       - redis
     volumes:
