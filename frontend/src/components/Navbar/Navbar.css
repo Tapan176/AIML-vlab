@@ -307,3 +307,41 @@
         font-size: 1.05rem;
     }
 }
+
+/* "Training in progress" indicator — a teal accent chip linking to the live run. */
+.nav-training-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background 0.15s ease;
+}
+.nav-training-badge:hover {
+    background: var(--accent-glow);
+}
+.nav-training-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: navTrainingPulse 1.4s ease-in-out infinite;
+}
+@keyframes navTrainingPulse {
+    0%   { opacity: 1; transform: scale(1); }
+    70%  { opacity: 0.45; transform: scale(0.8); }
+    100% { opacity: 1; transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .nav-training-dot { animation: none; }
+}
+@media (max-width: 600px) {
+    .nav-training-text { display: none; }   /* dot-only on small screens */
+}

@@ -514,6 +514,36 @@ def get_session_progress(session_id, since_logs=None, since_metrics=None):
     return snap
 
 
+def get_active_sessions(user_id, within_hours=6):
+    """Return a user's in-flight sessions (running/pending), newest first.
+
+    Powers the global "training in progress" indicator. Bounded by recency so a
+    stale pending/running row (e.g. a crashed worker) doesn't show as active
+    forever — the partial TTL index (migration 007) eventually removes those.
+    The (user_id, created_at desc) index from migration 005 covers this query.
+    """
+    from datetime import timedelta
+    db = get_db()
+    cutoff = datetime.utcnow() - timedelta(hours=within_hours)
+    cursor = db.training_sessions.find(
+        {
+            'user_id': str(user_id),
+            'status': {'$in': ['running', 'pending']},
+            'created_at': {'$gte': cutoff},
+        },
+        {'model_code': 1, 'status': 1, 'created_at': 1, 'session_label': 1},
+    ).sort('created_at', -1).limit(20)
+    return [
+        {
+            'session_id': str(s['_id']),
+            'model_code': s.get('model_code'),
+            'status': s.get('status'),
+            'label': s.get('session_label'),
+        }
+        for s in cursor
+    ]
+
+
 def get_user_sessions(user_id, model_code=None):
     """Get all training sessions for a user, optionally filtered by model."""
     db = get_db()

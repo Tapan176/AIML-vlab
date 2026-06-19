@@ -4,6 +4,7 @@ import { MotionConfig } from 'framer-motion';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { SubscriptionProvider } from './context/SubscriptionContext';
+import { TrainingProvider } from './context/TrainingContext';
 import { UIDialogProvider } from './context/UIDialog';
 import Navbar from './components/Navbar/Navbar';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
@@ -37,6 +38,7 @@ function App() {
                     <MotionConfig reducedMotion="user">
                     <UIDialogProvider>
                     <SubscriptionProvider>
+                    <TrainingProvider>
                     <Navbar />
                     <div className="app-content">
                         <Suspense fallback={<div style={{ padding: '3rem', textAlign: 'center' }}>Loading…</div>}>
@@ -104,6 +106,7 @@ function App() {
                         </Routes>
                         </Suspense>
                     </div>
+                    </TrainingProvider>
                     </SubscriptionProvider>
                     </UIDialogProvider>
                     </MotionConfig>

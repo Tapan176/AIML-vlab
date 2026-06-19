@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useSubscription } from '../../context/SubscriptionContext';
+import { useTraining } from '../../context/TrainingContext';
 import { API_URL } from '../../constants';
 import './Navbar.css';
 
@@ -10,6 +11,7 @@ const Navbar = () => {
     const { user, isAuthenticated, logout } = useAuth();
     const { isDark, toggleTheme } = useTheme();
     const { enabled: subscriptionEnabled } = useSubscription();
+    const { activeRuns, count: trainingCount } = useTraining();
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
     const dropdownRef = useRef(null);
@@ -62,6 +64,19 @@ const Navbar = () => {
                 </div>
 
                 <div className="nav-actions">
+                    {isAuthenticated && trainingCount > 0 && activeRuns[0] && (
+                        <Link
+                            to={`/lab/${activeRuns[0].model_code}?session=${activeRuns[0].session_id}`}
+                            className="nav-training-badge"
+                            title={`${trainingCount} training run${trainingCount > 1 ? 's' : ''} in progress — click to view`}
+                        >
+                            <span className="nav-training-dot" aria-hidden="true" />
+                            <span className="nav-training-text">
+                                Training{trainingCount > 1 ? ` (${trainingCount})` : ''}
+                            </span>
+                        </Link>
+                    )}
+
                     <button className="theme-toggle" onClick={toggleTheme} title={isDark ? 'Switch to Light' : 'Switch to Dark'}>
                         {isDark ? '☀️' : '🌙'}
                     </button>

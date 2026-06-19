@@ -7,7 +7,7 @@ import math
 from config import TRAINING_ASYNC
 from auth.auth_middleware import token_required
 from services.hyperparam_validator import validate_hyperparams, get_model_schema
-from services.training_session_service import create_session, update_session_results, update_session_error, get_user_sessions, get_session, delete_session, get_session_progress
+from services.training_session_service import create_session, update_session_results, update_session_error, get_user_sessions, get_session, delete_session, get_session_progress, get_active_sessions
 from services.dataset_service import get_user_datasets
 from utils.sse_helpers import run_sse_training
 
@@ -420,6 +420,15 @@ def stylegan(current_user):
     )
 
 # --- Session & Schema Endpoints ---
+
+@model_routes.route('/training-sessions/active', methods=['GET'])
+@token_required
+def get_active_sessions_route(current_user):
+    """Lightweight list of the user's in-flight runs for the global navbar
+    indicator. (Static path — Werkzeug matches it ahead of /<session_id>.)"""
+    active = get_active_sessions(current_user['_id'])
+    return jsonify({"active": active, "count": len(active)}), 200
+
 
 @model_routes.route('/training-sessions', methods=['GET'])
 @token_required
