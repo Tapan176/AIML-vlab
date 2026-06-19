@@ -1,27 +1,33 @@
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { Suspense, lazy } from 'react';
 import { MotionConfig } from 'framer-motion';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { SubscriptionProvider } from './context/SubscriptionContext';
 import { UIDialogProvider } from './context/UIDialog';
 import Navbar from './components/Navbar/Navbar';
-import LandingPage from './components/LandingPage/LandingPage';
-import Home from './components/Home/Home';
-import Login from './components/Auth/Login';
-import SignUp from './components/Auth/SignUp';
-import ForgotPassword from './components/Auth/ForgotPassword';
-import EditProfile from './components/Profile/EditProfile';
-import ProfilePage from './components/Profile/ProfilePage';
-import Dashboard from './components/Dashboard/Dashboard';
-import AboutUs from './components/AboutUs/AboutUs';
-import Settings from './components/Profile/Settings';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
-import AdminLayout from './components/Admin/AdminLayout';
-import DatasetLibrary from './components/Dataset/DatasetLibrary';
-import DataStudio from './components/Studio/DataStudio';
-import PricingPage from './components/Subscription/PricingPage';
-import Checkout from './components/Subscription/Checkout';
 import './App.css';
+
+// Route screens are code-split so the initial bundle stays lean — each page's
+// JS (and its heavy deps, e.g. charts on the Dashboard) loads on first
+// navigation instead of upfront. Navbar + ProtectedRoute stay eager (they're
+// part of the always-rendered shell).
+const LandingPage = lazy(() => import('./components/LandingPage/LandingPage'));
+const Home = lazy(() => import('./components/Home/Home'));
+const Login = lazy(() => import('./components/Auth/Login'));
+const SignUp = lazy(() => import('./components/Auth/SignUp'));
+const ForgotPassword = lazy(() => import('./components/Auth/ForgotPassword'));
+const EditProfile = lazy(() => import('./components/Profile/EditProfile'));
+const ProfilePage = lazy(() => import('./components/Profile/ProfilePage'));
+const Dashboard = lazy(() => import('./components/Dashboard/Dashboard'));
+const AboutUs = lazy(() => import('./components/AboutUs/AboutUs'));
+const Settings = lazy(() => import('./components/Profile/Settings'));
+const AdminLayout = lazy(() => import('./components/Admin/AdminLayout'));
+const DatasetLibrary = lazy(() => import('./components/Dataset/DatasetLibrary'));
+const DataStudio = lazy(() => import('./components/Studio/DataStudio'));
+const PricingPage = lazy(() => import('./components/Subscription/PricingPage'));
+const Checkout = lazy(() => import('./components/Subscription/Checkout'));
 
 function App() {
     return (
@@ -33,6 +39,7 @@ function App() {
                     <SubscriptionProvider>
                     <Navbar />
                     <div className="app-content">
+                        <Suspense fallback={<div style={{ padding: '3rem', textAlign: 'center' }}>Loading…</div>}>
                         <Routes>
                             <Route path="/" element={<LandingPage />} />
                             <Route path="/pricing" element={<PricingPage />} />
@@ -86,6 +93,7 @@ function App() {
                                 </ProtectedRoute>
                             } />
                         </Routes>
+                        </Suspense>
                     </div>
                     </SubscriptionProvider>
                     </UIDialogProvider>

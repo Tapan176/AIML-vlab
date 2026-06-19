@@ -264,7 +264,19 @@ models still work; net LOC down significantly.
 
 ---
 
-## Phase 7 — Frontend polish + config hardening
+## Phase 7 — Frontend polish + config hardening — 🟡 PARTIAL
+
+**Done on `backend/flask-improvements`:**
+- ✅ **Lazy-loaded route screens** in `App.js` (`React.lazy` + `Suspense`). Killed the
+  880 kB single chunk: recharts (`LineChart`, 355 kB) and `Dashboard` (146 kB) now load on
+  demand; initial entry is ~187 kB + 75 kB. Vite's >500 kB chunk warning is gone.
+- ✅ **Frontend tests** for the API client (`services/api.test.js`): GET dedup, TTL cache,
+  clone-on-read, write-invalidates-cache, and 401 token-clear. Frontend suite: 10 passing.
+
+**Deferred (low value / high churn — explicitly skipped):**
+- `pages/` vs `components/` split — cosmetic; not worth the move churn right now.
+- `pydantic-settings` `BaseSettings` for `config.py` — `config.py` is large and central; a
+  typed-settings rewrite is risky for marginal gain. Reconsider if config grows.
 
 **Goal:** convention cleanup + fail-fast config.
 
