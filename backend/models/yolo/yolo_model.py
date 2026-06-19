@@ -148,8 +148,10 @@ def train_yolo(request, validated_params, user_id=None, session_version=None):
 
         # Save model
         best_model_path = None
+        run_dir = None
         try:
-            best_model_path = os.path.join(model.trainer.save_dir, 'weights', 'best.pt')
+            run_dir = str(model.trainer.save_dir)
+            best_model_path = os.path.join(run_dir, 'weights', 'best.pt')
         except:
             pass
         
@@ -165,11 +167,33 @@ def train_yolo(request, validated_params, user_id=None, session_version=None):
         except:
             pass
 
+        # Ultralytics writes a full per-run output dir (runs/detect/trainN) with
+        # weights, plots and tensorboard events. We've already saved best.pt to
+        # Drive, so remove the local run dir to stop unbounded disk growth (and
+        # the git noise of accumulating runs/). Best-effort; never fail the run.
+        _cleanup_yolo_run_dir(run_dir)
+
         yield f"data: {json.dumps({'log': f'Training Complete! Model saved.'})}\n\n"
         yield f"data: {json.dumps({'status': 'training_complete', 'trained_model_path': final_save_path, 'epochs_trained': epochs, **final_metrics})}\n\n"
 
     except Exception as e:
         yield f"data: {json.dumps({'error': f'YOLO Training failed: {str(e)}'})}\n\n"
+
+
+def _cleanup_yolo_run_dir(run_dir):
+    """Delete an ultralytics run output dir after its weights are uploaded.
+
+    Best-effort: any failure (dir missing, locked file on Windows) is ignored
+    so cleanup can never break a successful training run.
+    """
+    if not run_dir:
+        return
+    try:
+        import shutil
+        if os.path.isdir(run_dir):
+            shutil.rmtree(run_dir, ignore_errors=True)
+    except Exception:
+        pass
 
 
 def _auto_detect_yolo_config(dataset_path):

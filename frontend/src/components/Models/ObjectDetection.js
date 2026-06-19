@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import useReplaySession from '../../hooks/useReplaySession';
+import useHyperparamCache from '../../hooks/useHyperparamCache';
 import constants from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
@@ -14,7 +15,7 @@ const MODEL_CODE = 'yolo';
 
 export default function ObjectDetection() {
     const { hyperparams: replayHyperparams, restoredResults, liveStatus, liveLogs } = useReplaySession(MODEL_CODE);
-    const [hyperparams, setHyperparams] = useState(replayHyperparams);
+    const [hyperparams, setHyperparams] = useHyperparamCache(MODEL_CODE, replayHyperparams);
     const [results, setResults] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -29,8 +30,10 @@ export default function ObjectDetection() {
         if (restoredResults) setResults(restoredResults);
     }, [restoredResults]);
     useEffect(() => {
-        if (replayActive && liveLogs.length > 0) setLogs(liveLogs);
-    }, [replayActive, liveLogs]);
+        // Mirror persisted progress when reconnecting (replay / refresh), not
+        // while THIS page is actively streaming (the SSE loop owns it then).
+        if (!loading && replayActive && liveLogs.length > 0) setLogs(liveLogs);
+    }, [loading, replayActive, liveLogs]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();

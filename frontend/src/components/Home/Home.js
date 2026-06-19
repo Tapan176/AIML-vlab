@@ -1,4 +1,5 @@
-import { useState, lazy, Suspense } from 'react';
+import { lazy, Suspense, useCallback } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import Sidebar from '../Sidebar/Sidebar';
 import './Home.css';
 
@@ -40,11 +41,22 @@ const MODEL_COMPONENTS = {
 };
 
 const Home = () => {
-    const [activeModel, setActiveModel] = useState(null);
+    // The selected model lives in the URL (/lab/:modelCode), not React state, so
+    // it survives a page refresh and back/forward navigation. An unknown code
+    // simply falls through to the welcome panel (ActiveComponent === null).
+    const navigate = useNavigate();
+    const { modelCode } = useParams();
+    const activeModel = modelCode && MODEL_COMPONENTS[modelCode] ? modelCode : null;
 
-    const loadComponent = (modelCode) => {
-        setActiveModel(modelCode);
-    };
+    // Selecting a model = navigating to its URL. Only carry the ?session=…
+    // query (a replay/live-reconnect handle) when re-selecting the SAME model;
+    // switching to a different model must drop it, or that model's page would
+    // wrongly attach to the previous model's training session (showing its
+    // console on every page).
+    const loadComponent = useCallback((code) => {
+        const search = code === modelCode ? window.location.search : '';
+        navigate(`/lab/${code}${search}`);
+    }, [navigate, modelCode]);
 
     const ActiveComponent = activeModel ? MODEL_COMPONENTS[activeModel] : null;
 

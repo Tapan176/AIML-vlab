@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import useReplaySession from '../../hooks/useReplaySession';
+import useHyperparamCache from '../../hooks/useHyperparamCache';
 import constants from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
 import CnnHiddenLayer from '../HiddenLayers/CnnHiddenLayer';
@@ -26,9 +28,11 @@ const DEFAULT_LAYERS = [
 
 export default function CNN() {
     const { hyperparams: replayHyperparams, restoredResults, liveStatus, liveLogs, liveMetrics } = useReplaySession(MODEL_CODE);
+    const [, setSearchParams] = useSearchParams();
     const [layers, setLayers] = useState(DEFAULT_LAYERS.map(l => ({ ...l })));
     const [classMode, setClassMode] = useState('categorical');
-    const [hyperparams, setHyperparams] = useState(replayHyperparams);
+    // Hyperparams persist across refresh/remount; a replay seed takes precedence.
+    const [hyperparams, setHyperparams] = useHyperparamCache(MODEL_CODE, replayHyperparams);
     const [results, setResults] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -49,19 +53,23 @@ export default function CNN() {
     };
 
     // Replay restore: a completed session's results, or the live progress of a
-    // session still training (re-opened from the Dashboard).
+    // session still training (re-opened from the Dashboard, or after a refresh).
+    // While THIS page is actively streaming (loading), the SSE loop owns the
+    // logs/metrics — we don't mirror the polled snapshot to avoid flicker.
     const replayActive = liveStatus === 'running' || liveStatus === 'pending';
     useEffect(() => {
         if (restoredResults) setResults(restoredResults);
     }, [restoredResults]);
     useEffect(() => {
-        // Mirror persisted progress lines into the live console while the
-        // replayed session is still training and we have no fresh logs yet.
-        if (replayActive && liveLogs.length > 0) setLogs(liveLogs);
-    }, [replayActive, liveLogs]);
+        // Mirror persisted progress whenever reconnecting to a session (replay /
+        // refresh) and not actively streaming here. This must NOT require the
+        // run to still be active, or a COMPLETED replay would show no logs/chart
+        // — the polled snapshot is cumulative for any status.
+        if (!loading && liveLogs.length > 0) setLogs(liveLogs);
+    }, [loading, liveLogs]);
     useEffect(() => {
-        if (replayActive && liveMetrics.length > 0) setMetrics(liveMetrics);
-    }, [replayActive, liveMetrics]);
+        if (!loading && liveMetrics.length > 0) setMetrics(liveMetrics);
+    }, [loading, liveMetrics]);
 
     const lossOptions = classMode === 'binary'
         ? ['binary_crossentropy']
@@ -155,6 +163,15 @@ export default function CNN() {
                                 const parsed = JSON.parse(event.replace('data: ', ''));
                                 if (parsed.session_id && parsed.status === 'started') {
                                     setRunningSessionId(parsed.session_id);
+                                    // Put the live session id in the URL so a refresh
+                                    // or navigate-away-then-back re-attaches to this
+                                    // run's progress (via useReplaySession polling)
+                                    // instead of losing the stream.
+                                    setSearchParams(prev => {
+                                        const next = new URLSearchParams(prev);
+                                        next.set('session', parsed.session_id);
+                                        return next;
+                                    }, { replace: true });
                                 }
                                 if (parsed.metrics) {
                                     setMetrics(prev => [...prev, parsed.metrics]);

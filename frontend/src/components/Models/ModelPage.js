@@ -10,6 +10,7 @@ import CachedDatasetBadge from '../shared/CachedDatasetBadge';
 import ModelInfoPanel from '../shared/ModelInfoPanel';
 import ImageCarousel from '../shared/ImageCarousel';
 import useDatasetCache from '../../hooks/useDatasetCache';
+import useHyperparamCache from '../../hooks/useHyperparamCache';
 import useModelTrain from '../../hooks/useModelTrain';
 import { formatMetric } from '../../utils/formatMetric';
 import { MODEL_PAGE_CONFIG } from './modelPageConfig';
@@ -62,7 +63,8 @@ export default function ModelPage({ modelCode }) {
   const [textColumn, setTextColumn] = useState('');
   const [labelColumn, setLabelColumn] = useState('');
   const { hyperparams: replayHyperparams, restoredResults } = useReplaySession(modelCode);
-  const [hyperparams, setHyperparams] = useState(replayHyperparams);
+  // Hyperparams persist across refresh/remount; a replay seed takes precedence.
+  const [hyperparams, setHyperparams] = useHyperparamCache(cacheKey, replayHyperparams);
   const [infoOpen, setInfoOpen] = useState(false);
   const { datasetData, handleDatasetSelect } = useDatasetCache(cacheKey);
   const { train, loading, error, results: freshResults } = useModelTrain(endpoint);

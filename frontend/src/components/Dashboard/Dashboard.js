@@ -110,10 +110,11 @@ const Dashboard = () => {
     };
 
     const handleReplaySession = (session) => {
-        // Store session data for the target model component to pick up.
-        // Including session_id + status lets the model page restore the run's
-        // state: show saved results if completed, or re-attach to live
-        // training progress if it's still running.
+        // The session identity goes in the URL (/lab/:modelCode?session=<id>) so
+        // it survives a refresh and a navigate-away-then-back: the model page
+        // re-attaches to live progress (or restores completed results) purely
+        // from the URL. The one-shot sessionStorage payload below only seeds the
+        // form values that aren't in the URL (hyperparams + dataset_config).
         sessionStorage.setItem('replay_session', JSON.stringify({
             session_id: session._id,
             status: session.status,
@@ -132,10 +133,8 @@ const Dashboard = () => {
                 drive_id: session.dataset_info.drive_id || null,
             }));
         }
-        // Navigate to Lab — the model needs to be selected from sidebar
-        navigate('/lab');
-        // Store the model code for the sidebar to auto-select
-        sessionStorage.setItem('auto_select_model', session.model_code);
+        // Navigate straight to the model page with the session id in the URL.
+        navigate(`/lab/${session.model_code}?session=${session._id}`);
         setToast({ type: 'success', message: `Loading ${session.model_code} with previous configuration...` });
     };
 

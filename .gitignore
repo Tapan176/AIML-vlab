@@ -27,6 +27,13 @@ backend/predictions
 scripts/
 backend/static/images
 
+# Ultralytics (YOLO) artifacts — base weights it auto-downloads to the CWD on
+# first use, and its hardcoded per-run output dir (weights/plots/tensorboard).
+# These are uploaded to Drive then meant to be transient; never commit them.
+backend/runs/
+backend/*.pt
+*.pt
+
 # Internal planning / setup docs — kept locally (to zip), excluded from the
 # public/prod repo. The data file docs/model_catalog.mongoimport.json stays.
 docs/ROADMAP.md

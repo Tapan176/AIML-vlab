@@ -3,6 +3,7 @@ import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
 import ShowDataset from '../Dataset/ShowDataset';
 import CachedDatasetBadge from '../shared/CachedDatasetBadge';
 import useReplaySession from '../../hooks/useReplaySession';
+import useHyperparamCache from '../../hooks/useHyperparamCache';
 import ModelInfoPanel from '../shared/ModelInfoPanel';
 import useDatasetCache from '../../hooks/useDatasetCache';
 import ColumnSelect from '../shared/ColumnSelect';
@@ -26,7 +27,8 @@ const FinetuneDistilBERT = () => {
     const [availableColumns, setAvailableColumns] = useState([]);
     const [textColumn, setTextColumn] = useState(datasetConfig?.text_column || 'text');
     const [labelColumn, setLabelColumn] = useState(datasetConfig?.label_column || 'label');
-    const [hyperparams, setHyperparams] = useState(() => ({ ...DEFAULT_HYPERPARAMS, ...(replayHyperparams || {}) }));
+    // Persist hyperparams across refresh/remount; seed = defaults + replay values.
+    const [hyperparams, setHyperparams] = useHyperparamCache(MODEL_CODE, { ...DEFAULT_HYPERPARAMS, ...(replayHyperparams || {}) });
 
     const [logs, setLogs] = useState([]);
     const [results, setResults] = useState(null);
@@ -39,8 +41,10 @@ const FinetuneDistilBERT = () => {
         if (restoredResults) setResults(restoredResults);
     }, [restoredResults]);
     useEffect(() => {
-        if (replayActive && liveLogs.length > 0) setLogs(liveLogs);
-    }, [replayActive, liveLogs]);
+        // Mirror persisted progress when reconnecting (replay / refresh), not
+        // while THIS page is actively streaming (the SSE loop owns it then).
+        if (!training && replayActive && liveLogs.length > 0) setLogs(liveLogs);
+    }, [training, replayActive, liveLogs]);
 
     useEffect(() => {
         if (availableColumns.length === 0) return;

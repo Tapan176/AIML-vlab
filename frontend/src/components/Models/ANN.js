@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import useReplaySession from '../../hooks/useReplaySession';
+import useHyperparamCache from '../../hooks/useHyperparamCache';
 import constants from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
@@ -22,8 +24,9 @@ const DEFAULT_LAYERS = [
 
 export default function ANN() {
     const { hyperparams: replayHyperparams, restoredResults, liveStatus, liveLogs, liveMetrics } = useReplaySession(MODEL_CODE);
+    const [, setSearchParams] = useSearchParams();
     const [layers, setLayers] = useState(DEFAULT_LAYERS.map(l => ({ ...l })));
-    const [hyperparams, setHyperparams] = useState(replayHyperparams);
+    const [hyperparams, setHyperparams] = useHyperparamCache(MODEL_CODE, replayHyperparams);
     const [results, setResults] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -50,11 +53,14 @@ export default function ANN() {
         if (restoredResults) setResults(restoredResults);
     }, [restoredResults]);
     useEffect(() => {
-        if (replayActive && liveLogs.length > 0) setLogs(liveLogs);
-    }, [replayActive, liveLogs]);
+        // Mirror persisted progress whenever reconnecting to a session (replay /
+        // refresh) and not actively streaming here. Must NOT require the run to
+        // still be active, or a COMPLETED replay would show no logs/chart.
+        if (!loading && liveLogs.length > 0) setLogs(liveLogs);
+    }, [loading, liveLogs]);
     useEffect(() => {
-        if (replayActive && liveMetrics.length > 0) setMetrics(liveMetrics);
-    }, [replayActive, liveMetrics]);
+        if (!loading && liveMetrics.length > 0) setMetrics(liveMetrics);
+    }, [loading, liveMetrics]);
 
     const handleLayerChange = (index, key, value) => {
         const updated = [...layers];
@@ -118,6 +124,11 @@ export default function ANN() {
                                 const parsed = JSON.parse(event.replace('data: ', ''));
                                 if (parsed.session_id && parsed.status === 'started') {
                                     setRunningSessionId(parsed.session_id);
+                                    setSearchParams(prev => {
+                                        const next = new URLSearchParams(prev);
+                                        next.set('session', parsed.session_id);
+                                        return next;
+                                    }, { replace: true });
                                 }
                                 if (parsed.metrics) {
                                     setMetrics(prev => [...prev, parsed.metrics]);

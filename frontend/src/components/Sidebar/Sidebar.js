@@ -8,8 +8,10 @@ const Sidebar = ({ loadComponent, activeModel }) => {
     const [collapsedCategories, setCollapsedCategories] = useState({});
     const registry = useModelRegistry();
 
-    // Auto-select a model when redirected from a Dashboard replay, once the
-    // registry confirms the code exists.
+    // Legacy fallback: older Dashboard replay links stored the model code in
+    // sessionStorage instead of the URL. If one is present, convert it into a
+    // URL navigation (loadComponent now routes), then clear it. New replays
+    // navigate straight to /lab/:modelCode?session=… and never hit this.
     useEffect(() => {
         if (!registry) return;
         const autoSelect = sessionStorage.getItem('auto_select_model');

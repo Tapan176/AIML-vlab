@@ -4,15 +4,22 @@
  *
  *   - hyperparameters         → seeded into the form (returned as `hyperparams`)
  *   - completed session       → saved results restored (`restoredResults`)
- *   - in-progress session     → live progress polled + streamed (`liveLogs`,
+ *   - in-progress session     → live progress polled (`liveLogs`, `liveMetrics`,
  *                               `liveStatus`); when it finishes the results
  *                               are surfaced via `restoredResults`
  *
- * The replay payload (written by Dashboard.handleReplaySession to
- * sessionStorage) is consumed once on mount. A later manual navigation to the
- * same page therefore starts blank rather than silently re-attaching.
+ * Identity lives in the URL. The replayed session id is read from the
+ * `?session=<id>` query param, so it survives a page refresh and a
+ * navigate-away-then-back: polling re-attaches on every mount and keeps
+ * appending live progress (the progress endpoint always returns the full
+ * cumulative logs/metrics, so a fresh poll never loses earlier lines).
+ *
+ * The one-shot sessionStorage payload (written by Dashboard.handleReplaySession)
+ * only supplies the seed values that aren't in the URL — the hyperparameters
+ * and dataset_config to pre-fill the form. It's consumed once on mount.
  */
 import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import api from '../services/api';
 import { peekReplaySession, clearReplaySession } from '../utils/replaySession';
 
@@ -32,6 +39,12 @@ const POLL_INTERVAL_MS = 2500;
 const ACTIVE_STATUSES = ['running', 'pending'];
 
 export default function useReplaySession(modelCode) {
+    // The session id is the source of truth and lives in the URL (?session=…),
+    // so it survives refresh and navigate-away-then-back. The one-shot
+    // sessionStorage payload only seeds the form (hyperparams / dataset_config).
+    const [searchParams] = useSearchParams();
+    const sessionId = searchParams.get('session') || null;
+
     // Read the replay payload with a PURE peek (no mutation) so React 18
     // StrictMode's double-invoked lazy initializer can't "consume" it out from
     // under the committed render. The actual removal happens in an effect below.
@@ -42,32 +55,66 @@ export default function useReplaySession(modelCode) {
     const [datasetConfig] = useState(() => (replay?.dataset_config || {}));
 
     const [restoredResults, setRestoredResults] = useState(null);
-    const [liveStatus, setLiveStatus] = useState(replay && ACTIVE_STATUSES.includes(replay.status) ? replay.status : null);
+    const [liveStatus, setLiveStatus] = useState(null);
     const [liveLogs, setLiveLogs] = useState([]);
     const [liveMetrics, setLiveMetrics] = useState([]);
-    const [restoring, setRestoring] = useState(!!replay && replay.status === 'completed');
+    // We only know the status after the first poll, so optimistically show the
+    // restoring spinner whenever a session id is present in the URL.
+    const [restoring, setRestoring] = useState(!!sessionId);
 
     const pollRef = useRef(null);
 
-    // Remove the one-shot payload after mount (not in the initializer), so a
-    // later manual navigation to this page starts blank. By the time this runs
-    // the value is already captured in `replay` state, so nothing is lost.
+    // Remove the one-shot seed payload after mount (not in the initializer), so
+    // a later manual navigation that ISN'T a replay starts with a blank form.
+    // The session id stays in the URL, so live re-attach still works on return.
     useEffect(() => {
         if (replay) clearReplaySession(modelCode);
     }, [replay, modelCode]);
 
     useEffect(() => {
-        if (!replay || !replay.session_id) return undefined;
+        if (!sessionId) {
+            // Not a replay/reconnect — reset any stale live state.
+            setRestoring(false);
+            return undefined;
+        }
         let cancelled = false;
+        let consecutiveErrors = 0;
+
+        const scheduleNext = () => {
+            // Recursive timeout (not setInterval) so a slow poll can't overlap
+            // the next one. Re-armed at the end of each successful active poll.
+            if (cancelled) return;
+            stopPolling();
+            pollRef.current = setTimeout(fetchProgress, POLL_INTERVAL_MS);
+        };
 
         const fetchProgress = async () => {
             try {
-                const data = await api.get(`/training-sessions/${replay.session_id}/progress`);
+                const data = await api.get(`/training-sessions/${sessionId}/progress`);
                 if (cancelled) return;
+                consecutiveErrors = 0;
+
+                // Scope the session to THIS page: a session id left in the URL
+                // for a different model (e.g. after switching pages) must not
+                // hijack this page's console/chart. Ignore + stop polling.
+                if (data.model_code && data.model_code !== modelCode) {
+                    stopPolling();
+                    setRestoring(false);
+                    return;
+                }
 
                 if (Array.isArray(data.logs)) setLiveLogs(data.logs);
                 if (Array.isArray(data.metrics)) setLiveMetrics(data.metrics);
                 setLiveStatus(data.status);
+
+                // Keep polling while the run is active; otherwise stop. Driven by
+                // the freshly-fetched status (not the stale replay payload), so a
+                // refresh or return trip resumes live polling correctly.
+                if (ACTIVE_STATUSES.includes(data.status)) {
+                    scheduleNext();
+                } else {
+                    stopPolling();
+                }
 
                 if (data.status === 'completed') {
                     // Merge the drive ids / results so downloads + metrics render.
@@ -85,7 +132,7 @@ export default function useReplaySession(modelCode) {
                     // normaliseResults can derive if the fetch fails.
                     let restoredImages = [];
                     try {
-                        const imgResp = await api.get(`/training-sessions/${replay.session_id}/result-images`);
+                        const imgResp = await api.get(`/training-sessions/${sessionId}/result-images`);
                         if (Array.isArray(imgResp?.images)) restoredImages = imgResp.images;
                     } catch (_) {
                         // Non-fatal — metrics/downloads still render without images.
@@ -105,38 +152,36 @@ export default function useReplaySession(modelCode) {
                     stopPolling();
                 }
             } catch (e) {
-                // Session may have been deleted or errored — stop trying.
-                if (!cancelled) {
+                if (cancelled) return;
+                // Tolerate transient blips (network/server) — keep retrying a few
+                // times before giving up, so live updates don't stop on one hiccup.
+                consecutiveErrors += 1;
+                if (consecutiveErrors >= 3) {
                     setRestoring(false);
                     stopPolling();
+                } else {
+                    scheduleNext();
                 }
             }
         };
 
-        const startPolling = () => {
-            if (pollRef.current) return;
-            pollRef.current = setInterval(fetchProgress, POLL_INTERVAL_MS);
-        };
         const stopPolling = () => {
             if (pollRef.current) {
-                clearInterval(pollRef.current);
+                clearTimeout(pollRef.current);
                 pollRef.current = null;
             }
         };
 
-        // Always do an immediate fetch to restore state on mount.
+        // Immediate fetch to restore state on mount; the poll re-arms itself
+        // (scheduleNext) while the run is active.
         fetchProgress();
-        // Keep polling only while the run is active.
-        if (ACTIVE_STATUSES.includes(replay.status)) {
-            startPolling();
-        }
 
         return () => {
             cancelled = true;
             stopPolling();
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [replay]);
+    }, [sessionId, modelCode]);
 
     return {
         hyperparams,        // seed for the model's useState
@@ -146,6 +191,6 @@ export default function useReplaySession(modelCode) {
         liveLogs,           // accumulated progress log lines for live runs
         liveMetrics,        // accumulated per-epoch metric points for live runs
         restoring,          // true while we're fetching a completed session's results
-        isReplaying: !!replay,
+        isReplaying: !!sessionId || !!replay,
     };
 }

@@ -48,7 +48,16 @@ function App() {
                                     <Checkout />
                                 </ProtectedRoute>
                             } />
+                            {/* /lab → welcome panel; /lab/:modelCode → that model's
+                                page (URL-driven so a refresh keeps the selection).
+                                An optional ?session=<id> query param replays a past
+                                or in-progress training session. */}
                             <Route path="/lab" element={
+                                <ProtectedRoute>
+                                    <Home />
+                                </ProtectedRoute>
+                            } />
+                            <Route path="/lab/:modelCode" element={
                                 <ProtectedRoute>
                                     <Home />
                                 </ProtectedRoute>
