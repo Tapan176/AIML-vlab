@@ -22,6 +22,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import api from '../services/api';
 import { peekReplaySession, clearReplaySession } from '../utils/replaySession';
+import { getResultImages } from '../utils/resultImagesCache';
 
 // Normalise restored results for the <ImageCarousel>. On replay the trainer's
 // local output PNGs have been deleted (they only live inside the Drive
@@ -161,15 +162,9 @@ export default function useReplaySession(modelCode) {
 
                     // The local output_images paths are deleted after upload, so
                     // rebuild the carousel images from the Drive results.zip
-                    // (returned as base64 data URLs). Falls back to whatever
-                    // normaliseResults can derive if the fetch fails.
-                    let restoredImages = [];
-                    try {
-                        const imgResp = await api.get(`/training-sessions/${sessionId}/result-images`);
-                        if (Array.isArray(imgResp?.images)) restoredImages = imgResp.images;
-                    } catch (_) {
-                        // Non-fatal — metrics/downloads still render without images.
-                    }
+                    // (returned as base64 data URLs). Cached per session so a
+                    // re-mount / navigate-back doesn't re-download + re-unzip.
+                    const restoredImages = await getResultImages(api, sessionId);
                     if (cancelled) return;
 
                     const normalised = normaliseResults(merged);

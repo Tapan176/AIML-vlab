@@ -20,6 +20,8 @@
  *        ({ status, logs, metrics }) so the UI can show live progress.
  * @returns {Promise<object>} normalised results (with `images`).
  */
+import { getResultImages } from './resultImagesCache';
+
 const TERMINAL = ['completed', 'failed', 'cancelled'];
 
 function normaliseResults(data) {
@@ -99,12 +101,9 @@ export default async function pollSessionProgress(api, sessionId, opts = {}) {
                 session_id: data.session_id,
             };
             // Local output PNGs are deleted after upload, so rebuild the carousel
-            // images from the Drive results.zip (returned as base64 data URLs).
-            let restoredImages = [];
-            try {
-                const imgResp = await api.get(`/training-sessions/${sessionId}/result-images`, { ttl: 0, force: true });
-                if (Array.isArray(imgResp?.images)) restoredImages = imgResp.images;
-            } catch (_) { /* non-fatal — metrics/downloads still render */ }
+            // images from the Drive results.zip (cached per session — see
+            // resultImagesCache — so repeat completed-loads don't re-download).
+            const restoredImages = await getResultImages(api, sessionId);
 
             const normalised = normaliseResults(merged);
             if (restoredImages.length > 0) {

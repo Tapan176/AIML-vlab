@@ -77,6 +77,13 @@ def get_result_images(current_user, session_id):
         if not drive_id:
             return jsonify({"images": []}), 200
 
+        # Immutable per results.zip — serve a cached extract to skip the Drive
+        # download + unzip on repeat replay loads (incl. after a page reload).
+        from utils.result_image_cache import get as _img_cache_get, put as _img_cache_put
+        cached = _img_cache_get(drive_id)
+        if cached is not None:
+            return jsonify({"images": cached}), 200
+
         import os
         import zipfile
         import base64
@@ -96,6 +103,7 @@ def get_result_images(current_user, session_id):
                 images.append(f"data:{mime};base64,{base64.b64encode(raw).decode('utf-8')}")
                 if len(images) >= MAX_IMAGES:
                     break
+        _img_cache_put(drive_id, images)
         return jsonify({"images": images}), 200
     except Exception as e:
         return jsonify({"error": str(e), "images": []}), 200
