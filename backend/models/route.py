@@ -452,11 +452,19 @@ def get_session_detail(current_user, session_id):
 def get_session_progress_route(current_user, session_id):
     """Lightweight progress snapshot for replay/reconnect polling.
 
-    Returns { status, logs, results, error, ... } so a model page re-opened
-    from the Dashboard can show either the completed results or the live
-    training progress accumulated so far.
+    Returns { status, logs, metrics, logs_count, metrics_count, results, error,
+    ... } so a model page re-opened from the Dashboard can show either the
+    completed results or the live training progress accumulated so far.
+
+    Optional incremental params keep repeated polls cheap on long runs:
+      ?since=<n>          → only log lines after index n
+      ?since_metrics=<m>  → only metric points after index m
+    With either present, the heavy results/images payload is omitted until the
+    run has completed. Absent → full snapshot (back-compatible).
     """
-    progress = get_session_progress(session_id)
+    since_logs = request.args.get('since', type=int)
+    since_metrics = request.args.get('since_metrics', type=int)
+    progress = get_session_progress(session_id, since_logs=since_logs, since_metrics=since_metrics)
     if not progress:
         return jsonify({"error": "Session not found"}), 404
     if progress.get('user_id') != current_user['_id']:

@@ -450,11 +450,23 @@ def append_session_metric(session_id, metric):
     )
 
 
-def get_session_progress(session_id):
+def get_session_progress(session_id, since_logs=None, since_metrics=None):
     """Return a lightweight progress snapshot for polling/reconnect.
 
-    Shape: { status, logs, results, error, model_code, version }.
-    Results are only meaningful once status == 'completed'.
+    Shape: { status, logs, metrics, logs_count, metrics_count, results, error,
+    model_code, version }. Results are only meaningful once status=='completed'.
+
+    Incremental mode — when ``since_logs`` / ``since_metrics`` are supplied, only
+    the log/metric entries *after* those offsets are returned (the client
+    appends them), and the heavy ``results`` / ``output_images`` / drive-id
+    payload is omitted until the run has completed. On a long deep-learning run
+    this cuts repeated-poll bandwidth ~10-50x. ``logs_count`` / ``metrics_count``
+    always carry the server-side totals so the client knows its next offset and
+    can detect a reset (count < its own offset → resync from 0).
+
+    Legacy mode (neither ``since_*`` given) returns the full logs/metrics +
+    results, byte-compatible with the original shape apart from the two new
+    additive ``*_count`` fields.
     """
     db = get_db()
     try:
@@ -463,20 +475,43 @@ def get_session_progress(session_id):
         session = None
     if not session:
         return None
-    return {
+
+    all_logs = session.get('progress_logs', []) or []
+    all_metrics = session.get('progress_metrics', []) or []
+    logs_count = len(all_logs)
+    metrics_count = len(all_metrics)
+    status = session.get('status')
+    incremental = since_logs is not None or since_metrics is not None
+
+    if incremental:
+        # `or 0` also coerces a missing offset (only one of the two supplied) to
+        # "from the start"; out-of-range offsets simply yield an empty slice.
+        logs = all_logs[(since_logs or 0):]
+        metrics = all_metrics[(since_metrics or 0):]
+    else:
+        logs = all_logs
+        metrics = all_metrics
+
+    snap = {
         'session_id': str(session['_id']),
         'user_id': session.get('user_id'),
         'model_code': session.get('model_code'),
         'version': session.get('version'),
-        'status': session.get('status'),
-        'logs': session.get('progress_logs', []),
-        'metrics': session.get('progress_metrics', []),
-        'results': session.get('results'),
+        'status': status,
+        'logs': logs,
+        'metrics': metrics,
+        'logs_count': logs_count,
+        'metrics_count': metrics_count,
         'error': session.get('error'),
-        'trained_model_drive_id': session.get('trained_model_drive_id'),
-        'results_zip_drive_id': session.get('results_zip_drive_id'),
-        'output_images': session.get('output_images', []),
     }
+    # Heavy fields: always in legacy mode (back-compat); in incremental mode only
+    # once the run has completed — a reconnecting client needs them just at the end.
+    if not incremental or status == 'completed':
+        snap['results'] = session.get('results')
+        snap['trained_model_drive_id'] = session.get('trained_model_drive_id')
+        snap['results_zip_drive_id'] = session.get('results_zip_drive_id')
+        snap['output_images'] = session.get('output_images', [])
+    return snap
 
 
 def get_user_sessions(user_id, model_code=None):

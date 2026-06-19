@@ -51,6 +51,12 @@ export default async function pollSessionProgress(api, sessionId, opts = {}) {
     // First poll immediately, then on an interval until terminal.
     // Tolerate a few transient errors so one network blip doesn't abort.
     let consecutiveErrors = 0;
+    // Incremental-poll accumulators: ask the server only for the tail after our
+    // offsets and rebuild the full logs/metrics client-side for onProgress.
+    let logsCount = 0;
+    let metricsCount = 0;
+    let logs = [];
+    let metrics = [];
 
     // eslint-disable-next-line no-constant-condition
     while (true) {
@@ -61,7 +67,10 @@ export default async function pollSessionProgress(api, sessionId, opts = {}) {
         }
         let data;
         try {
-            data = await api.get(`/training-sessions/${sessionId}/progress`, { ttl: 0, force: true });
+            data = await api.get(
+                `/training-sessions/${sessionId}/progress?since=${logsCount}&since_metrics=${metricsCount}`,
+                { ttl: 0, force: true },
+            );
             consecutiveErrors = 0;
         } catch (err) {
             consecutiveErrors += 1;
@@ -70,7 +79,16 @@ export default async function pollSessionProgress(api, sessionId, opts = {}) {
             continue;
         }
 
-        onProgress({ status: data.status, logs: data.logs || [], metrics: data.metrics || [] });
+        // Accumulate the incremental tail (resync if the server total dropped).
+        if (typeof data.logs_count === 'number' && data.logs_count < logsCount) {
+            logsCount = 0; metricsCount = 0; logs = []; metrics = [];
+        }
+        if (Array.isArray(data.logs) && data.logs.length) logs = logs.concat(data.logs);
+        if (Array.isArray(data.metrics) && data.metrics.length) metrics = metrics.concat(data.metrics);
+        if (typeof data.logs_count === 'number') logsCount = data.logs_count;
+        if (typeof data.metrics_count === 'number') metricsCount = data.metrics_count;
+
+        onProgress({ status: data.status, logs, metrics });
 
         if (data.status === 'completed') {
             const merged = {

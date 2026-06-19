@@ -63,6 +63,10 @@ export default function useReplaySession(modelCode) {
     const [restoring, setRestoring] = useState(!!sessionId);
 
     const pollRef = useRef(null);
+    // Incremental-poll offsets: how many log/metric entries we've already
+    // received, so each poll asks the server only for the newer tail.
+    const logsCountRef = useRef(0);
+    const metricsCountRef = useRef(0);
 
     // Remove the one-shot seed payload after mount (not in the initializer), so
     // a later manual navigation that ISN'T a replay starts with a blank form.
@@ -77,6 +81,14 @@ export default function useReplaySession(modelCode) {
             setRestoring(false);
             return undefined;
         }
+        // New attach (mount, or a different ?session= id): start this session's
+        // log/metric buffers + incremental offsets fresh so we don't splice a
+        // previous session's tail onto this one.
+        logsCountRef.current = 0;
+        metricsCountRef.current = 0;
+        setLiveLogs([]);
+        setLiveMetrics([]);
+
         let cancelled = false;
         let consecutiveErrors = 0;
 
@@ -90,7 +102,12 @@ export default function useReplaySession(modelCode) {
 
         const fetchProgress = async () => {
             try {
-                const data = await api.get(`/training-sessions/${sessionId}/progress`);
+                // Incremental + uncached: only the tail after our offsets, and
+                // never served from the GET cache (each poll must be live).
+                const data = await api.get(
+                    `/training-sessions/${sessionId}/progress?since=${logsCountRef.current}&since_metrics=${metricsCountRef.current}`,
+                    { ttl: 0, force: true },
+                );
                 if (cancelled) return;
                 consecutiveErrors = 0;
 
@@ -103,8 +120,24 @@ export default function useReplaySession(modelCode) {
                     return;
                 }
 
-                if (Array.isArray(data.logs)) setLiveLogs(data.logs);
-                if (Array.isArray(data.metrics)) setLiveMetrics(data.metrics);
+                // Append the new tail and advance our offsets. A server total
+                // below our offset means the session was reset (a new run reused
+                // the id) — drop what we have and resync from zero next poll.
+                if (typeof data.logs_count === 'number' && data.logs_count < logsCountRef.current) {
+                    logsCountRef.current = 0;
+                    metricsCountRef.current = 0;
+                    setLiveLogs([]);
+                    setLiveMetrics([]);
+                } else {
+                    if (Array.isArray(data.logs) && data.logs.length) {
+                        setLiveLogs(prev => [...prev, ...data.logs]);
+                    }
+                    if (Array.isArray(data.metrics) && data.metrics.length) {
+                        setLiveMetrics(prev => [...prev, ...data.metrics]);
+                    }
+                    if (typeof data.logs_count === 'number') logsCountRef.current = data.logs_count;
+                    if (typeof data.metrics_count === 'number') metricsCountRef.current = data.metrics_count;
+                }
                 setLiveStatus(data.status);
 
                 // Keep polling while the run is active; otherwise stop. Driven by
