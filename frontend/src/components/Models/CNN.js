@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import useAbortController from '../../hooks/useAbortController';
 import { useSearchParams } from 'react-router-dom';
 import useReplaySession from '../../hooks/useReplaySession';
 import useHyperparamCache from '../../hooks/useHyperparamCache';
@@ -98,6 +99,8 @@ export default function CNN() {
     const addLayer = () => setLayers([...layers, { ...DEFAULT_LAYERS[0] }]);
     const removeLayer = (index) => setLayers(layers.filter((_, i) => i !== index));
 
+    const nextSignal = useAbortController();
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -136,7 +139,8 @@ export default function CNN() {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${localStorage.getItem(constants.TOKEN_KEY)}`
                 },
-                body: JSON.stringify(bodyPayload)
+                body: JSON.stringify(bodyPayload),
+                signal: nextSignal(),
             });
 
             if (!response.ok) {
@@ -191,7 +195,7 @@ export default function CNN() {
                     });
                 }
             }
-        } catch (err) { setError(err.message); }
+        } catch (err) { if (err.name !== 'AbortError') setError(err.message); }
         finally { setLoading(false); }
     };
 

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import useAbortController from '../../hooks/useAbortController';
 import useReplaySession from '../../hooks/useReplaySession';
 import useHyperparamCache from '../../hooks/useHyperparamCache';
 import constants from '../../constants';
@@ -35,6 +36,8 @@ export default function ObjectDetection() {
         if (!loading && replayActive && liveLogs.length > 0) setLogs(liveLogs);
     }, [loading, replayActive, liveLogs]);
 
+    const nextSignal = useAbortController();
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -55,7 +58,8 @@ export default function ObjectDetection() {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${localStorage.getItem(constants.TOKEN_KEY)}`
                 },
-                body: JSON.stringify(bodyPayload)
+                body: JSON.stringify(bodyPayload),
+                signal: nextSignal(),
             });
 
             if (!response.ok) {
@@ -93,7 +97,7 @@ export default function ObjectDetection() {
                     });
                 }
             }
-        } catch (err) { setError(err.message); }
+        } catch (err) { if (err.name !== 'AbortError') setError(err.message); }
         finally { setLoading(false); }
     };
 

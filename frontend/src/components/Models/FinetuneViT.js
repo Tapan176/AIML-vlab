@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import useAbortController from '../../hooks/useAbortController';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
 import ShowDataset from '../Dataset/ShowDataset';
 import CachedDatasetBadge from '../shared/CachedDatasetBadge';
@@ -21,6 +22,7 @@ const DEFAULT_HYPERPARAMS = {
 };
 
 const FinetuneViT = () => {
+    const nextSignal = useAbortController();
     const { hyperparams: replayHyperparams, restoredResults, liveStatus, liveLogs } = useReplaySession(MODEL_CODE);
     const { datasetData, handleDatasetSelect } = useDatasetCache(MODEL_CODE);
     // Persist hyperparams across refresh/remount; seed = defaults + replay values.
@@ -70,6 +72,7 @@ const FinetuneViT = () => {
                     dataset_id: datasetData.dataset_id || null,
                     hyperparams,
                 }),
+                signal: nextSignal(),
             });
 
             if (!response.ok) {
@@ -107,6 +110,7 @@ const FinetuneViT = () => {
                 done = readerDone;
             }
         } catch (err) {
+            if (err.name === 'AbortError') return;
             setError(err.message);
             setLogs(prev => [...prev, `❌ Error: ${err.message}`]);
         }

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import useAbortController from '../../hooks/useAbortController';
 import useReplaySession from '../../hooks/useReplaySession';
 import useHyperparamCache from '../../hooks/useHyperparamCache';
 import constants from '../../constants';
@@ -42,6 +43,8 @@ export default function StyleGAN() {
         }
     }, [logs]);
 
+    const nextSignal = useAbortController();
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -63,7 +66,8 @@ export default function StyleGAN() {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify(bodyPayload)
+                body: JSON.stringify(bodyPayload),
+                signal: nextSignal(),
             });
 
             if (!response.ok) {
@@ -108,7 +112,7 @@ export default function StyleGAN() {
                     }
                 }
             }
-        } catch (err) { setError(err.message); }
+        } catch (err) { if (err.name !== 'AbortError') setError(err.message); }
         finally { setLoading(false); }
     };
 

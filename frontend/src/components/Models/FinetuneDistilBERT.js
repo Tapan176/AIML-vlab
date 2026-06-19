@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import useAbortController from '../../hooks/useAbortController';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
 import ShowDataset from '../Dataset/ShowDataset';
 import CachedDatasetBadge from '../shared/CachedDatasetBadge';
@@ -22,6 +23,7 @@ const DEFAULT_HYPERPARAMS = {
 };
 
 const FinetuneDistilBERT = () => {
+    const nextSignal = useAbortController();
     const { hyperparams: replayHyperparams, datasetConfig, restoredResults, liveStatus, liveLogs } = useReplaySession(MODEL_CODE);
     const { datasetData, handleDatasetSelect } = useDatasetCache(MODEL_CODE);
     const [availableColumns, setAvailableColumns] = useState([]);
@@ -86,6 +88,7 @@ const FinetuneDistilBERT = () => {
                     label_column: labelColumn,
                     hyperparams,
                 }),
+                signal: nextSignal(),
             });
 
             if (!response.ok) {
@@ -120,6 +123,7 @@ const FinetuneDistilBERT = () => {
                 done = readerDone;
             }
         } catch (err) {
+            if (err.name === 'AbortError') return;
             setError(err.message);
             setLogs(prev => [...prev, `❌ Error: ${err.message}`]);
         }
