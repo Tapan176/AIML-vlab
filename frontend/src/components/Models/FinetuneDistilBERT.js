@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import useAbortController from '../../hooks/useAbortController';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
 import ShowDataset from '../Dataset/ShowDataset';
@@ -25,6 +26,7 @@ const DEFAULT_HYPERPARAMS = {
 const FinetuneDistilBERT = () => {
     const nextSignal = useAbortController();
     const { hyperparams: replayHyperparams, datasetConfig, restoredResults, liveStatus, liveLogs } = useReplaySession(MODEL_CODE);
+    const [, setSearchParams] = useSearchParams();
     const { datasetData, handleDatasetSelect } = useDatasetCache(MODEL_CODE);
     const [availableColumns, setAvailableColumns] = useState([]);
     const [textColumn, setTextColumn] = useState(datasetConfig?.text_column || 'text');
@@ -114,6 +116,9 @@ const FinetuneDistilBERT = () => {
                         if (event.startsWith('data: ')) {
                             try {
                                 const parsed = JSON.parse(event.replace('data: ', ''));
+                                if (parsed.session_id && parsed.status === 'started') {
+                                    setSearchParams((p) => { const n = new URLSearchParams(p); n.set('session', parsed.session_id); return n; }, { replace: true });
+                                }
                                 if (parsed.log) setLogs(prev => [...prev, parsed.log]);
                                 else if (parsed.status === 'completed' || parsed.evaluation_metrics) { setResults(parsed); try { window.dispatchEvent(new CustomEvent('aiml:trained')); } catch (e) {} }
                             } catch (e) {}

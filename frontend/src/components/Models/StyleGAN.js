@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import useAbortController from '../../hooks/useAbortController';
 import useReplaySession from '../../hooks/useReplaySession';
 import useHyperparamCache from '../../hooks/useHyperparamCache';
@@ -16,6 +17,7 @@ const MODEL_CODE = 'stylegan';
 
 export default function StyleGAN() {
     const { hyperparams: replayHyperparams, restoredResults, liveStatus, liveLogs } = useReplaySession(MODEL_CODE);
+    const [, setSearchParams] = useSearchParams();
     const [hyperparams, setHyperparams] = useHyperparamCache(MODEL_CODE, replayHyperparams);
     const [results, setResults] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -94,6 +96,9 @@ export default function StyleGAN() {
                             if (dataStr) {
                                 try {
                                     const parsed = JSON.parse(dataStr);
+                                    if (parsed.session_id && parsed.status === 'started') {
+                                        setSearchParams((p) => { const n = new URLSearchParams(p); n.set('session', parsed.session_id); return n; }, { replace: true });
+                                    }
                                     if (parsed.log) {
                                         setLogs(prev => [...prev, parsed.log]);
                                     }

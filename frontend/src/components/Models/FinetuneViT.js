@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import useAbortController from '../../hooks/useAbortController';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
 import ShowDataset from '../Dataset/ShowDataset';
@@ -24,6 +25,7 @@ const DEFAULT_HYPERPARAMS = {
 const FinetuneViT = () => {
     const nextSignal = useAbortController();
     const { hyperparams: replayHyperparams, restoredResults, liveStatus, liveLogs } = useReplaySession(MODEL_CODE);
+    const [, setSearchParams] = useSearchParams();
     const { datasetData, handleDatasetSelect } = useDatasetCache(MODEL_CODE);
     // Persist hyperparams across refresh/remount; seed = defaults + replay values.
     const [hyperparams, setHyperparams] = useHyperparamCache(MODEL_CODE, { ...DEFAULT_HYPERPARAMS, ...(replayHyperparams || {}) });
@@ -98,6 +100,9 @@ const FinetuneViT = () => {
                         if (event.startsWith('data: ')) {
                             try {
                                 const parsed = JSON.parse(event.replace('data: ', ''));
+                                if (parsed.session_id && parsed.status === 'started') {
+                                    setSearchParams((p) => { const n = new URLSearchParams(p); n.set('session', parsed.session_id); return n; }, { replace: true });
+                                }
                                 if (parsed.log) setLogs(prev => [...prev, parsed.log]);
                                 else if (parsed.status === 'completed' || parsed.evaluation_metrics) {
                                     setResults(parsed);
