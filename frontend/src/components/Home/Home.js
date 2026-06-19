@@ -2,25 +2,33 @@ import { useState, lazy, Suspense } from 'react';
 import Sidebar from '../Sidebar/Sidebar';
 import './Home.css';
 
-// Dynamic imports for all model components
-// Add new models here — they automatically appear everywhere
+// Classical models share one config-driven page (Phase 6); behaviour per model
+// lives in Models/modelPageConfig.js. `page(code)` is a stable wrapper that
+// renders the lazily-loaded <ModelPage> for that code. Deep-learning / streaming
+// / generative models keep their own bespoke components.
+const ModelPage = lazy(() => import('../Models/ModelPage'));
+const page = (modelCode) => () => <ModelPage modelCode={modelCode} />;
+
+// Add a classical model: one entry here + one entry in modelPageConfig.js.
+// Add a bespoke model: a lazy() import of its own component (as below).
 const MODEL_COMPONENTS = {
-    simple_linear_regression: lazy(() => import('../Models/SimpleLinearRegression')),
-    multivariable_linear_regression: lazy(() => import('../Models/MultivariableLinearRegression')),
-    logistic_regression: lazy(() => import('../Models/LogisticRegression')),
-    knn: lazy(() => import('../Models/KNN')),
-    decision_tree: lazy(() => import('../Models/DecisionTree')),
-    random_forest: lazy(() => import('../Models/RandomForest')),
-    svm: lazy(() => import('../Models/SVM')),
-    naive_bayes: lazy(() => import('../Models/NaiveBayes')),
-    k_means: lazy(() => import('../Models/KMeans')),
-    dbscan: lazy(() => import('../Models/DBSCAN')),
+    simple_linear_regression: page('simple_linear_regression'),
+    multivariable_linear_regression: page('multivariable_linear_regression'),
+    logistic_regression: page('logistic_regression'),
+    knn: page('knn'),
+    decision_tree: page('decision_tree'),
+    random_forest: page('random_forest'),
+    svm: page('svm'),
+    naive_bayes: page('naive_bayes'),
+    k_means: page('k_means'),
+    dbscan: page('dbscan'),
+    gradient_boosting: page('gradient_boosting'),
+    xgboost: page('xgboost'),
+    sentiment_analysis: page('sentiment_analysis'),
+    text_classification: page('text_classification'),
+    // Bespoke (SSE streaming, layer builders, generative) — own components
     ann: lazy(() => import('../Models/ANN')),
     cnn: lazy(() => import('../Models/CNN')),
-    gradient_boosting: lazy(() => import('../Models/GradientBoosting')),
-    xgboost: lazy(() => import('../Models/XGBoost')),
-    sentiment_analysis: lazy(() => import('../Models/SentimentAnalysis')),
-    text_classification: lazy(() => import('../Models/TextClassification')),
     resnet: lazy(() => import('../Models/ResNet')),
     lstm: lazy(() => import('../Models/LSTM')),
     yolo: lazy(() => import('../Models/ObjectDetection')),

@@ -95,6 +95,7 @@ The `VITE_API_URL` is **baked into the React bundle at build time** via Docker b
 - **Never read env vars (`import.meta.env`) outside `frontend/src/config.js`.** Vite only exposes vars prefixed `VITE_` (e.g. `VITE_API_URL`). Everything else imports `API_URL` (and other constants) from `frontend/src/constants/index.js`. There is also a `constants` default export with `API_BASE_URL = API_URL` for legacy components.
 - All routes wrapped in `<ProtectedRoute>` require an authenticated user (`frontend/src/components/Auth/ProtectedRoute.js`).
 - `AuthContext` (`frontend/src/context/AuthContext.js`) hits `/me` on mount to rehydrate the user; it also listens to the `storage` event so login/logout sync across tabs.
+- **Model pages:** the 14 classical models share one config-driven `Models/ModelPage.js` (behaviour per model in `Models/modelPageConfig.js`); `Home.js` routes them via `page('<code>')`. Only deep-learning / streaming / generative models (ANN, CNN, ResNet, LSTM, ObjectDetection/YOLO, StyleGAN, the 3 fine-tune pages) have their own components.
 
 ### Backend conventions
 - **Never use `os.getenv` or `os.environ` outside `backend/config.py`.** Import named constants from `config`.
@@ -108,7 +109,9 @@ The `VITE_API_URL` is **baked into the React bundle at build time** via Docker b
 2. Add one Pydantic model for it in `backend/services/hyperparam_models.py` (defaults, ranges, enums, labels, notes) and register it in `HYPERPARAM_MODELS`. This single model supplies validation, defaults, schema, and UI labels — the old `DEFAULT_HYPERPARAMS`/`VALIDATION_SCHEMAS`/`PARAM_LABELS`/`PARAM_NOTES` are derived automatically.
 3. Create `backend/models/<newModel>/<newModel>.py` with the standard signature returning the standard result dict.
 4. Register in `MODEL_FUNCTIONS` and `MODEL_ROUTES` in `backend/models/route.py`, add a route handler (use `_train_model` for sync, or the SSE pattern for deep learning).
-5. Add a React component in `frontend/src/components/Models/<NewModel>.js` and wire it into navigation/routes.
+5. Frontend page:
+   - **Classical model** (dataset → metrics, like the others): add one entry to `MODEL_PAGE_CONFIG` in `frontend/src/components/Models/modelPageConfig.js` and one `page('<code>')` line to the `MODEL_COMPONENTS` map in `frontend/src/components/Home/Home.js`. No new component file — the shared `Models/ModelPage.js` renders it.
+   - **Bespoke model** (SSE streaming, custom inputs, generative): add a dedicated `frontend/src/components/Models/<NewModel>.js` and a `lazy(() => import(...))` entry in `Home.js`.
 6. Add the model code to the appropriate category in `MODEL_CATEGORIES` (`frontend/src/constants/index.js`).
 
 ## Environment & secrets

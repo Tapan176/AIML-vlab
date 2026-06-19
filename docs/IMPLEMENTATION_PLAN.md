@@ -229,7 +229,20 @@ Docker builds succeed; `react-scripts` removed.
 
 ---
 
-## Phase 6 — Generic `<ModelPage>` (dedup 23 components)
+## Phase 6 — Generic `<ModelPage>` (dedup model components) — ✅ DONE
+
+**Status:** Done on `backend/flask-improvements`. Audited all 23 components: the **14
+classical** models (regression, classification, clustering, boosting, NLP) were genuinely
+near-identical and now share one config-driven `frontend/src/components/Models/ModelPage.js`
+(per-model behaviour in `modelPageConfig.js`); `Home.js` routes them via `page('<code>')`.
+The **9 bespoke** models (ANN, CNN, ResNet, LSTM, ObjectDetection/YOLO, StyleGAN, 3 fine-tune)
+kept their own components — they have SSE streaming, layer builders, or generative UIs that
+don't fit the generic shape. Deleted 14 files (~1,460 LOC) for ModelPage + config (~360 LOC):
+net ~1,100 LOC removed. Faithfully preserved each model's endpoint, title, metric set, run
+labels, manual/NLP inputs, image carousel, downloads, and `useDatasetCache` keys (incl. the
+legacy squashed keys). **Verified:** `npm run build` green (14 model chunks → one `ModelPage`
+chunk), Vitest renders the classification/NLP/regression shapes + asserts config completeness
+(5 tests pass).
 
 **Goal:** replace ~23 near-identical model components (~3,300 LOC) with one
 registry-driven page.
