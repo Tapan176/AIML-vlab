@@ -68,28 +68,35 @@ The frontend fetches the schema from `GET /api/model-schema/<model_code>` and re
 
 ### Storage strategy
 - **Datasets and trained models live in Google Drive** (`backend/services/google_drive_service.py`), keyed by `drive_id` in MongoDB. Local filesystem is fallback only.
-- `backend/services/dataset_resolver.py` resolves image (ZIP) datasets: tries local cache → DB `extracted_path` → downloads from Drive and extracts to a per-user cache dir.
-- `backend/services/dataset_service.py::get_dataset_df()` is the canonical way to load a CSV dataset — it transparently pulls from Drive or local disk.
-- Per-user directories are computed by `get_user_upload_dir / get_user_models_dir / ensure_dir` in `config.py`. Always use those helpers, never hardcode paths.
+- `backend/services/dataset_resolver.py::resolve_image_dataset_path()` resolves image (ZIP) datasets. Client-supplied `filename`/`filePath` are **lookup keys only** — the resolver finds a dataset the user owns (or a curated default) and extracts it into that owner's cache (`get_user_extract_cache_dir`). Never return or join a client path directly.
+- `backend/services/dataset_service.py::get_dataset_df()` is the canonical way to load a CSV dataset by name; `get_accessible_dataset(user_id, dataset_id)` is the owner-or-default access check for anything taking a `dataset_id`.
+- Uploaded CSVs store only a small inline sample (`csv_data`, `CSV_INLINE_SAMPLE_ROWS`) plus `columns`/`row_count`; the full file lives on Drive.
+- Per-user directories come from the helpers in `config.py` (`get_user_upload_dir`, `get_user_models_dir`, `get_user_extract_cache_dir`, `get_user_tmp_upload_dir`, `ensure_dir`). Classical models must write plots to `new_run_images_dir(user_id)` (a unique dir per run) — never a fixed filename in a shared folder.
 
 ### Auth
 - JWT-based. `backend/auth/auth_middleware.py::token_required` is a decorator that can be used as `@token_required` (required) or `@token_required(optional=True)` (sets `current_user=None` if no token). Admin routes use `@admin_required`.
-- Frontend stores the JWT in `localStorage` under the key `aiml_token`. `frontend/src/services/api.js` is the centralized API client and auto-redirects to `/login` on 401.
+- **Revocation:** each user has `token_version`; JWTs carry it as `tv` and are rejected on mismatch. Bump it (`account_service.revoke_all_sessions`) whenever sessions must die — password change/reset, logout-all, admin deactivate/force-logout, deletion. Password-reset tokens are single-use (bound to the password hash).
+- **Input validation:** anything that reaches a Mongo filter goes through `backend/utils/validators.py` first (`normalize_email`, `validate_password`, `clean_str`, `safe_regex` for `$regex` search). Emails are stored lower-cased.
+- Account data management lives in `backend/services/account_service.py` (export, storage summary, cascade `purge_user_data`). Deleting a user must go through it so Drive files/sessions/datasets aren't orphaned.
+- Frontend stores the JWT in `localStorage` under the key `aiml_token`. `frontend/src/services/api.js` is the centralized API client and redirects to `/login?next=…` on 401.
 
 ### MongoDB
 - Connection in `backend/mongoDb/connection.py`. Always call `get_db()`, never instantiate `MongoClient` elsewhere.
-- Collections: `users`, `datasets`, `training_sessions`, `models` (catalog), `feedback`, `_migrations`.
-- **Migrations** in `backend/migrations/00X_*.py` — each exports an `up(db)` function. They run automatically on app startup via `migration_runner.run_migrations()`. Use the next sequential prefix (`004_*.py`) for new migrations.
+- Collections: `users`, `datasets`, `training_sessions`, `models` (catalog), `feedback`, `pipelines`, `usage_counters`, `invoices`, `otp_codes`, `webhook_events`, `_migrations`.
+- **Migrations** in `backend/migrations/00X_*.py` — each exports an `up(db)` function. They run automatically on app startup via `migration_runner.run_migrations()`. Use the next sequential prefix (currently `008_*.py`) for new migrations.
 
 ### Frontend conventions
 - **Never use `process.env` outside `frontend/src/config.js`.** Everything else imports `API_URL` (and other constants) from `frontend/src/constants/index.js`. There is also a `constants` default export with `API_BASE_URL = API_URL` for legacy components.
-- All routes wrapped in `<ProtectedRoute>` require an authenticated user (`frontend/src/components/Auth/ProtectedRoute.js`).
+- Pages are **lazy-loaded** in `App.js` (`React.lazy` + `Suspense`). Styles a page needs from another component's stylesheet won't be present until that chunk loads — put shared styles in `src/styles/responsive.css` or `Auth.css` (both imported globally in `index.js`).
+- All routes wrapped in `<ProtectedRoute>` require an authenticated user; `<ProtectedRoute adminOnly>` also requires the admin role (`frontend/src/components/Auth/ProtectedRoute.js`).
+- Never call `fetch` directly for the backend: use `api.get/post/put/patch/delete/upload`, `streamTraining()` for SSE training endpoints (buffered parser, handles 401/quota), and `downloadFile()` for authenticated downloads. Backend error codes are translated in `src/utils/errorMessages.js`.
 - `AuthContext` (`frontend/src/context/AuthContext.js`) hits `/me` on mount to rehydrate the user; it also listens to the `storage` event so login/logout sync across tabs.
 
 ### Backend conventions
 - **Never use `os.getenv` or `os.environ` outside `backend/config.py`.** Import named constants from `config`.
 - All Flask blueprints are registered with `/api` prefix (e.g. `/api/linear-regression`, `/api/login`) — this matches the Vercel serverless deployment pattern and the docker-compose `REACT_APP_API_URL=http://localhost:5050/api` setting.
-- Rate limiting via `flask_limiter` is configured globally in `app.py`. OPTIONS preflight is exempted both at the limiter level and at `before_request` to keep CORS working.
+- Rate limiting via `flask_limiter` is configured globally in `app.py` (storage from `RATELIMIT_STORAGE_URI`; use Redis in production). OPTIONS preflight is exempted both at the limiter level and at `before_request` to keep CORS working.
+- Don't return `str(e)` for unexpected exceptions — log with `log.exception(...)` and return a generic message; the global handler in `app.py` does this for anything uncaught. User-fixable errors (bad data, validation) may surface their message.
 - When returning JSON containing model metrics, run results through `_sanitize_for_json()` in `models/route.py` — sklearn often produces `NaN`/`Infinity` which break strict JSON parsers. The frontend `api.js` also has a fallback that sanitizes `NaN` → `null` on parse failure.
 
 ### Adding a new ML model — checklist
@@ -97,7 +104,7 @@ The frontend fetches the schema from `GET /api/model-schema/<model_code>` and re
 2. Add validation schema in `backend/services/hyperparam_validator.py`.
 3. Add labels + per-param notes in `backend/services/model_catalog.py`.
 4. Create `backend/models/<newModel>/<newModel>.py` with the standard signature returning the standard result dict.
-5. Register in `MODEL_FUNCTIONS` and `MODEL_ROUTES` in `backend/models/route.py`, add a route handler (use `_train_model` for sync, or the SSE pattern for deep learning).
+5. Sync models: add to `MODEL_FUNCTIONS` (a `'module:function'` string lazy-imports optional deps) and `_SYNC_ROUTES` in `backend/models/route.py` — no handler needed. Streaming models: add a route that lazy-imports the trainer and calls `run_sse_training` (enforces quota + the per-user concurrency cap).
 6. Add a React component in `frontend/src/components/Models/<NewModel>.js` and wire it into navigation/routes.
 7. Add the model code to the appropriate category in `MODEL_CATEGORIES` (`frontend/src/constants/index.js`).
 
