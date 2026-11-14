@@ -26,6 +26,10 @@ const SignUp = () => {
         e.preventDefault();
         setError('');
 
+        if (formData.password.length < 8) {
+            setError('Password must be at least 8 characters.');
+            return;
+        }
         if (formData.password !== formData.confirmPassword) {
             setError('Passwords do not match');
             return;
@@ -112,7 +116,8 @@ const SignUp = () => {
                     <div className="form-group">
                         <label htmlFor="signup-password">Password</label>
                         <input id="signup-password" name="password" type="password" value={formData.password}
-                            onChange={handleChange} placeholder="Min 6 characters" required minLength={6} />
+                            onChange={handleChange} placeholder="At least 8 characters" required minLength={8}
+                            autoComplete="new-password" />
                     </div>
                     <div className="form-group">
                         <label htmlFor="confirmPassword">Confirm Password</label>

@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import useReplaySession from '../../hooks/useReplaySession';
-import constants from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
 import DownloadResultsZip from '../DownloadResultsZip/DownloadResultsZip';
@@ -9,6 +8,7 @@ import ModelInfoPanel from '../shared/ModelInfoPanel';
 import useDatasetCache from '../../hooks/useDatasetCache';
 import { formatMetric } from '../../utils/formatMetric';
 import '../ModelCss/ModelPage.css';
+import { streamTraining } from '../../services/api';
 
 const MODEL_CODE = 'stylegan';
 
@@ -53,58 +53,11 @@ export default function StyleGAN() {
                 dataset_id: datasetData?.dataset_id || null,
                 hyperparams
             };
-            const token = localStorage.getItem(constants.TOKEN_KEY);
-            const response = await fetch(`${constants.API_URL}/stylegan`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(bodyPayload)
+            await streamTraining('/stylegan', bodyPayload, (parsed) => {
+                if (parsed.log) setLogs(prev => [...prev, parsed.log]);
+                if (parsed.error) setError(parsed.error);
+                if (parsed.status === 'completed' || parsed.status === 'training_complete') setResults(parsed);
             });
-
-            if (!response.ok) {
-                const errData = await response.json();
-                if (response.status === 429 && errData && errData.error === 'quota_exceeded') {
-                    window.dispatchEvent(new CustomEvent('aiml:quota', { detail: errData }));
-                }
-                throw new Error(errData.message || errData.error || 'Failed to start generative process');
-            }
-
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder("utf-8");
-            let done = false;
-
-            while (!done) {
-                const { value, done: doneReading } = await reader.read();
-                done = doneReading;
-                if (value) {
-                    const chunkValue = decoder.decode(value);
-                    const lines = chunkValue.split('\n');
-                    for (const line of lines) {
-                        if (line.startsWith('data: ')) {
-                            const dataStr = line.replace('data: ', '').trim();
-                            if (dataStr) {
-                                try {
-                                    const parsed = JSON.parse(dataStr);
-                                    if (parsed.log) {
-                                        setLogs(prev => [...prev, parsed.log]);
-                                    }
-                                    if (parsed.error) {
-                                        setError(parsed.error);
-                                    }
-                                    if (parsed.status === 'completed' || parsed.status === 'training_complete') {
-                                        setResults(parsed);
-                                        try { window.dispatchEvent(new CustomEvent('aiml:trained')); } catch (e) {}
-                                    }
-                                } catch (e) {
-                                    console.error("Parse stream err:", e);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
         } catch (err) { setError(err.message); }
         finally { setLoading(false); }
     };

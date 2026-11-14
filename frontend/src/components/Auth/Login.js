@@ -13,19 +13,20 @@ const Login = () => {
     const [otpEmail, setOtpEmail] = useState(null); // set → show OTP step
     const navigate = useNavigate();
     const [params] = useSearchParams();
-    const nextUrl = params.get('next');
+    // Only follow same-app relative paths ("/x"), never "//host" or "https://…"
+    // (open-redirect protection for the ?next= parameter).
+    const rawNext = params.get('next');
+    const nextUrl = rawNext && rawNext.startsWith('/') && !rawNext.startsWith('//') && !rawNext.startsWith('/\\')
+        ? rawNext : null;
     const { login, isAuthenticated, user } = useAuth();
 
     // Auto-redirect if already logged in across tabs
     React.useEffect(() => {
         if (isAuthenticated && user) {
-            if (user.role === 'admin') {
-                navigate('/admin');
-            } else {
-                navigate('/lab');
-            }
+            if (nextUrl) navigate(nextUrl, { replace: true });
+            else navigate(user.role === 'admin' ? '/admin' : '/lab', { replace: true });
         }
-    }, [isAuthenticated, user, navigate]);
+    }, [isAuthenticated, user, navigate, nextUrl]);
 
     const routeAfterAuth = (data) => {
         if (data?.user?.role === 'admin') navigate('/admin');

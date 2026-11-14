@@ -1,0 +1,200 @@
+/* ================================================
+   Global layout + responsive layer
+   ------------------------------------------------
+   Loaded once from index.js. Holds styles that must exist before any
+   lazily-loaded page chunk arrives (page loader, 404/error screen) and
+   mobile overrides for areas whose own stylesheets had no breakpoints.
+   ================================================ */
+
+/* --- Page loader (used by Suspense + ProtectedRoute) --- */
+.loading-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - 70px);
+    gap: 1rem;
+    color: var(--text-secondary);
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--border-color);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: aiml-spin 0.8s linear infinite;
+}
+
+@keyframes aiml-spin {
+    to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .spinner { animation-duration: 2.4s; }
+}
+
+/* --- 404 / error boundary --- */
+.not-found {
+    min-height: calc(100vh - 140px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 0.75rem;
+    padding: 2rem 1rem;
+    color: var(--text-secondary);
+}
+
+.not-found h1 {
+    color: var(--text-primary);
+    font-size: clamp(2rem, 6vw, 3.5rem);
+    margin: 0;
+}
+
+.not-found-link {
+    width: auto !important;
+    display: inline-flex;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+    margin-top: 0.75rem;
+    text-decoration: none;
+}
+
+.admin-denied {
+    text-align: center;
+    padding: 4rem 1rem;
+    color: var(--text-secondary);
+}
+
+/* --- Global safety nets --- */
+img, video, canvas, svg {
+    max-width: 100%;
+}
+
+img, video {
+    height: auto;
+}
+
+/* Wide tables scroll inside their wrapper instead of widening the page. */
+.admin-table-wrap,
+.table-scroll {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Visible keyboard focus everywhere (mouse clicks don't show it). */
+:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+/* ================================================
+   Tablet
+   ================================================ */
+@media (max-width: 900px) {
+    .admin-dashboard {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+    .admin-table th,
+    .admin-table td {
+        white-space: nowrap;
+    }
+}
+
+/* ================================================
+   Phone
+   ================================================ */
+@media (max-width: 600px) {
+    /* Admin console: scrollable tab strip, stacked filters, full-width actions. */
+    .admin-tabs {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+    .admin-tabs::-webkit-scrollbar { display: none; }
+    .admin-tab {
+        flex: 0 0 auto;
+        padding: 0.65rem 0.9rem;
+    }
+    .admin-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .admin-toolbar > * {
+        width: 100%;
+    }
+    .admin-stats-grid {
+        grid-template-columns: 1fr 1fr !important;
+        gap: 0.75rem !important;
+    }
+    .stat-card {
+        padding: 1rem !important;
+    }
+    .stat-value {
+        font-size: 1.5rem !important;
+    }
+
+    /* Dataset library */
+    .dataset-library {
+        padding: 1rem !important;
+    }
+    .dataset-grid {
+        grid-template-columns: 1fr !important;
+        gap: 1rem !important;
+    }
+    .library-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    /* Pricing / checkout */
+    .pricing-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* Run comparison + predict modals fill the screen. */
+    .cmp-overlay {
+        padding: 0 !important;
+        align-items: stretch !important;
+    }
+    .cmp-modal {
+        width: 100% !important;
+        max-width: 100% !important;
+        max-height: 100vh !important;
+        border-radius: 0 !important;
+        overflow-y: auto;
+    }
+    .cmp-charts {
+        grid-template-columns: 1fr !important;
+    }
+    .cmp-table-wrap {
+        overflow-x: auto;
+    }
+
+    /* Fine-tuning model pages */
+    .model-container {
+        padding: 1rem !important;
+    }
+
+    /* Action rows wrap and give each button a comfortable tap target. */
+    .download-section,
+    .modal-actions,
+    .profile-actions,
+    .billing-actions {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    .btn-download-primary,
+    .btn-download-secondary,
+    .btn-download {
+        width: 100%;
+        justify-content: center;
+        white-space: normal;
+        min-height: 44px;
+    }
+}

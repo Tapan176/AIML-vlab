@@ -1,6 +1,5 @@
 /* eslint-disable jsx-a11y/img-redundant-alt */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import constants from '../../constants';
 import api from '../../services/api';
 import { truncateName } from '../../utils/truncateName';
 import { useUI } from '../../context/UIDialog';
@@ -12,30 +11,37 @@ const TAB_UPLOAD = 'upload';
  * Sub-component that fetches thumbnails on-demand for a specific folder
  * when the initial preview didn't include them (e.g. more than 50 images per folder).
  */
+const FOLDER_PAGE_SIZE = 60;
+
 function OnDemandFolderImages({ datasetId, folder, imageCount, renderImageGrid }) {
     const [images, setImages] = useState([]);
     const [loading, setLoading] = useState(false);
     const [fetched, setFetched] = useState(false);
+    const [hasMore, setHasMore] = useState(false);
+
+    // Thumbnails are paginated server-side so a folder with thousands of
+    // images doesn't produce a multi-megabyte response.
+    const loadPage = useCallback((offset) => {
+        setLoading(true);
+        const qs = new URLSearchParams({ folder, offset: String(offset), limit: String(FOLDER_PAGE_SIZE) });
+        return api.get(`/datasets/${datasetId}/folder-images?${qs.toString()}`)
+            .then(data => {
+                setImages(prev => (offset === 0 ? [] : prev).concat(data.thumbnails || []));
+                setHasMore(Boolean(data.has_more));
+            })
+            .catch(err => console.error('Failed to fetch folder images:', err))
+            .finally(() => { setFetched(true); setLoading(false); });
+    }, [datasetId, folder]);
 
     useEffect(() => {
         if (!datasetId || fetched) return;
-        setLoading(true);
-        api.get(`/datasets/${datasetId}/folder-images?folder=${encodeURIComponent(folder)}`)
-        .then(data => {
-            setImages(data.thumbnails || []);
-            setFetched(true);
-        })
-        .catch(err => {
-            console.error('Failed to fetch folder images:', err);
-            setFetched(true);
-        })
-        .finally(() => setLoading(false));
-    }, [datasetId, folder, fetched]);
+        loadPage(0);
+    }, [datasetId, fetched, loadPage]);
 
-    if (loading) {
+    if (loading && images.length === 0) {
         return (
             <div style={{ padding: '15px', textAlign: 'center', color: 'var(--accent)' }}>
-                <span style={{ fontSize: '1.2em' }}>⏳</span> Loading {imageCount} images...
+                <span style={{ fontSize: '1.2em' }}>⏳</span> Loading images...
             </div>
         );
     }
@@ -44,9 +50,16 @@ function OnDemandFolderImages({ datasetId, folder, imageCount, renderImageGrid }
         return (
             <div>
                 <h5 style={{ margin: '10px 0 5px', color: 'var(--text-primary)' }}>
-                    🖼 Images ({imageCount})
+                    🖼 Images ({images.length} of {imageCount})
                 </h5>
                 {renderImageGrid(images)}
+                {hasMore && (
+                    <button type="button" className="btn-secondary" disabled={loading}
+                        onClick={() => loadPage(images.length)}
+                        style={{ marginTop: 8, padding: '6px 14px', borderRadius: 8, cursor: 'pointer' }}>
+                        {loading ? 'Loading…' : `Load more (${imageCount - images.length} remaining)`}
+                    </button>
+                )}
             </div>
         );
     }
@@ -78,6 +91,7 @@ export default function ShowDataset({ onDatasetUpload, initialFilename, onColumn
     // Preview state for cloud datasets
     const [cloudPreview, setCloudPreview] = useState(null);
     const [previewLoading, setPreviewLoading] = useState(false);
+    const [previewDatasetId, setPreviewDatasetId] = useState(null);
 
     // ZIP navigation state
     const [zipCurrentFolder, setZipCurrentFolder] = useState('');
@@ -186,6 +200,7 @@ export default function ShowDataset({ onDatasetUpload, initialFilename, onColumn
     const fetchPreview = useCallback(async (datasetId) => {
         setPreviewLoading(true);
         setCloudPreview(null);
+        setPreviewDatasetId(datasetId);
         try {
             const data = await api.get(`/datasets/${datasetId}/preview`);
             setCloudPreview(data);
@@ -269,20 +284,26 @@ export default function ShowDataset({ onDatasetUpload, initialFilename, onColumn
             if (data.csv_data) {
                 setCsvData(data.csv_data);
                 setImageLinks([]);
+                setCloudPreview(null);
                 onDatasetUpload(data);
                 // Surface columns from the freshly uploaded CSV for column pickers.
-                if (onColumnsDetectedRef.current && Array.isArray(data.csv_data) && data.csv_data.length > 0) {
-                    onColumnsDetectedRef.current(Object.keys(data.csv_data[0]));
-                }
-            } else if (data.image_links) {
-                setImageLinks(data.image_links.map(link => `${constants.API_BASE_URL}/${link}`));
+                const cols = Array.isArray(data.columns) && data.columns.length
+                    ? data.columns
+                    : (Array.isArray(data.csv_data) && data.csv_data.length > 0 ? Object.keys(data.csv_data[0]) : []);
+                if (onColumnsDetectedRef.current && cols.length) onColumnsDetectedRef.current(cols);
+            } else {
+                // Image ZIP: the server keeps the archive on cloud storage, so
+                // load thumbnails through the normal (owner-checked) preview.
+                setImageLinks([]);
                 setCsvData(null);
                 onDatasetUpload(data);
+                if (data.dataset_id) fetchPreview(data.dataset_id);
             }
             setShowDataset(true);
-            setCloudPreview(null);
+            const rows = data.row_count != null ? ` (${data.row_count.toLocaleString()} rows)` : '';
+            notify(`Uploaded ${data.filename}${rows}.`, 'success');
         })
-        .catch(error => console.error('Error uploading file:', error))
+        .catch(error => notify(error.message || 'Upload failed. Please try again.', 'error'))
         .finally(() => setLoading(false));
     }
 
@@ -370,10 +391,11 @@ export default function ShowDataset({ onDatasetUpload, initialFilename, onColumn
         });
         const nonImageFiles = currentFiles.filter(f => !currentImageFiles.includes(f));
 
-        // Determine which images to show
-        const imagesToShow = currentImages.length > 0 ? currentImages : [];
+        // The preview only carries a sample of thumbnails per folder; when a
+        // folder has more images than were sampled, page through them on demand.
         const hasImageFiles = currentImageFiles.length > 0;
-        const needsOnDemandFetch = hasImageFiles && currentImages.length === 0;
+        const needsOnDemandFetch = hasImageFiles && currentImages.length < currentImageFiles.length;
+        const imagesToShow = !needsOnDemandFetch && currentImages.length > 0 ? currentImages : [];
 
         const folderBtnStyle = {
             padding: '8px 14px', borderRadius: '8px',
@@ -457,7 +479,8 @@ export default function ShowDataset({ onDatasetUpload, initialFilename, onColumn
                 {/* On-demand fetch for folders that have image files but no pre-loaded thumbnails */}
                 {needsOnDemandFetch && (
                     <OnDemandFolderImages
-                        datasetId={selectedVersion?._id || selectedDatasetId}
+                        key={`${previewDatasetId || selectedVersion?._id || selectedDatasetId}:${currentFolderKey}`}
+                        datasetId={previewDatasetId || selectedVersion?._id || selectedDatasetId}
                         folder={currentFolderKey}
                         imageCount={currentImageFiles.length}
                         renderImageGrid={renderImageGrid}
@@ -583,7 +606,11 @@ export default function ShowDataset({ onDatasetUpload, initialFilename, onColumn
                     {/* Cloud preview */}
                     {cloudPreview && cloudPreview.preview_type === 'csv' && cloudPreview.rows && (
                         <div>
-                            <h5 style={{ margin: '5px 0' }}>📊 CSV Preview ({cloudPreview.total_rows_shown} rows)</h5>
+                            <h5 style={{ margin: '5px 0' }}>
+                                📊 CSV Preview ({cloudPreview.total_rows != null && cloudPreview.total_rows > cloudPreview.total_rows_shown
+                                    ? `first ${cloudPreview.total_rows_shown} of ${cloudPreview.total_rows.toLocaleString()} rows`
+                                    : `${cloudPreview.total_rows_shown} rows`})
+                            </h5>
                             {renderCSVTable(cloudPreview.columns, cloudPreview.rows)}
                         </div>
                     )}

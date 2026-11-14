@@ -7,6 +7,7 @@ import ModelInfoPanel from '../shared/ModelInfoPanel';
 import useDatasetCache from '../../hooks/useDatasetCache';
 import ColumnSelect from '../shared/ColumnSelect';
 import '../shared/ModelStyles.css';
+import { streamTraining } from '../../services/api';
 
 const MODEL_CODE = 'bert_finetune';
 
@@ -74,59 +75,20 @@ const FinetuneBERT = () => {
         setLogs(['🚀 Starting BERT fine-tuning...']);
 
         try {
-            const { API_URL, TOKEN_KEY } = await import('../../constants');
-            const token = localStorage.getItem(TOKEN_KEY);
-
-            const response = await fetch(`${API_URL}/finetune/bert`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
-                body: JSON.stringify({
+            await streamTraining('/finetune/bert', {
                     filename: datasetData.filename,
                     dataset_id: datasetData.dataset_id || null,
                     text_column: textColumn,
                     label_column: labelColumn,
                     hyperparams,
-                }),
+                }, (parsed) => {
+                if (parsed.log) setLogs(prev => [...prev, parsed.log]);
+                else if (parsed.status === 'completed' || parsed.evaluation_metrics) setResults(parsed);
+                else if (parsed.error) {
+                    setError(parsed.error);
+                    setLogs(prev => [...prev, `❌ Error: ${parsed.error}`]);
+                }
             });
-
-            if (!response.ok) {
-                const err = await response.json();
-                if (response.status === 429 && err && err.error === 'quota_exceeded') {
-                    window.dispatchEvent(new CustomEvent('aiml:quota', { detail: err }));
-                }
-                throw new Error(err.message || err.error || 'Training failed');
-            }
-
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder('utf-8');
-            let buffer = '';
-            let done = false;
-
-            while (!done) {
-                const { value, done: readerDone } = await reader.read();
-                if (value) {
-                    buffer += decoder.decode(value, { stream: true });
-                    const events = buffer.split('\n\n');
-                    buffer = events.pop() || '';
-                    events.forEach(event => {
-                        if (event.startsWith('data: ')) {
-                            try {
-                                const parsed = JSON.parse(event.replace('data: ', ''));
-                                if (parsed.log) {
-                                    setLogs(prev => [...prev, parsed.log]);
-                                } else if (parsed.status === 'completed' || parsed.evaluation_metrics) {
-                                    setResults(parsed);
-                                    try { window.dispatchEvent(new CustomEvent('aiml:trained')); } catch (e) {}
-                                }
-                            } catch (e) {}
-                        }
-                    });
-                }
-                done = readerDone;
-            }
         } catch (err) {
             setError(err.message);
             setLogs(prev => [...prev, `❌ Error: ${err.message}`]);

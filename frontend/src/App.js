@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import { MotionConfig } from 'framer-motion';
 import { AuthProvider } from './context/AuthContext';
@@ -5,23 +6,41 @@ import { ThemeProvider } from './context/ThemeContext';
 import { SubscriptionProvider } from './context/SubscriptionContext';
 import { UIDialogProvider } from './context/UIDialog';
 import Navbar from './components/Navbar/Navbar';
-import LandingPage from './components/LandingPage/LandingPage';
-import Home from './components/Home/Home';
-import Login from './components/Auth/Login';
-import SignUp from './components/Auth/SignUp';
-import ForgotPassword from './components/Auth/ForgotPassword';
-import EditProfile from './components/Profile/EditProfile';
-import ProfilePage from './components/Profile/ProfilePage';
-import Dashboard from './components/Dashboard/Dashboard';
-import AboutUs from './components/AboutUs/AboutUs';
-import Settings from './components/Profile/Settings';
-import ProtectedRoute from './components/Auth/ProtectedRoute';
-import AdminLayout from './components/Admin/AdminLayout';
-import DatasetLibrary from './components/Dataset/DatasetLibrary';
-import DataStudio from './components/Studio/DataStudio';
-import PricingPage from './components/Subscription/PricingPage';
-import Checkout from './components/Subscription/Checkout';
+import ProtectedRoute, { PageLoader } from './components/Auth/ProtectedRoute';
+import ErrorBoundary from './components/shared/ErrorBoundary';
 import './App.css';
+
+// Route-level code splitting: each page (and heavy deps like recharts, the
+// Data Studio and the admin console) is downloaded only when first visited,
+// instead of every visitor paying for the whole app on the landing page.
+const LandingPage = lazy(() => import('./components/LandingPage/LandingPage'));
+const Home = lazy(() => import('./components/Home/Home'));
+const Login = lazy(() => import('./components/Auth/Login'));
+const SignUp = lazy(() => import('./components/Auth/SignUp'));
+const ForgotPassword = lazy(() => import('./components/Auth/ForgotPassword'));
+const ResetPassword = lazy(() => import('./components/Auth/ResetPassword'));
+const EditProfile = lazy(() => import('./components/Profile/EditProfile'));
+const ProfilePage = lazy(() => import('./components/Profile/ProfilePage'));
+const Settings = lazy(() => import('./components/Profile/Settings'));
+const Dashboard = lazy(() => import('./components/Dashboard/Dashboard'));
+const AboutUs = lazy(() => import('./components/AboutUs/AboutUs'));
+const AdminLayout = lazy(() => import('./components/Admin/AdminLayout'));
+const DatasetLibrary = lazy(() => import('./components/Dataset/DatasetLibrary'));
+const DataStudio = lazy(() => import('./components/Studio/DataStudio'));
+const PricingPage = lazy(() => import('./components/Subscription/PricingPage'));
+const Checkout = lazy(() => import('./components/Subscription/Checkout'));
+const NotFound = lazy(() => import('./components/shared/NotFound'));
+
+const protectedRoutes = [
+    ['/checkout', Checkout],
+    ['/lab', Home],
+    ['/datasets', DatasetLibrary],
+    ['/studio', DataStudio],
+    ['/profile', ProfilePage],
+    ['/edit-profile', EditProfile],
+    ['/settings', Settings],
+    ['/dashboard', Dashboard],
+];
 
 function App() {
     return (
@@ -32,61 +51,30 @@ function App() {
                     <UIDialogProvider>
                     <SubscriptionProvider>
                     <Navbar />
-                    <div className="app-content">
-                        <Routes>
-                            <Route path="/" element={<LandingPage />} />
-                            <Route path="/pricing" element={<PricingPage />} />
-                            <Route path="/checkout" element={
-                                <ProtectedRoute>
-                                    <Checkout />
-                                </ProtectedRoute>
-                            } />
-                            <Route path="/lab" element={
-                                <ProtectedRoute>
-                                    <Home />
-                                </ProtectedRoute>
-                            } />
-                            <Route path="/about" element={<AboutUs />} />
-                            <Route path="/datasets" element={
-                                <ProtectedRoute>
-                                    <DatasetLibrary />
-                                </ProtectedRoute>
-                            } />
-                            <Route path="/login" element={<Login />} />
-                            <Route path="/signup" element={<SignUp />} />
-                            <Route path="/forgot-password" element={<ForgotPassword />} />
-                            <Route path="/studio" element={
-                                <ProtectedRoute>
-                                    <DataStudio />
-                                </ProtectedRoute>
-                            } />
-                            <Route path="/profile" element={
-                                <ProtectedRoute>
-                                    <ProfilePage />
-                                </ProtectedRoute>
-                            } />
-                            <Route path="/edit-profile" element={
-                                <ProtectedRoute>
-                                    <EditProfile />
-                                </ProtectedRoute>
-                            } />
-                            <Route path="/settings" element={
-                                <ProtectedRoute>
-                                    <Settings />
-                                </ProtectedRoute>
-                            } />
-                            <Route path="/dashboard" element={
-                                <ProtectedRoute>
-                                    <Dashboard />
-                                </ProtectedRoute>
-                            } />
-                            <Route path="/admin" element={
-                                <ProtectedRoute>
-                                    <AdminLayout />
-                                </ProtectedRoute>
-                            } />
-                        </Routes>
-                    </div>
+                    <main className="app-content">
+                        <ErrorBoundary>
+                            <Suspense fallback={<PageLoader />}>
+                                <Routes>
+                                    <Route path="/" element={<LandingPage />} />
+                                    <Route path="/pricing" element={<PricingPage />} />
+                                    <Route path="/about" element={<AboutUs />} />
+                                    <Route path="/login" element={<Login />} />
+                                    <Route path="/signup" element={<SignUp />} />
+                                    <Route path="/forgot-password" element={<ForgotPassword />} />
+                                    <Route path="/reset-password" element={<ResetPassword />} />
+                                    {protectedRoutes.map(([path, Page]) => (
+                                        <Route key={path} path={path} element={
+                                            <ProtectedRoute><Page /></ProtectedRoute>
+                                        } />
+                                    ))}
+                                    <Route path="/admin" element={
+                                        <ProtectedRoute adminOnly><AdminLayout /></ProtectedRoute>
+                                    } />
+                                    <Route path="*" element={<NotFound />} />
+                                </Routes>
+                            </Suspense>
+                        </ErrorBoundary>
+                    </main>
                     </SubscriptionProvider>
                     </UIDialogProvider>
                     </MotionConfig>

@@ -1,116 +1,97 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useUI } from '../../context/UIDialog';
-import { API_URL } from '../../constants';
+import api from '../../services/api';
 import './AdminDashboard.css';
 
+const STAT_CARDS = [
+    ['total_users', 'Total users'],
+    ['active_users_7d', 'Active (7 days)'],
+    ['new_users_today', 'New today'],
+    ['deactivated_users', 'Deactivated'],
+    ['total_sessions', 'Training sessions'],
+    ['running_sessions', 'Running now'],
+    ['total_datasets', 'Datasets'],
+    ['open_feedback', 'Open feedback'],
+];
+
 const AdminDashboard = () => {
-    const { user, token } = useAuth();
+    const { user } = useAuth();
     const { notify, confirm } = useUI();
     const [stats, setStats] = useState(null);
     const [datasets, setDatasets] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    useEffect(() => {
-        const fetchAdminData = async () => {
-            try {
-                setLoading(true);
-                const [statsRes, dsRes] = await Promise.all([
-                    fetch(`${API_URL}/admin/stats`, {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    }),
-                    fetch(`${API_URL}/admin/datasets/default`, {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    })
-                ]);
-
-                if (!statsRes.ok || !dsRes.ok) throw new Error("Failed to fetch admin data.");
-
-                const statsData = await statsRes.json();
-                const dsData = await dsRes.json();
-
-                setStats(statsData);
-                setDatasets(dsData.datasets);
-                setError(null);
-            } catch (err) {
-                setError(err.message);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        if (user && user.role === 'admin') {
-            fetchAdminData();
+    const load = useCallback(async () => {
+        setLoading(true);
+        try {
+            const [statsData, dsData] = await Promise.all([
+                api.get('/admin/stats', { force: true }),
+                api.get('/admin/datasets/default', { force: true }),
+            ]);
+            setStats(statsData);
+            setDatasets(dsData.datasets || []);
+            setError(null);
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
         }
-    }, [user, token]);
+    }, []);
+
+    useEffect(() => { load(); }, [load]);
 
     const handleDeleteDataset = async (datasetId) => {
         const ok = await confirm({
             title: 'Remove default dataset?',
-            message: 'Are you sure you want to remove this default dataset?',
+            message: 'It will no longer appear in the public dataset library.',
             confirmText: 'Remove',
             danger: true,
         });
         if (!ok) return;
         try {
-            const res = await fetch(`${API_URL}/admin/datasets/default/${datasetId}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (res.ok) {
-                setDatasets(datasets.filter(d => d._id !== datasetId));
-                notify('Default dataset removed.', 'success');
-            } else {
-                notify('Failed to delete dataset', 'error');
-            }
+            await api.delete(`/admin/datasets/default/${datasetId}`);
+            setDatasets((list) => list.filter((d) => d._id !== datasetId));
+            notify('Default dataset removed.', 'success');
         } catch (err) {
-            console.error(err);
-            notify('Failed to delete dataset', 'error');
+            notify(err.message || 'Failed to delete dataset', 'error');
         }
     };
 
-    if (!user || user.role !== 'admin') {
+    if (loading) return <div className="admin-loading">Loading admin dashboard…</div>;
+    if (error) {
         return (
-            <div className="admin-denied">
-                <h2>Access Denied</h2>
-                <p>You do not have administrative privileges to view this page.</p>
+            <div className="admin-error">
+                <p>Error: {error}</p>
+                <button type="button" className="admin-btn" onClick={load}>Retry</button>
             </div>
         );
     }
-
-    if (loading) return <div className="admin-loading">Loading Admin Dashboard...</div>;
-    if (error) return <div className="admin-error">Error: {error}</div>;
 
     return (
         <div className="admin-dashboard">
             <header className="admin-header">
                 <h1>Platform Administration</h1>
-                <p>Welcome back, Administrator {user.first_name}</p>
+                <p>Welcome back, {user?.first_name}</p>
             </header>
 
             <div className="admin-stats-grid">
-                <div className="stat-card">
-                    <h3>Total Users</h3>
-                    <div className="stat-value">{stats?.total_users || 0}</div>
-                </div>
-                <div className="stat-card">
-                    <h3>Training Sessions</h3>
-                    <div className="stat-value">{stats?.total_sessions || 0}</div>
-                </div>
-                <div className="stat-card">
-                    <h3>Datasets Uploaded</h3>
-                    <div className="stat-value">{stats?.total_datasets || 0}</div>
-                </div>
+                {STAT_CARDS.map(([key, label]) => (
+                    <div className="stat-card" key={key}>
+                        <h3>{label}</h3>
+                        <div className="stat-value">{(stats?.[key] ?? 0).toLocaleString()}</div>
+                    </div>
+                ))}
             </div>
 
             <div className="admin-content">
                 <div className="admin-section models-chart">
-                    <h2>Training by Model</h2>
+                    <h2>Training by model</h2>
                     <ul className="model-stats-list">
-                        {stats?.sessions_by_model?.map((m, idx) => (
-                            <li key={idx}>
-                                <span>{m._id}</span>
+                        {stats?.sessions_by_model?.map((m) => (
+                            <li key={m._id || 'unknown'}>
+                                <span>{m._id || 'unknown'}</span>
                                 <strong>{m.count}</strong>
                             </li>
                         ))}
@@ -118,39 +99,37 @@ const AdminDashboard = () => {
                 </div>
 
                 <div className="admin-section dataset-manager">
-                    <h2>Default Datasets Library</h2>
-                    <p className="section-desc">Manage the curated list of default datasets available to all users.</p>
-                    
+                    <h2>Default datasets library</h2>
+                    <p className="section-desc">The curated datasets available to every user.</p>
                     {datasets.length === 0 ? (
-                        <p className="no-data">No default datasets currently marked in the library.</p>
+                        <p className="no-data">No default datasets in the library yet.</p>
                     ) : (
-                        <table className="admin-table">
-                            <thead>
-                                <tr>
-                                    <th>Filename</th>
-                                    <th>Type</th>
-                                    <th>Upload Date</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {datasets.map((d) => (
-                                    <tr key={d._id}>
-                                        <td>{d.filename}</td>
-                                        <td>{d.file_type}</td>
-                                        <td>{new Date(d.uploaded_at).toLocaleDateString()}</td>
-                                        <td>
-                                            <button 
-                                                className="btn-danger-small"
-                                                onClick={() => handleDeleteDataset(d._id)}
-                                            >
-                                                Remove 🗑️
-                                            </button>
-                                        </td>
+                        <div className="admin-table-wrap">
+                            <table className="admin-table">
+                                <thead>
+                                    <tr>
+                                        <th>Filename</th>
+                                        <th>Type</th>
+                                        <th>Uploaded</th>
+                                        <th>Actions</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody>
+                                    {datasets.map((d) => (
+                                        <tr key={d._id}>
+                                            <td>{d.filename}</td>
+                                            <td>{d.file_type}</td>
+                                            <td>{d.uploaded_at ? new Date(d.uploaded_at).toLocaleDateString() : '—'}</td>
+                                            <td>
+                                                <button type="button" className="btn-danger-small" onClick={() => handleDeleteDataset(d._id)}>
+                                                    Remove
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     )}
                 </div>
             </div>

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { API_URL } from '../../constants';
+import api from '../../services/api';
 import './Auth.css';
 
 const ForgotPassword = () => {
@@ -16,19 +16,10 @@ const ForgotPassword = () => {
         setLoading(true);
 
         try {
-            const res = await fetch(`${API_URL}/forgot-password`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email })
-            });
-            const data = await res.json();
-            if (res.ok) {
-                setMessage('Password reset instructions have been sent to your email.');
-            } else {
-                setError(data.error || 'Failed to send reset email');
-            }
-        } catch {
-            setError('Network error. Please try again.');
+            await api.publicPost('/forgot-password', { email });
+            setMessage('If an account exists for that email, a reset link is on its way. Check your inbox (and spam folder).');
+        } catch (err) {
+            setError(err.message || 'Network error. Please try again.');
         }
         setLoading(false);
     };

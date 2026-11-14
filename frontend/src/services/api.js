@@ -14,6 +14,7 @@
  */
 
 import { API_URL, TOKEN_KEY } from '../constants';
+import { friendlyError } from '../utils/errorMessages';
 
 const API_BASE = API_URL;
 
@@ -77,33 +78,141 @@ async function parseBody(res) {
     }
 }
 
+function _expireSession() {
+    localStorage.removeItem(TOKEN_KEY);
+    clearCache();
+    const here = window.location.pathname + window.location.search;
+    if (!window.location.pathname.startsWith('/login')) {
+        window.location.href = `/login?next=${encodeURIComponent(here)}`;
+    }
+}
+
+function _toError(res, data) {
+    // Subscription quota hit — broadcast so a global upgrade modal can show.
+    // Covers both monthly run quotas and the per-account storage (dataset)
+    // cap so users get the friendly upgrade prompt instead of a raw error.
+    if (res.status === 429 && data &&
+        (data.error === 'quota_exceeded' || data.error === 'storage_quota_exceeded')) {
+        try {
+            window.dispatchEvent(new CustomEvent('aiml:quota', { detail: data }));
+        } catch (e) { /* non-browser env */ }
+    }
+    // Prefer a human-readable `message` over the machine `error` code, and
+    // translate known codes into plain language.
+    const err = new Error(data?.message || friendlyError(data?.error) || `Request failed (${res.status})`);
+    err.status = res.status;
+    err.code = data?.error;
+    err.data = data;
+    return err;
+}
+
 async function handleResponse(res) {
     const data = await parseBody(res);
     if (res.status === 401) {
-        // Token expired — clear and redirect
-        localStorage.removeItem(TOKEN_KEY);
-        clearCache();
-        window.location.href = '/login';
-        throw new Error('Session expired');
+        _expireSession();
+        throw new Error('Your session has expired. Please sign in again.');
     }
-    if (!res.ok) {
-        // Subscription quota hit — broadcast so a global upgrade modal can show.
-        // Covers both monthly run quotas and the per-account storage (dataset)
-        // cap so users get the friendly upgrade prompt instead of a raw error.
-        if (res.status === 429 && data &&
-            (data.error === 'quota_exceeded' || data.error === 'storage_quota_exceeded')) {
-            try {
-                window.dispatchEvent(new CustomEvent('aiml:quota', { detail: data }));
-            } catch (e) { /* non-browser env */ }
-        }
-        // Prefer a human-readable `message` (quota errors set it) over the
-        // machine `error` code.
-        const err = new Error(data.message || data.error || `Request failed (${res.status})`);
-        err.status = res.status;
-        err.data = data;
-        throw err;
-    }
+    if (!res.ok) throw _toError(res, data);
     return data;
+}
+
+/**
+ * POST to a Server-Sent-Events training endpoint and dispatch each event.
+ *
+ * Events are buffered across network chunks: the previous per-component
+ * parsers split each chunk on "\n\n" independently, so any event that
+ * straddled two chunks — typically the large final results payload with
+ * base64 images — was silently dropped and the run looked like it never
+ * finished.
+ *
+ * @param {string} endpoint  e.g. '/cnn'
+ * @param {object} body      JSON body
+ * @param {(event: object) => void} onEvent  called with each parsed `data:` object
+ * @param {{signal?: AbortSignal}} [opts]
+ * @returns {Promise<void>} resolves when the stream ends
+ */
+export async function streamTraining(endpoint, body, onEvent, { signal } = {}) {
+    const res = await fetch(`${API_BASE}${endpoint}`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(body),
+        signal,
+    });
+    if (res.status === 401) {
+        _expireSession();
+        throw new Error('Your session has expired. Please sign in again.');
+    }
+    if (!res.ok) throw _toError(res, await parseBody(res));
+    if (!res.body || !res.body.getReader) {
+        // Very old browsers: fall back to reading the whole stream at once.
+        const text = await res.text();
+        text.split('\n\n').forEach(evt => _dispatchSse(evt, onEvent));
+        return;
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    let buffer = '';
+    for (;;) {
+        const { value, done } = await reader.read();
+        if (value) buffer += decoder.decode(value, { stream: true });
+        if (done) buffer += decoder.decode();
+        let idx;
+        while ((idx = buffer.indexOf('\n\n')) !== -1) {
+            const evt = buffer.slice(0, idx);
+            buffer = buffer.slice(idx + 2);
+            _dispatchSse(evt, onEvent);
+        }
+        if (done) break;
+    }
+    if (buffer.trim()) _dispatchSse(buffer, onEvent);
+    clearCache('/training-sessions');
+}
+
+function _dispatchSse(rawEvent, onEvent) {
+    // An event may span several `data:` lines; join them per the SSE spec.
+    const payload = rawEvent
+        .split('\n')
+        .filter(line => line.startsWith('data:'))
+        .map(line => line.slice(5).replace(/^ /, ''))
+        .join('\n');
+    if (!payload) return;
+    let parsed;
+    try {
+        parsed = JSON.parse(payload);
+    } catch (e) {
+        try {
+            parsed = JSON.parse(payload.replace(/\bNaN\b/g, 'null').replace(/-?\bInfinity\b/g, 'null'));
+        } catch (e2) {
+            return;
+        }
+    }
+    if (parsed && (parsed.status === 'completed' || parsed.status === 'training_complete')) {
+        try { window.dispatchEvent(new CustomEvent('aiml:trained')); } catch (e) { /* ignore */ }
+    }
+    onEvent(parsed);
+}
+
+/** Download an authenticated file endpoint and save it via a temporary link. */
+export async function downloadFile(endpoint, fallbackName = 'download') {
+    const res = await fetch(`${API_BASE}${endpoint}`, { headers: getHeaders(true, false) });
+    if (res.status === 401) {
+        _expireSession();
+        throw new Error('Your session has expired. Please sign in again.');
+    }
+    if (!res.ok) throw _toError(res, await parseBody(res));
+    const disposition = res.headers.get('Content-Disposition') || '';
+    const match = disposition.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i);
+    const name = match ? decodeURIComponent(match[1]) : fallbackName;
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 export const api = {
@@ -171,6 +280,18 @@ export const api = {
         return data;
     },
 
+    // Authenticated upload with PUT (profile photo).
+    uploadPut: async (endpoint, formData) => {
+        const res = await fetch(`${API_BASE}${endpoint}`, {
+            method: 'PUT',
+            headers: getHeaders(true, false),
+            body: formData
+        });
+        const data = await handleResponse(res);
+        clearCache();
+        return data;
+    },
+
     put: async (endpoint, body) => {
         const res = await fetch(`${API_BASE}${endpoint}`, {
             method: 'PUT',
@@ -204,20 +325,24 @@ export const api = {
         return data;
     },
 
-    // Unprotected post (for login/signup)
+    // Unprotected post (login/signup/OTP/password reset). A 401 here means
+    // "wrong credentials", not "session expired", so it must NOT redirect.
     publicPost: async (endpoint, body) => {
         const res = await fetch(`${API_BASE}${endpoint}`, {
             method: 'POST',
             headers: getHeaders(false),
             body: JSON.stringify(body)
         });
-        return handleResponse(res);
+        const data = await parseBody(res);
+        if (!res.ok) throw _toError(res, data);
+        return data;
     },
 
-    delete: async (endpoint) => {
+    delete: async (endpoint, body) => {
         const res = await fetch(`${API_BASE}${endpoint}`, {
             method: 'DELETE',
-            headers: getHeaders()
+            headers: getHeaders(),
+            body: body === undefined ? undefined : JSON.stringify(body),
         });
         const data = await handleResponse(res);
         clearCache();

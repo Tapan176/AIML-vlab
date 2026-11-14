@@ -48,8 +48,10 @@ AIML-vlab/
 Create a `.env` file inside `frontend/` (or set in your hosting provider):
 
 ```env
-REACT_APP_API_URL=http://127.0.0.1:5050
+REACT_APP_API_URL=http://127.0.0.1:5050/api
 ```
+
+(All backend routes live under `/api`; this is also the default when the variable is unset.)
 
 All env variables are centralized in `frontend/src/config.js`. **Never use `process.env` directly outside `config.js`.**
 

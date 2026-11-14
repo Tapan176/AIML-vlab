@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import useReplaySession from '../../hooks/useReplaySession';
-import constants from '../../constants';
 import ShowDataset from '../Dataset/ShowDataset';
 import DownloadTrainedModel from '../DownloadTrainedModel/DownloadTrainedModel';
 import DownloadResultsZip from '../DownloadResultsZip/DownloadResultsZip';
@@ -9,6 +8,7 @@ import ModelInfoPanel from '../shared/ModelInfoPanel';
 import useDatasetCache from '../../hooks/useDatasetCache';
 import { formatMetric } from '../../utils/formatMetric';
 import '../ModelCss/ModelPage.css';
+import { streamTraining } from '../../services/api';
 
 const MODEL_CODE = 'yolo';
 
@@ -46,50 +46,11 @@ export default function ObjectDetection() {
                 hyperparams,
             };
 
-            const response = await fetch(`${constants.API_URL}/yolo`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem(constants.TOKEN_KEY)}`
-                },
-                body: JSON.stringify(bodyPayload)
+            await streamTraining('/yolo', bodyPayload, (parsed) => {
+                if (parsed.log) setLogs(prev => [...prev, parsed.log]);
+                else if (parsed.status === 'completed' || parsed.status === 'training_complete') setResults(parsed);
+                else if (parsed.error) setError(parsed.error);
             });
-
-            if (!response.ok) {
-                const errData = await response.json();
-                if (response.status === 429 && errData && errData.error === 'quota_exceeded') {
-                    window.dispatchEvent(new CustomEvent('aiml:quota', { detail: errData }));
-                }
-                throw new Error(errData.message || errData.error || 'Training failed');
-            }
-
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder('utf-8');
-            let done = false;
-
-            while (!done) {
-                const { value, done: readerDone } = await reader.read();
-                done = readerDone;
-                if (value) {
-                    const chunk = decoder.decode(value, { stream: true });
-                    const events = chunk.split('\n\n');
-                    events.forEach(event => {
-                        if (event.startsWith('data: ')) {
-                            try {
-                                const parsed = JSON.parse(event.replace('data: ', ''));
-                                if (parsed.log) {
-                                    setLogs(prev => [...prev, parsed.log]);
-                                } else if (parsed.status === 'completed' || parsed.status === 'training_complete') {
-                                    setResults(parsed);
-                                    try { window.dispatchEvent(new CustomEvent('aiml:trained')); } catch (e) {}
-                                } else if (parsed.error) {
-                                    setError(parsed.error);
-                                }
-                            } catch (e) { }
-                        }
-                    });
-                }
-            }
         } catch (err) { setError(err.message); }
         finally { setLoading(false); }
     };
