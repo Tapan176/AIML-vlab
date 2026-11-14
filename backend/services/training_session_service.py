@@ -26,20 +26,23 @@ def create_session(user_id, model_code, hyperparams, dataset_id=None, dataset_co
     )
     version = (latest['version'] + 1) if latest else 1
 
-    # Look up dataset metadata if dataset_id provided
+    # Look up dataset metadata if dataset_id provided. Only datasets the user
+    # owns (or curated defaults) are linked — otherwise a client could attach
+    # another user's dataset id and have its metadata/drive_id copied into
+    # their own session record.
     dataset_info = None
     if dataset_id:
-        try:
-            ds = db.datasets.find_one({'_id': ObjectId(dataset_id)})
-            if ds:
-                dataset_info = {
-                    'dataset_id': str(ds['_id']),
-                    'filename': ds.get('filename'),
-                    'file_type': ds.get('file_type'),
-                    'drive_id': ds.get('drive_id'),
-                }
-        except Exception:
-            pass
+        from services.dataset_service import get_accessible_dataset
+        ds = get_accessible_dataset(user_id, dataset_id, {'filename': 1, 'file_type': 1, 'drive_id': 1})
+        if ds:
+            dataset_info = {
+                'dataset_id': ds['_id'],
+                'filename': ds.get('filename'),
+                'file_type': ds.get('file_type'),
+                'drive_id': ds.get('drive_id'),
+            }
+        else:
+            dataset_id = None
 
     session = {
         'user_id': str(user_id),
@@ -363,7 +366,10 @@ def request_session_cancel(session_id, user_id):
     flag was set on a session the user owns, else raises.
     """
     db = get_db()
-    session = db.training_sessions.find_one({'_id': ObjectId(session_id)})
+    try:
+        session = db.training_sessions.find_one({'_id': ObjectId(session_id)})
+    except Exception:
+        session = None
     if not session:
         raise Exception("session_not_found")
     if session.get('user_id') != str(user_id):
@@ -479,25 +485,66 @@ def get_session_progress(session_id):
     }
 
 
-def get_user_sessions(user_id, model_code=None):
-    """Get all training sessions for a user, optionally filtered by model."""
+# Heavy per-run field that list views never render (fetched per session via
+# /progress when a run is opened). progress_metrics stays: the Dashboard's
+# run-comparison chart draws curves from it.
+_SESSION_LIST_PROJECTION = {'progress_logs': 0}
+
+
+def get_user_sessions(user_id, model_code=None, status=None, limit=None, skip=0):
+    """Training sessions for a user, newest first, without the heavy log arrays.
+
+    `limit=None` keeps the old "return everything" behaviour for existing
+    callers; pass limit/skip to paginate.
+    """
     db = get_db()
     query = {'user_id': str(user_id)}
-    if model_code:
+    if isinstance(model_code, str) and model_code:
         query['model_code'] = model_code
+    if isinstance(status, str) and status:
+        query['status'] = status
 
-    sessions = list(db.training_sessions.find(query).sort('created_at', -1))
-
+    cursor = db.training_sessions.find(query, _SESSION_LIST_PROJECTION).sort('created_at', -1)
+    if skip:
+        cursor = cursor.skip(int(skip))
+    if limit:
+        cursor = cursor.limit(int(limit))
+    sessions = list(cursor)
     for s in sessions:
         s['_id'] = str(s['_id'])
-
     return sessions
+
+
+def count_user_sessions(user_id, model_code=None, status=None):
+    query = {'user_id': str(user_id)}
+    if isinstance(model_code, str) and model_code:
+        query['model_code'] = model_code
+    if isinstance(status, str) and status:
+        query['status'] = status
+    return get_db().training_sessions.count_documents(query)
+
+
+def count_running_sessions(user_id):
+    """Live streaming runs for the user (ignores 'running' rows abandoned by a
+    crash/restart longer ago than STALE_RUNNING_SESSION_HOURS)."""
+    from datetime import timedelta
+    from config import STALE_RUNNING_SESSION_HOURS
+    cutoff = datetime.utcnow() - timedelta(hours=STALE_RUNNING_SESSION_HOURS)
+    return get_db().training_sessions.count_documents({
+        'user_id': str(user_id),
+        'status': {'$in': ['pending', 'running']},
+        'created_at': {'$gte': cutoff},
+    })
 
 
 def get_session(session_id):
     """Get a single training session by ID."""
     db = get_db()
-    session = db.training_sessions.find_one({'_id': ObjectId(session_id)})
+    try:
+        oid = ObjectId(session_id)
+    except Exception:
+        raise Exception("session_not_found")
+    session = db.training_sessions.find_one({'_id': oid})
 
     if not session:
         raise Exception("session_not_found")
@@ -509,7 +556,10 @@ def get_session(session_id):
 def delete_session(session_id, user_id):
     """Delete a training session: remove from DB and delete trained model from Drive."""
     db = get_db()
-    session = db.training_sessions.find_one({'_id': ObjectId(session_id)})
+    try:
+        session = db.training_sessions.find_one({'_id': ObjectId(session_id)})
+    except Exception:
+        session = None
 
     if not session:
         raise Exception("session_not_found")

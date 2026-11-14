@@ -8,11 +8,14 @@ app.py binds them with `limiter.init_app(app)` at startup.
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
+from config import RATELIMIT_STORAGE_URI
+
 # Global default limits apply to every route; sensitive routes (e.g. auth) add
-# stricter per-route limits via @limiter.limit(...). Use a Redis storage_uri in
-# production so limits are shared across workers and survive restarts.
+# stricter per-route limits via @limiter.limit(...). Set RATELIMIT_STORAGE_URI
+# to a Redis URL in production so limits are shared across workers and survive
+# restarts.
 limiter = Limiter(
     key_func=get_remote_address,
     default_limits=["2000 per day", "500 per hour"],
-    storage_uri="memory://",
+    storage_uri=RATELIMIT_STORAGE_URI,
 )

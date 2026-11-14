@@ -1,9 +1,11 @@
 """
-Model routes — endpoints for training all 11 ML models.
-Supports hyperparameter tuning, user-scoped storage, and training sessions.
+Model routes — training endpoints for every model, plus training-session
+management (list / detail / progress / images / cancel / delete / predict).
 """
-from flask import Blueprint, request, jsonify
+import logging
 import math
+
+from flask import Blueprint, request, jsonify
 from auth.auth_middleware import token_required
 from services.hyperparam_validator import validate_hyperparams, get_model_schema
 from services.training_session_service import create_session, update_session_results, update_session_error, get_user_sessions, get_session, delete_session, get_session_progress
@@ -26,6 +28,7 @@ from models.sentimentAnalysis.sentimentAnalysis import train_sentiment_analysis
 from models.textClassification.textClassification import train_text_classification
 
 model_routes = Blueprint('model_routes', __name__)
+log = logging.getLogger(__name__)
 
 
 def _sanitize_for_json(value):
@@ -48,7 +51,9 @@ def _sanitize_for_json(value):
         return [_sanitize_for_json(v) for v in value]
     return value
 
-# Map model codes to training functions
+# Map model codes to training functions. Heavy/optional dependencies are
+# referenced as "module:function" strings and imported on first use (keeps
+# startup fast and lets the app boot without e.g. xgboost installed).
 MODEL_FUNCTIONS = {
     'simple_linear_regression': simpleLinearRegression,
     'multivariable_linear_regression': multivariateLinearRegression,
@@ -63,173 +68,166 @@ MODEL_FUNCTIONS = {
     'gradient_boosting': train_gradient_boosting,
     'sentiment_analysis': train_sentiment_analysis,
     'text_classification': train_text_classification,
-    # CNN/ANN omitted — handled via lazy import
-    # XGBoost omitted — handled via lazy import
+    'xgboost': 'models.xgboost.xgboost_model:train_xgboost',
 }
 
 
-def _train_model(model_code, request_obj, current_user=None):
-    """Generic model training handler with hyperparameter validation and session tracking."""
-    data = request_obj.get_json() or {}
+# matplotlib's pyplot keeps a process-global "current figure", so two
+# classical runs plotting at the same time in one process (threaded dev
+# server, or gunicorn --threads > 1) draw into each other's charts. Classical
+# fits are short, so we serialise them per process; with the default of one
+# thread per gunicorn worker this lock is never contended.
+import threading
+_PLOT_LOCK = threading.Lock()
 
-    # Extract hyperparams from request
-    user_hyperparams = data.get('hyperparams', {})
+
+def _resolve_train_fn(model_code):
+    fn = MODEL_FUNCTIONS[model_code]
+    if isinstance(fn, str):
+        import importlib
+        module_name, attr = fn.split(':')
+        fn = getattr(importlib.import_module(module_name), attr)
+        MODEL_FUNCTIONS[model_code] = fn
+    return fn
+
+
+def _images_to_base64(paths):
+    """Inline the run's plot files as data URLs (the files are deleted after
+    being zipped to Drive, so the client can't fetch them later)."""
+    import base64
+    import os
+    out = []
+    for img_path in paths or []:
+        if img_path and os.path.isfile(img_path):
+            ext = os.path.splitext(img_path)[1].lower()
+            mime = "image/jpeg" if ext in ('.jpg', '.jpeg') else "image/png"
+            with open(img_path, "rb") as fh:
+                out.append(f"data:{mime};base64,{base64.b64encode(fh.read()).decode('ascii')}")
+    return out
+
+
+def _extract_metrics(results):
+    """Metrics to persist on the session. Prefers `evaluation_metrics`, then a
+    nested `results` dict; otherwise keeps top-level scalar numbers only (so
+    big arrays like `predictions` never get written into the session doc)."""
+    for key in ('evaluation_metrics', 'results'):
+        if isinstance(results.get(key), dict) and results[key]:
+            return dict(results[key])
+    return {
+        k: v for k, v in results.items()
+        if isinstance(v, (int, float)) and not isinstance(v, bool)
+    }
+
+
+def _cleanup_run_dirs(paths):
+    """Remove the per-run image directories once their files are uploaded."""
+    import os
+    import shutil
+    for d in {os.path.dirname(p) for p in paths or [] if p}:
+        if os.path.isdir(d):
+            shutil.rmtree(d, ignore_errors=True)
+
+
+def _train_model(model_code, request_obj, current_user):
+    """Generic synchronous training handler: validate → quota → session →
+    train → upload artifacts → respond."""
+    data = request_obj.get_json(silent=True) or {}
+    if not isinstance(data, dict):
+        return jsonify({"error": "Request body must be a JSON object"}), 400
 
     try:
-        # Validate hyperparameters
-        validated_params = validate_hyperparams(model_code, user_hyperparams)
+        validated_params = validate_hyperparams(model_code, data.get('hyperparams') or {})
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
-    # Inject validated hyperparams into the data
-    data['validated_hyperparams'] = validated_params
-
-    # Create a training session if user is logged in
-    session_id = None
-    user_id = current_user['_id'] if current_user else None
-
-    if user_id:
-        # Enforce subscription quota (no-op unless SUBSCRIPTION_ENABLED).
-        from services.subscription_service import check_quota, record_usage
-        ok, info = check_quota(current_user, model_code)
-        if not ok:
-            return jsonify(info), 429
-
-        dataset_id = data.get('dataset_id')
-        session = create_session(user_id, model_code, validated_params, dataset_id)
-        session_id = session['_id']
-        record_usage(user_id, model_code)
-        data['user_id'] = user_id
-        data['session_id'] = session_id
-        data['session_version'] = session['version']
-
     try:
-        # Call the model's training function
-        train_fn = MODEL_FUNCTIONS[model_code]
-        results = train_fn(request_obj, validated_params=validated_params, user_id=user_id, session_version=session.get('version') if user_id else None)
+        train_fn = _resolve_train_fn(model_code)
+    except ImportError as e:
+        return jsonify({"error": f"{model_code} is not available on this server: {e}"}), 501
+
+    user_id = current_user['_id']
+
+    # Enforce subscription quota (no-op unless SUBSCRIPTION_ENABLED).
+    from services.subscription_service import check_quota, record_usage
+    ok, info = check_quota(current_user, model_code)
+    if not ok:
+        return jsonify(info), 429
+
+    session = create_session(user_id, model_code, validated_params, data.get('dataset_id'))
+    session_id = session['_id']
+    record_usage(user_id, model_code)
+
+    output_image_urls = []
+    try:
+        with _PLOT_LOCK:
+            results = train_fn(request_obj, validated_params=validated_params,
+                               user_id=user_id, session_version=session['version'])
 
         if isinstance(results, dict) and results.get('error'):
-            if session_id:
-                update_session_error(session_id, results['error'])
-            return jsonify({"error": results['error']}), 400
+            update_session_error(session_id, results['error'])
+            return jsonify({"error": results['error'], "session_id": session_id}), 400
 
-        output_image_urls = results.get('outputImageUrls', [])
-        
-        # Base64 encode images for frontend display before they get deleted
-        import base64
-        import os
-        output_image_base64 = []
-        for img_path in output_image_urls:
-            if os.path.exists(img_path):
-                with open(img_path, "rb") as image_file:
-                    b64 = base64.b64encode(image_file.read()).decode('utf-8')
-                    ext = os.path.splitext(img_path)[1].lower()
-                    mime_type = "image/png"
-                    if ext in ['.jpg', '.jpeg']:
-                        mime_type = "image/jpeg"
-                    output_image_base64.append(f"data:{mime_type};base64,{b64}")
-                    
-        results['outputImageBase64'] = output_image_base64
+        output_image_urls = results.get('outputImageUrls', []) or []
+        results['outputImageBase64'] = _images_to_base64(output_image_urls)
 
-        # Update session with results
-        if session_id:
-            db_results = update_session_results(
-                session_id,
-                results.get('evaluation_metrics') or results.get('results') or results,
-                output_image_urls,
-                results.get('trained_model_path', ''),
-                results.get('predictions_output_file', '')
-            )
-            # Merge DB results (with Drive IDs) back into the response results
-            results.update(db_results)
-            results['session_id'] = session_id
-
+        db_results = update_session_results(
+            session_id,
+            _extract_metrics(results),
+            output_image_urls,
+            results.get('trained_model_path', ''),
+            results.get('predictions_output_file', ''),
+        )
+        results.update(db_results)
+        results['session_id'] = session_id
+        # Local filesystem paths mean nothing to the client.
+        results.pop('trained_model_path', None)
+        results.pop('predictions_output_file', None)
         return jsonify(_sanitize_for_json(results)), 200
 
+    except (ValueError, FileNotFoundError, KeyError) as e:
+        # Data problems (bad columns, missing dataset, wrong target type…) are
+        # the user's to fix — surface the message.
+        update_session_error(session_id, str(e))
+        return jsonify({"error": str(e), "session_id": session_id}), 400
     except Exception as e:
-        if session_id:
-            update_session_error(session_id, str(e))
-        return jsonify({"error": str(e)}), 500
+        log.exception("Training failed for %s (session %s)", model_code, session_id)
+        update_session_error(session_id, str(e))
+        return jsonify({"error": "Training failed due to a server error.", "session_id": session_id}), 500
+    finally:
+        _cleanup_run_dirs(output_image_urls)
 
 
-# --- Model Training Endpoints ---
+# --- Synchronous model endpoints (path -> model code) ---
 
-@model_routes.route('/linear-regression', methods=['POST'])
-@token_required
-def linear_regression(current_user):
-    return _train_model('simple_linear_regression', request, current_user)
-
-
-@model_routes.route('/multivariable-linear-regression', methods=['POST'])
-@token_required
-def multivariate_linear_regression(current_user):
-    return _train_model('multivariable_linear_regression', request, current_user)
-
-
-@model_routes.route('/logistic-regression', methods=['POST'])
-@token_required
-def logistic_regression_route(current_user):
-    return _train_model('logistic_regression', request, current_user)
-
-
-@model_routes.route('/decision-tree', methods=['POST'])
-@token_required
-def decision_tree(current_user):
-    return _train_model('decision_tree', request, current_user)
+_SYNC_ROUTES = {
+    '/linear-regression': 'simple_linear_regression',
+    '/multivariable-linear-regression': 'multivariable_linear_regression',
+    '/logistic-regression': 'logistic_regression',
+    '/decision-tree': 'decision_tree',
+    '/random-forest': 'random_forest',
+    '/knn': 'knn',
+    '/k-means': 'k_means',
+    '/support-vector-machine': 'svm',
+    '/naive-bayes': 'naive_bayes',
+    '/dbscan': 'dbscan',
+    '/gradient-boosting': 'gradient_boosting',
+    '/sentiment-analysis': 'sentiment_analysis',
+    '/text-classification': 'text_classification',
+    '/xgboost': 'xgboost',
+}
 
 
-@model_routes.route('/random-forest', methods=['POST'])
-@token_required
-def random_forest(current_user):
-    return _train_model('random_forest', request, current_user)
+def _make_sync_view(model_code):
+    @token_required
+    def view(current_user):
+        return _train_model(model_code, request, current_user)
+    view.__name__ = f"train_{model_code}"
+    return view
 
 
-@model_routes.route('/knn', methods=['POST'])
-@token_required
-def k_nearest_neighbors(current_user):
-    return _train_model('knn', request, current_user)
-
-
-@model_routes.route('/k-means', methods=['POST'])
-@token_required
-def k_means(current_user):
-    return _train_model('k_means', request, current_user)
-
-
-@model_routes.route('/support-vector-machine', methods=['POST'])
-@token_required
-def support_vector_machine(current_user):
-    return _train_model('svm', request, current_user)
-
-
-@model_routes.route('/naive-bayes', methods=['POST'])
-@token_required
-def naive_bayes(current_user):
-    return _train_model('naive_bayes', request, current_user)
-
-
-@model_routes.route('/dbscan', methods=['POST'])
-@token_required
-def db_scan(current_user):
-    return _train_model('dbscan', request, current_user)
-
-
-@model_routes.route('/gradient-boosting', methods=['POST'])
-@token_required
-def gradient_boosting(current_user):
-    return _train_model('gradient_boosting', request, current_user)
-
-
-@model_routes.route('/sentiment-analysis', methods=['POST'])
-@token_required
-def sentiment_analysis(current_user):
-    return _train_model('sentiment_analysis', request, current_user)
-
-
-@model_routes.route('/text-classification', methods=['POST'])
-@token_required
-def text_classification(current_user):
-    return _train_model('text_classification', request, current_user)
+for _path, _code in _SYNC_ROUTES.items():
+    model_routes.add_url_rule(_path, endpoint=f"train_{_code}",
+                              view_func=_make_sync_view(_code), methods=['POST'])
 
 
 @model_routes.route('/cnn', methods=['POST'])
@@ -263,57 +261,6 @@ def ann(current_user):
             request, validated_params=params, user_id=uid, session_version=v),
     )
 
-
-@model_routes.route('/xgboost', methods=['POST'])
-@token_required
-def xgboost(current_user):
-    """XGBoost training — lazy-imports xgboost."""
-    try:
-        from models.xgboost.xgboost_model import train_xgboost as _train_xgboost
-    except ImportError as e:
-        return jsonify({"error": f"xgboost not installed: {e}"}), 500
-    data = request.get_json() or {}
-    user_hyperparams = data.get('hyperparams', {})
-    try:
-        validated_params = validate_hyperparams('xgboost', user_hyperparams)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
-    user_id = current_user['_id'] if current_user else None
-    session_id = None
-
-    if user_id:
-        from services.subscription_service import check_quota, record_usage
-        ok, info = check_quota(current_user, 'xgboost')
-        if not ok:
-            return jsonify(info), 429
-        dataset_id = data.get('dataset_id')
-        session = create_session(user_id, 'xgboost', validated_params, dataset_id)
-        session_id = session['_id']
-        record_usage(user_id, 'xgboost')
-
-    try:
-        results = _train_xgboost(request, validated_params=validated_params, user_id=user_id, session_version=session.get('version') if user_id else None)
-        if isinstance(results, dict) and results.get('error'):
-            if session_id:
-                update_session_error(session_id, results['error'])
-            return jsonify({"error": results['error']}), 400
-
-        if session_id:
-            db_results = update_session_results(
-                session_id,
-                results.get('evaluation_metrics') or results.get('results') or results,
-                results.get('outputImageUrls', []),
-                results.get('trained_model_path', ''),
-                results.get('predictions_output_file', '')
-            )
-            results.update(db_results)
-            results['session_id'] = session_id
-
-        return jsonify(_sanitize_for_json(results)), 200
-    except Exception as e:
-        if session_id:
-            update_session_error(session_id, str(e))
-        return jsonify({"error": str(e)}), 500
 
 @model_routes.route('/resnet', methods=['POST'])
 @token_required
@@ -404,27 +351,38 @@ def stylegan(current_user):
 @model_routes.route('/training-sessions', methods=['GET'])
 @token_required
 def get_sessions(current_user):
-    """Get all training sessions for the current user."""
+    """Training sessions for the current user, newest first.
+
+    Optional filters: ?model_code=&status=. Optional pagination: ?limit=&page=
+    (when `limit` is given the response also carries `total`, `page`, `limit`).
+    Without `limit` every session is returned, as before.
+    """
+    from services.training_session_service import count_user_sessions
     model_code = request.args.get('model_code')
-    sessions = get_user_sessions(current_user['_id'], model_code)
-    # Ensure there are no NaN/Infinity values that would break JSON parsing on the frontend
-    safe_sessions = _sanitize_for_json(sessions)
-    return jsonify({"sessions": safe_sessions}), 200
+    status = request.args.get('status')
+    limit = request.args.get('limit', type=int)
+    if limit:
+        limit = max(1, min(limit, 200))
+        page = max(1, request.args.get('page', 1, type=int) or 1)
+        sessions = get_user_sessions(current_user['_id'], model_code, status, limit=limit, skip=(page - 1) * limit)
+        total = count_user_sessions(current_user['_id'], model_code, status)
+        return jsonify({"sessions": _sanitize_for_json(sessions), "total": total,
+                        "page": page, "limit": limit}), 200
+    sessions = get_user_sessions(current_user['_id'], model_code, status)
+    return jsonify({"sessions": _sanitize_for_json(sessions)}), 200
 
 
 @model_routes.route('/training-sessions/<session_id>', methods=['GET'])
 @token_required
 def get_session_detail(current_user, session_id):
-    """Get a specific training session."""
+    """Get a specific training session (owner only)."""
     try:
         session = get_session(session_id)
-        if session['user_id'] != current_user['_id']:
-            return jsonify({"error": "Unauthorized"}), 403
-        # Sanitize for JSON safety
-        safe_session = _sanitize_for_json(session)
-        return jsonify({"session": safe_session}), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 404
+    except Exception:
+        return jsonify({"error": "Session not found"}), 404
+    if session['user_id'] != current_user['_id']:
+        return jsonify({"error": "Session not found"}), 404
+    return jsonify({"session": _sanitize_for_json(session)}), 200
 
 
 @model_routes.route('/training-sessions/<session_id>/progress', methods=['GET'])
@@ -572,8 +530,10 @@ def get_schema(model_code):
     """Get the hyperparameter schema for a model (for frontend UI generation)."""
     schema = get_model_schema(model_code)
     if not schema:
-        return jsonify({"error": f"Unknown model: {model_code}"}), 404
-    return jsonify({"schema": schema}), 200
+        return jsonify({"error": "Unknown model"}), 404
+    resp = jsonify({"schema": schema})
+    resp.headers['Cache-Control'] = 'public, max-age=600'
+    return resp, 200
 
 
 @model_routes.route('/user-datasets', methods=['GET'])

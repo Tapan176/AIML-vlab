@@ -1,59 +1,88 @@
 """
-Auth routes — login, signup, password management, user profile.
+Auth routes — login, signup, password management, user profile and account
+data management (export / storage summary / revoke sessions / delete).
 """
-from flask import Blueprint, request, jsonify
+import io
+import json
+import logging
+from datetime import datetime
+
+from bson import ObjectId
+from flask import Blueprint, request, jsonify, send_file
+from gridfs import GridFS
+
 from auth.authController import (
     login, signup, forgot_password, reset_password,
-    verify_login_otp, verify_signup_otp, resend_otp,
+    verify_login_otp, verify_signup_otp, resend_otp, AuthError,
 )
 from auth.auth_middleware import token_required
 from extensions import limiter
-from services.user_service import get_user_by_id, update_user_profile, change_password, delete_user, update_profile_photo
-import io
-from gridfs import GridFS
 from mongoDb.connection import get_db
-from bson import ObjectId
-from flask import send_file
+from services.user_service import (
+    update_user_profile, change_password, delete_user, update_profile_photo,
+    verify_user_password,
+)
+from utils.validators import ValidationError
 
+log = logging.getLogger(__name__)
 auth_routes = Blueprint('auth_routes', __name__)
+
+# Machine error code -> HTTP status. Anything not listed is treated as an
+# unexpected server error and its details are NOT sent to the client.
+_STATUS = {
+    'invalid_credentials': 401,
+    'account_deactivated': 403,
+    'user_already_exists': 409,
+    'email_already_in_use': 409,
+    'otp_cooldown': 429,
+}
+
+
+def _error(e):
+    """Translate an exception into a JSON error response without leaking internals."""
+    if isinstance(e, (AuthError, ValidationError)):
+        code = str(e)
+        if code.startswith('otp_cooldown:'):
+            return jsonify({"error": "otp_cooldown", "retry_after": int(code.split(':', 1)[1])}), 429
+        return jsonify({"error": code}), _STATUS.get(code, 400)
+    log.exception("Unhandled auth error")
+    return jsonify({"error": "internal_error"}), 500
+
+
+def _json_body():
+    data = request.get_json(silent=True)
+    return data if isinstance(data, dict) else {}
 
 
 @auth_routes.route('/login', methods=['POST'])
 @limiter.limit("10 per minute")
 def handle_login():
+    data = _json_body()
+    if not data.get('email') or not data.get('password'):
+        return jsonify({"error": "Email and password are required"}), 400
     try:
-        data = request.get_json()
-        if not data or 'email' not in data or 'password' not in data:
-            return jsonify({"error": "Email and password are required"}), 400
-
-        result = login(data['email'], data['password'])
-        return jsonify(result), 200
+        return jsonify(login(data['email'], data['password'])), 200
     except Exception as e:
-        error_message = str(e)
-        status = 401 if error_message in ('user_not_found', 'incorrect_password') else 500
-        return jsonify({"error": error_message}), status
+        return _error(e)
 
 
 @auth_routes.route('/signup', methods=['POST'])
-@limiter.limit("10 per minute")
+@limiter.limit("5 per minute")
 def handle_signup():
+    data = _json_body()
+    required = ['firstName', 'email', 'password', 'termsAccepted']
+    missing = [f for f in required if f not in data]
+    if missing:
+        return jsonify({"error": f"Missing fields: {', '.join(missing)}"}), 400
     try:
-        data = request.get_json()
-        required_fields = ['firstName', 'lastName', 'email', 'password', 'phone', 'countryCode', 'termsAccepted']
-        missing = [f for f in required_fields if f not in data]
-        if missing:
-            return jsonify({"error": f"Missing fields: {', '.join(missing)}"}), 400
-
         result = signup(
-            data['firstName'], data['lastName'], data['email'],
-            data['password'], data['phone'], data['countryCode'],
-            data['termsAccepted']
+            data.get('firstName'), data.get('lastName'), data.get('email'),
+            data.get('password'), data.get('phone'), data.get('countryCode'),
+            data.get('termsAccepted'),
         )
         return jsonify(result), 201
     except Exception as e:
-        error_message = str(e)
-        status = 409 if error_message == 'user_already_exists' else 500
-        return jsonify({"error": error_message}), status
+        return _error(e)
 
 
 # ── OTP email verification (signup / login) ─────────────────────────────────
@@ -66,80 +95,55 @@ def handle_verify_otp():
     Body: {email, code, purpose: 'signup'|'login'}. On success returns the same
     {user, token} shape as login/signup so the client can store the JWT.
     """
+    data = _json_body()
+    email, code, purpose = data.get('email'), data.get('code'), data.get('purpose')
+    if not email or not code or purpose not in ('signup', 'login'):
+        return jsonify({"error": "email, code and purpose are required"}), 400
     try:
-        data = request.get_json(silent=True) or {}
-        email = data.get('email')
-        code = data.get('code')
-        purpose = data.get('purpose')
-        if not email or not code or purpose not in ('signup', 'login'):
-            return jsonify({"error": "email, code and purpose are required"}), 400
-
-        if purpose == 'signup':
-            result = verify_signup_otp(email, code)
-        else:
-            result = verify_login_otp(email, code)
-        return jsonify(result), 200
+        fn = verify_signup_otp if purpose == 'signup' else verify_login_otp
+        return jsonify(fn(email, code)), 200
     except Exception as e:
-        msg = str(e)
-        # Map OTP failures to 400 (client retryable) vs 500 (server).
-        otp_errors = {
-            'otp_incorrect', 'otp_expired', 'otp_not_found',
-            'otp_too_many_attempts', 'invalid_otp', 'user_not_found',
-        }
-        status = 400 if msg in otp_errors else 500
-        return jsonify({"error": msg}), status
+        return _error(e)
 
 
 @auth_routes.route('/resend-otp', methods=['POST'])
 @limiter.limit("5 per minute")
 def handle_resend_otp():
     """Re-issue an OTP (subject to a per-account cooldown)."""
+    data = _json_body()
+    if not data.get('email') or data.get('purpose') not in ('signup', 'login'):
+        return jsonify({"error": "email and purpose are required"}), 400
     try:
-        data = request.get_json(silent=True) or {}
-        email = data.get('email')
-        purpose = data.get('purpose')
-        if not email or purpose not in ('signup', 'login'):
-            return jsonify({"error": "email and purpose are required"}), 400
-        result = resend_otp(email, purpose)
-        return jsonify(result), 200
+        return jsonify(resend_otp(data['email'], data['purpose'])), 200
     except Exception as e:
-        msg = str(e)
-        if msg.startswith('otp_cooldown:'):
-            retry = msg.split(':', 1)[1]
-            return jsonify({"error": "otp_cooldown", "retry_after": int(retry)}), 429
-        return jsonify({"error": msg}), 400
+        return _error(e)
 
 
 @auth_routes.route('/forgot-password', methods=['POST'])
 @limiter.limit("5 per minute")
 def handle_forgot_password():
+    data = _json_body()
+    if not data.get('email'):
+        return jsonify({"error": "Email is required"}), 400
     try:
-        data = request.get_json()
-        if not data or 'email' not in data:
-            return jsonify({"error": "Email is required"}), 400
-
-        result = forgot_password(data['email'])
-        return jsonify(result), 200
+        return jsonify(forgot_password(data['email'])), 200
     except Exception as e:
-        error_message = str(e)
-        status = 404 if error_message == 'user_not_found' else 500
-        return jsonify({"error": error_message}), status
+        return _error(e)
 
 
 @auth_routes.route('/reset-password', methods=['POST'])
 @limiter.limit("5 per minute")
 def handle_reset_password():
+    data = _json_body()
+    if not data.get('token') or not data.get('newPassword'):
+        return jsonify({"error": "Token and new password are required"}), 400
     try:
-        data = request.get_json()
-        if not data or 'token' not in data or 'newPassword' not in data:
-            return jsonify({"error": "Token and new password are required"}), 400
-
-        result = reset_password(data['token'], data['newPassword'])
-        return jsonify(result), 200
+        return jsonify(reset_password(data['token'], data['newPassword'])), 200
     except Exception as e:
-        error_message = str(e)
-        return jsonify({"error": error_message}), 400
+        return _error(e)
 
+
+# ── Current user ─────────────────────────────────────────────────────────────
 
 @auth_routes.route('/me', methods=['GET'])
 @token_required
@@ -149,34 +153,33 @@ def handle_get_me(current_user):
 
 
 @auth_routes.route('/update-profile', methods=['PUT'])
+@limiter.limit("30 per minute")
 @token_required
 def handle_update_profile(current_user):
-    """Update current user's profile."""
+    data = _json_body()
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
     try:
-        data = request.get_json()
-        if not data:
-            return jsonify({"error": "No data provided"}), 400
-
         updated_user = update_user_profile(current_user['_id'], data)
         return jsonify({"user": updated_user, "message": "Profile updated successfully"}), 200
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
+        return _error(e)
 
 
 @auth_routes.route('/change-password', methods=['PUT'])
 @limiter.limit("10 per minute")
 @token_required
 def handle_change_password(current_user):
-    """Change current user's password."""
+    """Change password. Signs out all OTHER sessions; returns a fresh token
+    for this one (the client must store it)."""
+    data = _json_body()
+    if not data.get('oldPassword') or not data.get('newPassword'):
+        return jsonify({"error": "Old and new passwords are required"}), 400
     try:
-        data = request.get_json()
-        if not data or 'oldPassword' not in data or 'newPassword' not in data:
-            return jsonify({"error": "Old and new passwords are required"}), 400
-
-        change_password(current_user['_id'], data['oldPassword'], data['newPassword'])
-        return jsonify({"message": "Password changed successfully"}), 200
+        token = change_password(current_user['_id'], data['oldPassword'], data['newPassword'])
+        return jsonify({"message": "Password changed successfully", "token": token}), 200
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
+        return _error(e)
 
 
 @auth_routes.route('/logout', methods=['POST'])
@@ -186,21 +189,48 @@ def handle_logout(current_user):
     return jsonify({"message": "Logged out successfully"}), 200
 
 
+@auth_routes.route('/logout-all', methods=['POST'])
+@limiter.limit("10 per minute")
+@token_required
+def handle_logout_all(current_user):
+    """Revoke every session for this account, on every device (incl. this one)."""
+    from services.account_service import revoke_all_sessions
+    revoke_all_sessions(current_user['_id'])
+    return jsonify({"message": "Signed out of all devices"}), 200
+
+
+@auth_routes.route('/me/storage', methods=['GET'])
+@token_required
+def handle_storage_summary(current_user):
+    """Counts of the datasets / sessions / pipelines the user is storing."""
+    from services.account_service import storage_summary
+    return jsonify(storage_summary(current_user['_id'])), 200
+
+
+@auth_routes.route('/me/export', methods=['GET'])
+@limiter.limit("5 per hour")
+@token_required
+def handle_export(current_user):
+    """Download everything we hold about the account as a JSON file."""
+    from services.account_service import export_user_data
+    payload = export_user_data(current_user['_id'])
+    buf = io.BytesIO(json.dumps(payload, indent=2, default=str).encode('utf-8'))
+    name = f"aiml-lab-export-{datetime.utcnow().strftime('%Y%m%d')}.json"
+    return send_file(buf, mimetype='application/json', as_attachment=True, download_name=name)
+
+
 @auth_routes.route('/upload-profile-photo', methods=['PUT'])
+@limiter.limit("10 per minute")
 @token_required
 def handle_upload_profile_photo(current_user):
-    """Upload or update profile photo for current user."""
+    file = request.files.get('photo')
+    if not file or not file.filename:
+        return jsonify({"error": "No photo provided"}), 400
     try:
-        if 'photo' not in request.files:
-            return jsonify({"error": "No photo provided"}), 400
-        file = request.files['photo']
-        if file.filename == '':
-            return jsonify({"error": "No selected file"}), 400
-            
         updated_user = update_profile_photo(current_user['_id'], file)
         return jsonify({"user": updated_user, "message": "Profile photo updated successfully"}), 200
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
+        return _error(e)
 
 
 @auth_routes.route('/profile-photo/<photo_id>', methods=['GET'])
@@ -208,35 +238,45 @@ def get_profile_photo(photo_id):
     """Retrieve a profile photo from GridFS or via the Google Drive proxy.
 
     Profile photos are display assets rendered in <img> tags (which can't send
-    the auth header), so this stays unauthenticated — but the Drive branch only
-    proxies ids that are registered as some user's profile_photo_id. Otherwise
-    this endpoint could be abused to download ANY Drive file (datasets, trained
-    models) by id.
+    the auth header), so this stays unauthenticated — but only ids registered as
+    some user's profile_photo_id are served. Otherwise this endpoint could be
+    abused to download ANY Drive file (datasets, trained models) by id.
     """
     try:
         db = get_db()
-        # Google Drive IDs are longer than MongoDB ObjectIDs (24 hex characters).
+        if not db.users.find_one({'profile_photo_id': photo_id}, {'_id': 1}):
+            return jsonify({"error": "Photo not found"}), 404
         if len(photo_id) > 24:
-            if not db.users.find_one({'profile_photo_id': photo_id}, {'_id': 1}):
-                return jsonify({"error": "Photo not found"}), 404
             from services.google_drive_service import stream_file_from_drive
             fh, mimetype = stream_file_from_drive(photo_id)
-            return send_file(fh, mimetype=mimetype)
-
-        fs = GridFS(db)
-        grid_out = fs.get(ObjectId(photo_id))
-        return send_file(io.BytesIO(grid_out.read()), mimetype=grid_out.content_type)
-    except Exception as e:
+            resp = send_file(fh, mimetype=mimetype)
+        else:
+            grid_out = GridFS(db).get(ObjectId(photo_id))
+            resp = send_file(io.BytesIO(grid_out.read()), mimetype=grid_out.content_type)
+        resp.headers['Cache-Control'] = 'private, max-age=3600'
+        return resp
+    except Exception:
         return jsonify({"error": "Photo not found"}), 404
 
 
-@auth_routes.route('/delete-account', methods=['DELETE'])
+@auth_routes.route('/delete-account', methods=['DELETE', 'POST'])
+@limiter.limit("5 per hour")
 @token_required
 def handle_delete_account(current_user):
-    """Delete current user's account."""
-    try:
-        delete_user(current_user['_id'])
-        return jsonify({"message": "Account deleted successfully"}), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
+    """Permanently delete the account and all data it owns.
 
+    Requires re-authentication so a stolen/left-open session can't wipe the
+    account: password accounts send {password}; OAuth-only accounts (whose
+    password is a random value they never knew) send {confirm: "DELETE"}.
+    """
+    data = _json_body()
+    if current_user.get('oauth_provider') and not data.get('password'):
+        if data.get('confirm') != 'DELETE':
+            return jsonify({"error": "confirmation_required"}), 400
+    elif not verify_user_password(current_user['_id'], data.get('password')):
+        return jsonify({"error": "incorrect_password"}), 403
+    try:
+        report = delete_user(current_user['_id'])
+        return jsonify({"message": "Account deleted successfully", "deleted": report}), 200
+    except Exception as e:
+        return _error(e)

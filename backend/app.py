@@ -1,6 +1,6 @@
 # config import must come first — it sets PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION
 # before any TensorFlow/protobuf imports happen elsewhere.
-from config import FLASK_PORT, FLASK_DEBUG, UPLOAD_DIR, ALLOWED_ORIGINS
+from config import FLASK_PORT, FLASK_DEBUG, ALLOWED_ORIGINS
 
 # Pin matplotlib to the non-interactive Agg backend ONCE, before any model
 # module imports pyplot. After pyplot is imported, matplotlib.use() is a no-op
@@ -8,8 +8,16 @@ from config import FLASK_PORT, FLASK_DEBUG, UPLOAD_DIR, ALLOWED_ORIGINS
 import matplotlib
 matplotlib.use('Agg')
 
-from flask import Flask, send_from_directory
+import logging
+
+from flask import Flask, jsonify
 from flask_cors import CORS
+
+logging.basicConfig(
+    level=logging.DEBUG if FLASK_DEBUG else logging.INFO,
+    format='%(asctime)s %(levelname)s %(name)s: %(message)s',
+)
+log = logging.getLogger('aiml')
 
 from extensions import limiter
 from mongoDb.connection import init_db, get_db
@@ -97,11 +105,55 @@ except Exception as e:
 
 @app.route('/api')
 def health_check():
-    return {"status": "ok", "message": "ML-vlab API is running on Vercel Context Region"}
+    status = {"status": "ok"}
+    try:
+        get_db().command('ping')
+        status["db"] = "ok"
+    except Exception:
+        status.update(status="degraded", db="unreachable")
+    return status, (200 if status["status"] == "ok" else 503)
 
-@app.route('/api/uploads/<path:filename>')
-def serve_public_files(filename):
-    return send_from_directory(UPLOAD_DIR, filename)
+# NOTE: the old unauthenticated /api/uploads/<path> route was removed — it
+# served UPLOAD_DIR verbatim, i.e. every user's raw datasets and extracted
+# image caches to anyone who could guess a path. Datasets are served through
+# the owner-checked /api/datasets/* endpoints instead.
+
+
+@app.after_request
+def _security_headers(response):
+    """Baseline hardening headers for every API response."""
+    response.headers.setdefault('X-Content-Type-Options', 'nosniff')
+    response.headers.setdefault('X-Frame-Options', 'DENY')
+    response.headers.setdefault('Referrer-Policy', 'strict-origin-when-cross-origin')
+    response.headers.setdefault('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
+    # The OAuth callback page carries an inline script; every other response is JSON/files.
+    if response.mimetype == 'application/json':
+        response.headers.setdefault('Cache-Control', 'no-store')
+    return response
+
+
+@app.errorhandler(413)
+def _too_large(_e):
+    from config import MAX_UPLOAD_SIZE_MB
+    return jsonify({"error": f"File too large. Max upload size is {MAX_UPLOAD_SIZE_MB} MB."}), 413
+
+
+@app.errorhandler(429)
+def _rate_limited(e):
+    return jsonify({"error": "rate_limited", "message": "Too many requests. Please slow down and try again shortly."}), 429
+
+
+@app.errorhandler(Exception)
+def _unhandled(e):
+    """Last-resort handler: keep HTTP errors as-is, hide internals of everything else."""
+    from werkzeug.exceptions import HTTPException
+    if isinstance(e, HTTPException):
+        return jsonify({"error": e.name, "message": e.description}), e.code
+    log.exception("Unhandled server error")
+    body = {"error": "internal_error"}
+    if FLASK_DEBUG:
+        body["detail"] = str(e)
+    return jsonify(body), 500
 
 
 if __name__ == '__main__':

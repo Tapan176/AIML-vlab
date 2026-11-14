@@ -8,7 +8,9 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
 from utils.saveTrainedModel import saveTrainedModel
 from utils.data_loader import load_data_with_fallback
-from config import IMAGES_DIR, ensure_dir
+from config import new_run_images_dir
+from sklearn.pipeline import make_pipeline
+from utils.metrics import metric_average
 
 
 def save_result_images(X, y, classifier, title, xlabel, ylabel, output_path):
@@ -56,16 +58,17 @@ def randomForest(request, validated_params=None, user_id=None, session_version=N
 
     classifier = RandomForestClassifier(n_estimators=n_estimators, criterion=criterion, max_depth=max_depth, min_samples_split=min_samples_split, random_state=random_state)
     classifier.fit(X_train, y_train)
-    model_path = saveTrainedModel(classifier, "random_forest", "scikit-learn", user_id=user_id, version=session_version)
+    model_path = saveTrainedModel(make_pipeline(sc, classifier), "random_forest", "scikit-learn", user_id=user_id, version=session_version)
 
     y_pred = classifier.predict(X_test)
     confusion = confusion_matrix(y_test, y_pred)
     accuracy = accuracy_score(y_test, y_pred)
-    precision = precision_score(y_test, y_pred, zero_division=0)
-    recall = recall_score(y_test, y_pred, zero_division=0)
-    f1 = f1_score(y_test, y_pred, zero_division=0)
+    _avg = metric_average(y_test, y_pred)
+    precision = precision_score(y_test, y_pred, average=_avg, zero_division=0)
+    recall = recall_score(y_test, y_pred, average=_avg, zero_division=0)
+    f1 = f1_score(y_test, y_pred, average=_avg, zero_division=0)
 
-    img_dir = ensure_dir(IMAGES_DIR)
+    img_dir = new_run_images_dir(user_id)
     outputImageUrls = []
     # Only generate 2D decision boundary plots if exactly 2 features
     if X_train.shape[1] == 2:

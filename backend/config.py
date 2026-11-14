@@ -61,7 +61,34 @@ FLASK_PORT = int(os.getenv('FLASK_PORT', '5050'))
 # Default OFF — the Werkzeug debugger must never be exposed in production. Opt
 # into it explicitly with FLASK_DEBUG=true for local dev.
 FLASK_DEBUG = os.getenv('FLASK_DEBUG', 'false').lower() == 'true'
-ALLOWED_ORIGINS = os.getenv('ALLOWED_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000,http://localhost:5050,http://127.0.0.1:5050').split(',')
+ALLOWED_ORIGINS = [o.strip() for o in os.getenv('ALLOWED_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000,http://localhost:5050,http://127.0.0.1:5050').split(',') if o.strip()]
+
+# --- Rate limiting ---
+# memory:// is per-process (each gunicorn worker counts separately and limits
+# reset on restart). Point this at Redis in production, e.g.
+# RATELIMIT_STORAGE_URI=redis://localhost:6379/0
+RATELIMIT_STORAGE_URI = os.getenv('RATELIMIT_STORAGE_URI', 'memory://')
+
+# --- Account security ---
+PASSWORD_MIN_LENGTH = int(os.getenv('PASSWORD_MIN_LENGTH', '8'))
+PASSWORD_MAX_LENGTH = 128  # bcrypt only uses the first 72 bytes; cap to avoid DoS via huge inputs
+PASSWORD_RESET_TTL_MINUTES = int(os.getenv('PASSWORD_RESET_TTL_MINUTES', '60'))
+
+# --- Training concurrency ---
+# Max simultaneously-running streaming (deep learning / fine-tuning) jobs per
+# user. Each one can hold a CPU/GPU for many minutes, so an unbounded number
+# lets a single account starve the server. 0 = unlimited.
+MAX_CONCURRENT_TRAININGS_PER_USER = int(os.getenv('MAX_CONCURRENT_TRAININGS_PER_USER', '2'))
+# A 'running' session older than this is considered abandoned (worker crash,
+# server restart) and no longer counts toward the concurrency cap.
+STALE_RUNNING_SESSION_HOURS = int(os.getenv('STALE_RUNNING_SESSION_HOURS', '6'))
+
+# --- Previews ---
+CSV_PREVIEW_MAX_ROWS = int(os.getenv('CSV_PREVIEW_MAX_ROWS', '200'))
+# Rows of an uploaded CSV stored inline on the dataset document (the full file
+# lives on Drive). Keeps documents far below MongoDB's 16 MB limit.
+CSV_INLINE_SAMPLE_ROWS = int(os.getenv('CSV_INLINE_SAMPLE_ROWS', '100'))
+MAX_PREVIEW_THUMBNAILS = int(os.getenv('MAX_PREVIEW_THUMBNAILS', '60'))
 
 # --- Subscription / Quotas ---
 # Master switch. When false (default) the app behaves exactly as before:
@@ -422,6 +449,30 @@ def get_user_images_dir(user_id):
 def get_user_predictions_dir(user_id):
     """Get user-specific predictions directory path."""
     return os.path.join(PREDICTIONS_DIR, str(user_id))
+
+
+def new_run_images_dir(user_id=None):
+    """Create and return a fresh, unique directory for one training run's plots.
+
+    Classical models used to write to fixed names like IMAGES_DIR/knnTrainGraph.jpg,
+    so two users training the same model at once overwrote each other's plots
+    (and could be served the other user's images). Every run now gets its own
+    directory; the results-zip upload removes the files afterwards.
+    """
+    import uuid
+    path = os.path.join(IMAGES_DIR, str(user_id or 'anonymous'), uuid.uuid4().hex)
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+def get_user_extract_cache_dir(user_id):
+    """Per-user cache directory for extracted image (ZIP) datasets."""
+    return os.path.join(UPLOAD_DIR, 'extracted', str(user_id))
+
+
+def get_user_tmp_upload_dir(user_id):
+    """Per-user scratch directory for in-flight uploads (removed after Drive upload)."""
+    return os.path.join(UPLOAD_DIR, 'tmp', str(user_id))
 
 
 def ensure_dir(path):

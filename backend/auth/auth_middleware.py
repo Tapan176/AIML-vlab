@@ -65,7 +65,7 @@ def token_required(f=None, optional=False):
             # Get token from Authorization header
             auth_header = request.headers.get('Authorization', '')
             if auth_header.startswith('Bearer '):
-                token = auth_header.split(' ')[1]
+                token = auth_header[7:].strip() or None
 
             if not token:
                 if optional:
@@ -77,31 +77,46 @@ def token_required(f=None, optional=False):
                 payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
                 user_id = payload.get('user_id')
 
-                if not user_id:
+                # Password-reset tokens are signed with the same secret but
+                # must never work as session tokens.
+                if not user_id or payload.get('type') == 'password_reset':
                     if optional:
                         return fn(None, *args, **kwargs)
                     return jsonify({'error': 'Invalid token payload'}), 401
 
-                current_user = _cache_get(user_id)
-                if current_user is None:
+                cached = _cache_get(user_id)
+                if cached is None:
                     db = get_db()
-                    current_user = db.users.find_one({'_id': ObjectId(user_id)})
-                    if not current_user:
+                    cached = db.users.find_one({'_id': ObjectId(user_id)})
+                    if not cached:
                         if optional:
                             return fn(None, *args, **kwargs)
                         return jsonify({'error': 'User not found'}), 401
-                    current_user['_id'] = str(current_user['_id'])
-                    current_user.pop('password', None)
-                    _cache_set(user_id, current_user)
+                    cached['_id'] = str(cached['_id'])
+                    cached.pop('password', None)
+                    _cache_set(user_id, cached)
+
+                # Revocation: a token minted before the user's token_version
+                # was bumped (password change/reset, logout-everywhere, admin
+                # force-logout) is no longer valid.
+                if int(payload.get('tv', 0) or 0) != int(cached.get('token_version', 0) or 0):
+                    if optional:
+                        return fn(None, *args, **kwargs)
+                    return jsonify({'error': 'Session has been revoked. Please sign in again.'}), 401
+
+                # Hand each request its own shallow copy so route code can't
+                # mutate the shared cache entry; token_version stays internal.
+                current_user = dict(cached)
+                current_user.pop('token_version', None)
 
             except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
                 if optional:
                     return fn(None, *args, **kwargs)
                 return jsonify({'error': 'Invalid or expired token'}), 401
-            except Exception as e:
+            except Exception:
                 if optional:
                     return fn(None, *args, **kwargs)
-                return jsonify({'error': f'Authentication failed: {str(e)}'}), 401
+                return jsonify({'error': 'Authentication failed'}), 401
 
             # Reject deactivated accounts. Default missing 'active' to True so
             # legacy users (created before the field existed) aren't locked out.

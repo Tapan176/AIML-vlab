@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from utils.saveTrainedModel import saveTrainedModel
 from utils.data_loader import load_data_with_fallback
 from utils.predictions_writer import save_predictions_csv
-from config import IMAGES_DIR, get_user_predictions_dir, ensure_dir
+from config import new_run_images_dir, get_user_predictions_dir, ensure_dir
 
 
 def save_result_images(X, y, X_train, model, title, xlabel, ylabel, output_path):
@@ -55,7 +55,7 @@ def simpleLinearRegression(request, validated_params=None, user_id=None, session
     mse = mean_squared_error(y_test, y_pred)
     r2 = r2_score(y_test, y_pred)
 
-    img_dir = ensure_dir(IMAGES_DIR)
+    img_dir = new_run_images_dir(user_id)
     outputImageUrls = [
         os.path.join(img_dir, 'linearRegressionTrainGraph.jpg'),
         os.path.join(img_dir, 'linearRegressionTestGraph.jpg')

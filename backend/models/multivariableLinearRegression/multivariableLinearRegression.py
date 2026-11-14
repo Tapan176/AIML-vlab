@@ -7,7 +7,8 @@ import matplotlib.pyplot as plt
 from utils.saveTrainedModel import saveTrainedModel
 from utils.data_loader import load_data_with_fallback
 from utils.predictions_writer import save_predictions_csv
-from config import IMAGES_DIR, get_user_predictions_dir, ensure_dir
+from config import new_run_images_dir, get_user_predictions_dir, ensure_dir
+from sklearn.pipeline import make_pipeline
 
 
 def multivariateLinearRegression(request, validated_params=None, user_id=None, session_version=None):
@@ -34,7 +35,7 @@ def multivariateLinearRegression(request, validated_params=None, user_id=None, s
     model = LinearRegression()
     model.fit(X_train, y_train)
 
-    model_path = saveTrainedModel(model, "multivariable_linear_regression", "scikit-learn", user_id=user_id, version=session_version)
+    model_path = saveTrainedModel(make_pipeline(sc, model), "multivariable_linear_regression", "scikit-learn", user_id=user_id, version=session_version)
 
     y_pred = model.predict(X_test)
 
@@ -47,7 +48,7 @@ def multivariateLinearRegression(request, validated_params=None, user_id=None, s
     save_predictions_csv(X_test, y_test, columnNames, y_pred, predictions_output_file)
 
     # Actual vs Predicted plot
-    img_dir = ensure_dir(IMAGES_DIR)
+    img_dir = new_run_images_dir(user_id)
     plot_path = os.path.join(img_dir, 'multivariableLinearRegression.jpg')
     if os.path.exists(plot_path):
         os.remove(plot_path)

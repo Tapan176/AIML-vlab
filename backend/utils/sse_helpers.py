@@ -12,8 +12,11 @@ LSTM, YOLO, StyleGAN). Each of them previously duplicated ~30 lines that
 This module owns that scaffolding so each route can be ~5 lines.
 """
 import json
+import logging
 
 from flask import Response, jsonify, stream_with_context
+
+log = logging.getLogger(__name__)
 
 from services.hyperparam_validator import validate_hyperparams
 from services.training_session_service import (
@@ -150,6 +153,18 @@ def run_sse_training(
     if not ok:
         return jsonify(info), 429
 
+    # Concurrency cap: each streaming run can occupy a CPU/GPU for many
+    # minutes; without a cap one account could launch dozens in parallel.
+    from config import MAX_CONCURRENT_TRAININGS_PER_USER
+    if MAX_CONCURRENT_TRAININGS_PER_USER:
+        from services.training_session_service import count_running_sessions
+        if count_running_sessions(user_id) >= MAX_CONCURRENT_TRAININGS_PER_USER:
+            return jsonify({
+                "error": "too_many_concurrent_trainings",
+                "message": (f"You already have {MAX_CONCURRENT_TRAININGS_PER_USER} training run(s) in progress. "
+                            "Wait for one to finish or cancel it from the Dashboard."),
+            }), 429
+
     dataset_id = data.get('dataset_id')
     # Capture per-dataset selections that aren't hyperparams (so they survive
     # validation and can be restored on Dashboard "Replay"). Only keys actually
@@ -222,8 +237,20 @@ def run_sse_training(
             )
             db_results['status'] = 'completed'
             db_results['session_id'] = session_id
-            yield f"data: {json.dumps(db_results)}\n\n"
+            db_results.pop('trained_model_path', None)
+            yield f"data: {json.dumps(db_results, default=str)}\n\n"
+        except GeneratorExit:
+            # Client went away (tab closed / network drop). Flask stops pulling
+            # the generator, so training can't continue — record that instead
+            # of leaving the session stuck in 'running' forever (which would
+            # also count against the concurrency cap).
+            try:
+                update_session_error(session_id, 'Training interrupted: the browser disconnected before it finished.')
+            except Exception:
+                pass
+            raise
         except Exception as e:
+            log.exception("Streaming training failed for %s (session %s)", model_code, session_id)
             update_session_error(session_id, str(e))
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
 

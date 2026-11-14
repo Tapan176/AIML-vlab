@@ -183,9 +183,9 @@ def google_callback():
         'code': code,
         'grant_type': 'authorization_code',
         'redirect_uri': redirect_uri,
-    })
+    }, timeout=15)
     if not token_resp.ok:
-        return jsonify({"error": "Failed to exchange code", "detail": token_resp.text}), 400
+        return _oauth_error_response("oauth_exchange_failed")
 
     tokens = token_resp.json()
     access_token = tokens.get('access_token')
@@ -193,7 +193,7 @@ def google_callback():
     # Get user info
     user_resp = requests.get('https://www.googleapis.com/oauth2/v2/userinfo', headers={
         'Authorization': f'Bearer {access_token}'
-    })
+    }, timeout=15)
     if not user_resp.ok:
         return jsonify({"error": "Failed to get user info"}), 400
 
@@ -247,7 +247,7 @@ def github_callback():
         'client_id': GITHUB_CLIENT_ID,
         'client_secret': GITHUB_CLIENT_SECRET,
         'code': code,
-    }, headers={'Accept': 'application/json'})
+    }, headers={'Accept': 'application/json'}, timeout=15)
 
     if not token_resp.ok:
         return jsonify({"error": "Failed to exchange code"}), 400
@@ -261,7 +261,7 @@ def github_callback():
     user_resp = requests.get('https://api.github.com/user', headers={
         'Authorization': f'Bearer {access_token}',
         'Accept': 'application/json',
-    })
+    }, timeout=15)
     if not user_resp.ok:
         return jsonify({"error": "Failed to get GitHub user info"}), 400
 
@@ -275,7 +275,7 @@ def github_callback():
     email_resp = requests.get('https://api.github.com/user/emails', headers={
         'Authorization': f'Bearer {access_token}',
         'Accept': 'application/json',
-    })
+    }, timeout=15)
     if email_resp.ok:
         emails = email_resp.json()
         primary = [e for e in emails if e.get('primary')]
@@ -310,7 +310,7 @@ def _safe_user(user):
     and coerce ObjectId/datetime values to strings so json.dumps won't crash."""
     safe = {}
     for k, v in user.items():
-        if k == 'password':
+        if k in ('password', 'token_version'):
             continue
         if isinstance(v, datetime):
             safe[k] = v.isoformat()

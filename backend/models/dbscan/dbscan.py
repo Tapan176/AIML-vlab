@@ -3,7 +3,7 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 from utils.data_loader import load_clustering_features
-from config import IMAGES_DIR, ensure_dir
+from config import new_run_images_dir
 
 
 def dbscan(request, validated_params=None, user_id=None, session_version=None):
@@ -28,7 +28,7 @@ def dbscan(request, validated_params=None, user_id=None, session_version=None):
     n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
     n_noise = list(labels).count(-1)
 
-    img_dir = ensure_dir(IMAGES_DIR)
+    img_dir = new_run_images_dir(user_id)
     cluster_path = os.path.join(img_dir, 'dbscanClusters.jpg')
     if os.path.exists(cluster_path):
         os.remove(cluster_path)

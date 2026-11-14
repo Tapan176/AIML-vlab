@@ -3,7 +3,7 @@ import os
 import matplotlib.pyplot as plt
 from utils.saveTrainedModel import saveTrainedModel
 from utils.data_loader import load_clustering_features
-from config import IMAGES_DIR, ensure_dir
+from config import new_run_images_dir
 
 
 def kMeans(request, validated_params=None, user_id=None, session_version=None):
@@ -25,7 +25,7 @@ def kMeans(request, validated_params=None, user_id=None, session_version=None):
         return {"error": str(e)}
 
     # Elbow method
-    img_dir = ensure_dir(IMAGES_DIR)
+    img_dir = new_run_images_dir(user_id)
     wcss = []
     max_k = min(11, len(X))
     for i in range(1, max_k):
