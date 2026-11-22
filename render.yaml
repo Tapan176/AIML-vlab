@@ -1,0 +1,93 @@
+# Render Blueprint — free-tier deployment of AIML-vlab.
+#
+#   aiml-vlab-api  Flask API (Python, free web service). Uses the minimal
+#                  requirements.railway.txt: classical ML, data studio, auth,
+#                  billing. TensorFlow / PyTorch models are NOT installed —
+#                  they need far more than the free plan's 512 MB RAM and the
+#                  routes return a clear "requires TensorFlow" error instead.
+#   aiml-vlab-web  React SPA (static site on Render's CDN, free).
+#
+# The two services find each other through `fromService` host references,
+# so no URLs are hard-coded. Secrets marked `sync: false` are prompted for
+# when the Blueprint is applied and are never stored in this file.
+services:
+  - type: web
+    name: aiml-vlab-api
+    runtime: python
+    plan: free
+    region: singapore
+    rootDir: backend
+    buildCommand: pip install --upgrade pip && pip install -r requirements.railway.txt
+    # One worker keeps memory inside 512 MB; threads cover concurrent I/O.
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 300 --access-logfile - --error-logfile -
+    healthCheckPath: /api
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: FLASK_DEBUG
+        value: "false"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: MONGO_URI
+        sync: false
+      - key: DB_NAME
+        value: aiml-lab
+      # Frontend host (bare hostname is accepted and treated as https://).
+      - key: ALLOWED_ORIGINS
+        fromService:
+          type: web
+          name: aiml-vlab-web
+          property: host
+      - key: FRONTEND_URL
+        fromService:
+          type: web
+          name: aiml-vlab-web
+          property: host
+      # Google Drive storage (datasets + trained models). Raw JSON contents of
+      # credentials.json / token.json. Uploads fail until these are set.
+      - key: GOOGLE_CREDENTIALS_JSON
+        sync: false
+      - key: GOOGLE_TOKEN_JSON
+        sync: false
+      - key: MAX_UPLOAD_SIZE_MB
+        value: "50"
+      - key: MAX_CONCURRENT_TRAININGS_PER_USER
+        value: "1"
+
+  - type: web
+    name: aiml-vlab-web
+    runtime: static
+    rootDir: frontend
+    # --replace-registry-host=always makes npm fetch every package from the
+    # registry in .npmrc (npmjs) even where package-lock.json recorded a
+    # private mirror URL.
+    buildCommand: npm ci --replace-registry-host=always && REACT_APP_API_URL=https://$API_HOST/api npm run build
+    staticPublishPath: build
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      # Don't fail the production build on lint warnings.
+      - key: CI
+        value: "false"
+      - key: API_HOST
+        fromService:
+          type: web
+          name: aiml-vlab-api
+          property: host
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - path: /static/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+    routes:
+      # SPA fallback so deep links (/login, /reset-password, …) load the app.
+      - type: rewrite
+        source: /*
+        destination: /index.html

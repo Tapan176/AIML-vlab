@@ -61,7 +61,17 @@ FLASK_PORT = int(os.getenv('FLASK_PORT', '5050'))
 # Default OFF — the Werkzeug debugger must never be exposed in production. Opt
 # into it explicitly with FLASK_DEBUG=true for local dev.
 FLASK_DEBUG = os.getenv('FLASK_DEBUG', 'false').lower() == 'true'
-ALLOWED_ORIGINS = [o.strip() for o in os.getenv('ALLOWED_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000,http://localhost:5050,http://127.0.0.1:5050').split(',') if o.strip()]
+def _as_origin(value):
+    """Accept 'https://app.example.com' or a bare host ('app.example.com').
+    Hosting platforms (e.g. Render Blueprint fromService) often expose only
+    the hostname, so bare hosts are treated as https origins."""
+    value = value.strip().rstrip('/')
+    if value and '://' not in value:
+        value = 'https://' + value
+    return value
+
+
+ALLOWED_ORIGINS = [_as_origin(o) for o in os.getenv('ALLOWED_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000,http://localhost:5050,http://127.0.0.1:5050').split(',') if o.strip()]
 
 # --- Rate limiting ---
 # memory:// is per-process (each gunicorn worker counts separately and limits
@@ -193,7 +203,7 @@ OTP_MAX_ATTEMPTS = int(os.getenv('OTP_MAX_ATTEMPTS', '5'))
 OTP_RESEND_COOLDOWN_SECONDS = int(os.getenv('OTP_RESEND_COOLDOWN_SECONDS', '60'))
 # App URL used in invoice/OTP email bodies (links + branding). Falls back to
 # FRONTEND_URL (defined below) at use-time via the email service if unset here.
-APP_PUBLIC_URL = os.getenv('APP_PUBLIC_URL', None) or os.getenv('FRONTEND_URL', None) or 'http://localhost:3000'
+APP_PUBLIC_URL = _as_origin(os.getenv('APP_PUBLIC_URL', None) or os.getenv('FRONTEND_URL', None) or 'http://localhost:3000')
 
 # --- HuggingFace ---
 HF_TOKEN = os.getenv('HF_TOKEN', None)  # Optional — needed for gated models
@@ -210,10 +220,10 @@ GITHUB_CLIENT_SECRET = os.getenv('GITHUB_CLIENT_SECRET', None)
 # build the OAuth redirect_uri. Must match the redirect URI registered with the
 # provider. Required in production (split frontend/backend domains); in local dev
 # the OAuth route falls back to request.host_url. No trailing /api.
-OAUTH_REDIRECT_BASE = os.getenv('OAUTH_REDIRECT_BASE', None)
+OAUTH_REDIRECT_BASE = _as_origin(os.getenv('OAUTH_REDIRECT_BASE', '')) or None
 # Public URL of the frontend SPA, e.g. https://your-app.web.app — the popup posts
 # the token back here. Falls back to the request Origin, then ALLOWED_ORIGINS[0].
-FRONTEND_URL = os.getenv('FRONTEND_URL', None)
+FRONTEND_URL = _as_origin(os.getenv('FRONTEND_URL', '')) or None
 
 # --- Upload Limits ---
 ALLOWED_CSV_EXTENSIONS = set(os.getenv('ALLOWED_CSV_EXTENSIONS', 'csv').split(','))
